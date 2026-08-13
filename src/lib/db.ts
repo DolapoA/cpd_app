@@ -1,8 +1,8 @@
-import { createClient, type Client, type InValue, type Transaction } from "@libsql/client";
+import { Pool, type PoolClient } from "pg";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   email TEXT NOT NULL UNIQUE,
   password_hash TEXT NOT NULL,
   full_name TEXT NOT NULL,
@@ -11,7 +11,7 @@ CREATE TABLE IF NOT EXISTS users (
   registration_number TEXT,
   role_grade TEXT,
   registration_date TEXT,
-  annual_target_points REAL NOT NULL DEFAULT 50,
+  annual_target_points DOUBLE PRECISION NOT NULL DEFAULT 50,
   backup_email TEXT,
   email_verified_at TEXT,
   created_at TEXT NOT NULL
@@ -35,7 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose)
 /* Failed sign-in attempts, for rate limiting. Keyed by email so one account
    cannot be ground down, and pruned as it is read. */
 CREATE TABLE IF NOT EXISTS auth_attempts (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   key TEXT NOT NULL,
   attempted_at TEXT NOT NULL
 );
@@ -48,7 +48,7 @@ CREATE TABLE IF NOT EXISTS sessions (
 );
 
 CREATE TABLE IF NOT EXISTS registers (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   code TEXT NOT NULL UNIQUE,
   organiser_id INTEGER REFERENCES users(id),
   organiser_name TEXT NOT NULL,
@@ -61,8 +61,8 @@ CREATE TABLE IF NOT EXISTS registers (
   event_type TEXT NOT NULL,
   is_official INTEGER NOT NULL DEFAULT 0,
   accrediting_body TEXT,
-  points REAL,
-  hours REAL,
+  points DOUBLE PRECISION,
+  hours DOUBLE PRECISION,
   opens_at TEXT NOT NULL,
   closes_at TEXT NOT NULL,
   access_code TEXT,
@@ -71,7 +71,7 @@ CREATE TABLE IF NOT EXISTS registers (
 );
 
 CREATE TABLE IF NOT EXISTS signatures (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   register_id INTEGER NOT NULL REFERENCES registers(id),
   user_id INTEGER REFERENCES users(id),
   full_name TEXT NOT NULL,
@@ -88,15 +88,15 @@ CREATE INDEX IF NOT EXISTS idx_signatures_register ON signatures(register_id);
 CREATE INDEX IF NOT EXISTS idx_signatures_email ON signatures(email);
 
 CREATE TABLE IF NOT EXISTS cpd_entries (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id),
   signature_id INTEGER REFERENCES signatures(id),
   title TEXT NOT NULL,
   activity_date TEXT NOT NULL,
   activity_type TEXT NOT NULL,
   is_official INTEGER NOT NULL DEFAULT 0,
-  points REAL,
-  hours REAL,
+  points DOUBLE PRECISION,
+  hours DOUBLE PRECISION,
   provider TEXT,
   notes TEXT,
   standards TEXT,
@@ -114,7 +114,7 @@ CREATE INDEX IF NOT EXISTS idx_cpd_entries_user ON cpd_entries(user_id);
   timestamp could be lined up against sign-in times to re-identify a respondent.
 */
 CREATE TABLE IF NOT EXISTS feedback_responses (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   register_id INTEGER NOT NULL REFERENCES registers(id),
   question_set_version INTEGER NOT NULL DEFAULT 1,
   q1 INTEGER NOT NULL,
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS feedback_responses (
 CREATE INDEX IF NOT EXISTS idx_feedback_register ON feedback_responses(register_id);
 
 CREATE TABLE IF NOT EXISTS activity_type_goals (
-  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   activity_type TEXT NOT NULL,
   target_date TEXT NOT NULL,
@@ -136,141 +136,48 @@ CREATE TABLE IF NOT EXISTS activity_type_goals (
 );
 `;
 
-/** SCHEMA and the rebuild below are multi-statement; libSQL executes one at a time. */
-async function execMany(client: Client, sql: string): Promise<void> {
-  for (const statement of sql.split(";")) {
-    const trimmed = statement.trim();
-    if (trimmed) await client.execute(trimmed);
-  }
+/** Schema and migrations run once per process, not once per request. */
+async function initialise(p: Pool): Promise<void> {
+  await p.query(SCHEMA);
+  await migrate(p);
 }
 
 /** Idempotent schema updates for databases created before a column existed. */
-async function migrate(client: Client): Promise<void> {
-  const registerColumns = (await client.execute("PRAGMA table_info(registers)")).rows as unknown as { name: string }[];
-  if (!registerColumns.some((c) => c.name === "feedback_enabled")) {
-    await client.execute("ALTER TABLE registers ADD COLUMN feedback_enabled INTEGER NOT NULL DEFAULT 0");
-  }
+async function migrate(p: Pool): Promise<void> {
+  // Postgres can add a column conditionally, so there is no need to inspect
+  // the catalogue first the way SQLite required.
+  await p.query("ALTER TABLE registers ADD COLUMN IF NOT EXISTS feedback_enabled INTEGER NOT NULL DEFAULT 0");
+  await p.query("ALTER TABLE signatures ADD COLUMN IF NOT EXISTS feedback_given INTEGER NOT NULL DEFAULT 0");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT");
+  await p.query("ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT");
 
-  const signatureColumns = (await client.execute("PRAGMA table_info(signatures)")).rows as unknown as { name: string }[];
-  if (!signatureColumns.some((c) => c.name === "feedback_given")) {
-    await client.execute("ALTER TABLE signatures ADD COLUMN feedback_given INTEGER NOT NULL DEFAULT 0");
-  }
-
-  // A register is other attendees' evidence, so it has to survive its
-  // organiser closing their account. That means organiser_id must be
-  // nullable, which in SQLite means rebuilding the table.
-  const organiserCol = (
-    (await client.execute("PRAGMA table_info(registers)")).rows as unknown as { name: string; notnull: number }[]
-  ).find((c) => c.name === "organiser_id");
-  if (organiserCol?.notnull === 1) {
-    const before = Number(((await client.execute("SELECT COUNT(*) AS c FROM registers")).rows[0] as unknown as { c: number }).c);
-    await client.execute("PRAGMA foreign_keys = OFF");
-    await execMany(client, `
-      CREATE TABLE registers_rebuilt (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        code TEXT NOT NULL UNIQUE,
-        organiser_id INTEGER REFERENCES users(id),
-        organiser_name TEXT NOT NULL,
-        title TEXT NOT NULL,
-        description TEXT,
-        event_date TEXT NOT NULL,
-        start_time TEXT NOT NULL,
-        end_time TEXT NOT NULL,
-        location TEXT,
-        event_type TEXT NOT NULL,
-        is_official INTEGER NOT NULL DEFAULT 0,
-        accrediting_body TEXT,
-        points REAL,
-        hours REAL,
-        opens_at TEXT NOT NULL,
-        closes_at TEXT NOT NULL,
-        access_code TEXT,
-        closed_manually INTEGER NOT NULL DEFAULT 0,
-        created_at TEXT NOT NULL,
-        feedback_enabled INTEGER NOT NULL DEFAULT 0
-      );
-      INSERT INTO registers_rebuilt
-        SELECT id, code, organiser_id, organiser_name, title, description, event_date,
-               start_time, end_time, location, event_type, is_official, accrediting_body,
-               points, hours, opens_at, closes_at, access_code, closed_manually, created_at,
-               feedback_enabled
-        FROM registers;
-      DROP TABLE registers;
-      ALTER TABLE registers_rebuilt RENAME TO registers;
-    `);
-    await client.execute("PRAGMA foreign_keys = ON");
-    const after = Number(((await client.execute("SELECT COUNT(*) AS c FROM registers")).rows[0] as unknown as { c: number }).c);
-    if (before !== after) {
-      throw new Error(`Register rebuild lost rows: ${before} before, ${after} after`);
-    }
-  }
-
-  const userColumns = (await client.execute("PRAGMA table_info(users)")).rows as unknown as { name: string }[];
-  if (!userColumns.some((c) => c.name === "backup_email")) {
-    await client.execute("ALTER TABLE users ADD COLUMN backup_email TEXT");
-  }
-  if (!userColumns.some((c) => c.name === "email_verified_at")) {
-    await client.execute("ALTER TABLE users ADD COLUMN email_verified_at TEXT");
-  }
-  if (!userColumns.some((c) => c.name === "registration_date")) {
-    await client.execute("ALTER TABLE users ADD COLUMN registration_date TEXT");
-  }
-  // Superseded by per-activity-type goals in activity_type_goals.
-  if (userColumns.some((c) => c.name === "mix_goal_date")) {
-    await client.execute("ALTER TABLE users DROP COLUMN mix_goal_date");
-  }
-
-  const entryColumns = (await client.execute("PRAGMA table_info(cpd_entries)")).rows as unknown as { name: string }[];
-  if (!entryColumns.some((c) => c.name === "standards")) {
-    await client.execute("ALTER TABLE cpd_entries ADD COLUMN standards TEXT");
-  }
-
-  // An early build of this table linked each response to its signature. Drop
-  // that shape rather than carry it: it only ever held pre-release test rows,
-  // and keeping the link would defeat the anonymity promised on the form.
-  const feedbackColumns = (await client.execute("PRAGMA table_info(feedback_responses)"))
-    .rows as unknown as { name: string }[];
-  if (feedbackColumns.some((c) => c.name === "signature_id")) {
-    await client.execute("DROP TABLE feedback_responses");
-    await execMany(client, `
-      CREATE TABLE feedback_responses (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        register_id INTEGER NOT NULL REFERENCES registers(id),
-        question_set_version INTEGER NOT NULL DEFAULT 1,
-        q1 INTEGER NOT NULL,
-        q2 INTEGER NOT NULL,
-        q3 INTEGER NOT NULL,
-        q4 INTEGER NOT NULL,
-        q5 INTEGER NOT NULL,
-        comments TEXT,
-        submitted_on TEXT NOT NULL
-      );
-      CREATE INDEX IF NOT EXISTS idx_feedback_register ON feedback_responses(register_id);
-    `);
-  }
+  // A register is other attendees' evidence, so it survives its organiser
+  // closing their account. On Postgres this is a plain constraint drop rather
+  // than the table rebuild SQLite needed.
+  await p.query("ALTER TABLE registers ALTER COLUMN organiser_id DROP NOT NULL");
 }
 
 /* ---------------------------------------------------------------------------
    Database access
 
-   libSQL rather than a local SQLite file, because the deployment target has a
-   read-only, ephemeral filesystem: a file database there would fail on write
-   and vanish on every cold start. The SQL is unchanged — libSQL is SQLite —
-   so what differs is only that calls are now asynchronous.
+   Supabase-hosted Postgres, reached with node-postgres. The app owns its own
+   sessions and password hashing, so Supabase is used purely as the database —
+   no PostgREST, no Supabase Auth — which keeps every query server-side behind
+   an existing session check rather than relying on row-level security.
 
-   The shape below deliberately mirrors better-sqlite3's prepare().get/all/run,
-   so call sites read the same as before and simply await.
-
-   Local development uses the same client against a file: URL, so there is one
-   code path rather than one for development and another for production.
+   Statements are written with `?` placeholders and converted to Postgres's
+   $1..$n here. That keeps the SQL in the rest of the app in one dialect-neutral
+   style and means the call sites did not change when the database did.
 --------------------------------------------------------------------------- */
 
-export type RunResult = { lastInsertRowid: number; changes: number };
+export type RunResult = { changes: number };
 
 export interface Statement {
-  get<T>(...args: InValue[]): Promise<T | undefined>;
-  all<T>(...args: InValue[]): Promise<T[]>;
-  run(...args: InValue[]): Promise<RunResult>;
+  get<T>(...args: unknown[]): Promise<T | undefined>;
+  all<T>(...args: unknown[]): Promise<T[]>;
+  run(...args: unknown[]): Promise<RunResult>;
 }
 
 export interface Queryable {
@@ -282,83 +189,102 @@ export interface Db extends Queryable {
   transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>;
 }
 
-function statement(run: (sql: string, args: InValue[]) => Promise<{
-  rows: unknown[];
-  lastInsertRowid?: bigint;
-  rowsAffected: number;
-}>, sql: string): Statement {
+/**
+ * `?` -> `$1, $2, ...`, skipping anything inside a quoted string so a literal
+ * question mark in text cannot be mistaken for a placeholder.
+ */
+export function toPositional(sql: string): string {
+  let out = "";
+  let n = 0;
+  let quote: string | null = null;
+  for (let i = 0; i < sql.length; i++) {
+    const c = sql[i];
+    if (quote) {
+      out += c;
+      if (c === quote) quote = null;
+      continue;
+    }
+    if (c === "'" || c === '"') {
+      quote = c;
+      out += c;
+      continue;
+    }
+    out += c === "?" ? `$${++n}` : c;
+  }
+  return out;
+}
+
+type Runner = (sql: string, args: unknown[]) => Promise<{ rows: unknown[]; rowCount: number | null }>;
+
+function statement(run: Runner, sql: string): Statement {
+  const text = toPositional(sql);
   return {
-    async get<T>(...args: InValue[]) {
-      const rs = await run(sql, args);
-      return rs.rows[0] as unknown as T | undefined;
+    async get<T>(...args: unknown[]) {
+      return (await run(text, args)).rows[0] as T | undefined;
     },
-    async all<T>(...args: InValue[]) {
-      const rs = await run(sql, args);
-      return rs.rows as unknown as T[];
+    async all<T>(...args: unknown[]) {
+      return (await run(text, args)).rows as T[];
     },
-    async run(...args: InValue[]) {
-      const rs = await run(sql, args);
-      return {
-        // libSQL returns a bigint; every id in this schema is well inside
-        // Number's safe range, and the rest of the code expects a number.
-        lastInsertRowid: rs.lastInsertRowid === undefined ? 0 : Number(rs.lastInsertRowid),
-        changes: rs.rowsAffected,
-      };
+    async run(...args: unknown[]) {
+      const r = await run(text, args);
+      return { changes: r.rowCount ?? 0 };
     },
   };
 }
 
-function wrap(client: Client): Queryable {
-  return { prepare: (sql) => statement((s, args) => client.execute({ sql: s, args }), sql) };
-}
-
-function wrapTx(tx: Transaction): Queryable {
-  return { prepare: (sql) => statement((s, args) => tx.execute({ sql: s, args }), sql) };
-}
-
-function createClientFromEnv(): Client {
-  const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.CPD_DB_PATH ?? "data/cpd.db"}`;
-  return createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
-}
-
-/** Schema and migrations run once per process, not once per request. */
-async function initialise(client: Client): Promise<void> {
-  // Only meaningful against a local file; a remote database manages its own.
-  if (!process.env.TURSO_DATABASE_URL) {
-    await client.execute("PRAGMA journal_mode = WAL");
+function connectionString(): string {
+  const url = process.env.DATABASE_URL;
+  if (!url) {
+    throw new Error(
+      "DATABASE_URL is not set. Copy .env.example to .env.local and point it at your Postgres " +
+        "(Supabase: Project settings -> Database -> Connection string -> Transaction pooler)."
+    );
   }
-  await client.execute("PRAGMA foreign_keys = ON");
-  for (const stmt of SCHEMA.split(";")) {
-    const sql = stmt.trim();
-    if (sql) await client.execute(sql);
-  }
-  await migrate(client);
+  return url;
 }
 
-const globalForDb = globalThis as unknown as {
-  __cpdClient?: Client;
-  __cpdReady?: Promise<void>;
-};
+const globalForDb = globalThis as unknown as { __cpdPool?: Pool; __cpdReady?: Promise<void> };
+
+function pool(): Pool {
+  if (!globalForDb.__cpdPool) {
+    const url = connectionString();
+    globalForDb.__cpdPool = new Pool({
+      connectionString: url,
+      // A serverless instance handles one request at a time, so a large pool
+      // just holds connections the database could give to another instance.
+      max: Number(process.env.PGPOOL_MAX ?? 3),
+      idleTimeoutMillis: 10_000,
+      connectionTimeoutMillis: 10_000,
+      // Supabase terminates TLS with its own chain; verification is off for the
+      // pooler host, which is standard for these connection strings.
+      ssl: url.includes("localhost") || url.includes("127.0.0.1") ? undefined : { rejectUnauthorized: false },
+    });
+  }
+  return globalForDb.__cpdPool;
+}
 
 export async function getDb(): Promise<Db> {
-  if (!globalForDb.__cpdClient) {
-    globalForDb.__cpdClient = createClientFromEnv();
-    globalForDb.__cpdReady = initialise(globalForDb.__cpdClient);
-  }
+  const p = pool();
+  if (!globalForDb.__cpdReady) globalForDb.__cpdReady = initialise(p);
   await globalForDb.__cpdReady;
-  const client = globalForDb.__cpdClient;
+
+  const runOnPool: Runner = (sql, args) => p.query(sql, args);
 
   return {
-    ...wrap(client),
+    prepare: (sql) => statement(runOnPool, sql),
     async transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
-      const tx = await client.transaction("write");
+      const client: PoolClient = await p.connect();
       try {
-        const result = await fn(wrapTx(tx));
-        await tx.commit();
+        await client.query("BEGIN");
+        const runOnClient: Runner = (sql, args) => client.query(sql, args);
+        const result = await fn({ prepare: (sql) => statement(runOnClient, sql) });
+        await client.query("COMMIT");
         return result;
       } catch (error) {
-        await tx.rollback();
+        await client.query("ROLLBACK");
         throw error;
+      } finally {
+        client.release();
       }
     },
   };

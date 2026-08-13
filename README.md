@@ -72,43 +72,52 @@ v1.0 MVP: the complete capture-to-evidence loop.
 
 ## Stack
 
-Next.js 15 (App Router, server actions) · TypeScript · libSQL/SQLite via `@libsql/client` ·
+Next.js 15 (App Router, server actions) · TypeScript · Postgres (Supabase) via `pg` ·
 `pdf-lib` for attendance slips · `qrcode` for sharing · Resend for email.
+
+Supabase is used as the database only — no PostgREST and no Supabase Auth. The app owns its own
+sessions and password hashing, so every query runs server-side behind a session check and the
+browser never talks to the database. Statements are written with `?` placeholders and converted to
+Postgres's `$1..$n` in one place, which is why moving database did not touch the call sites.
 
 ## Run it
 
+You need a Postgres. Any will do — `supabase start`, a local install, or the hosted database:
+
 ```bash
 npm install
-cp .env.example .env.local   # optional; the defaults work
-npm run dev                  # http://localhost:3000
+cp .env.example .env.local        # set DATABASE_URL
+createdb cpd_dev                  # if using a local Postgres
+npm run dev                       # http://localhost:3000
 ```
 
-With no environment set, the app uses a SQLite file at `data/cpd.db` and writes email to the
-server log instead of sending it — so development needs no accounts.
+The schema and migrations are applied on first connection, so there is no separate migrate step.
+Without `RESEND_API_KEY` no email is sent and links are written to the server log, which is fine
+locally.
 
 ## Deploying
 
-The database is libSQL rather than a local file because a serverless filesystem is read-only and
-wiped between invocations: a file database there fails on write and loses everything on each cold
-start. The SQL is unchanged — libSQL is SQLite — so the same schema and migrations run in both
-places.
+1. **Database.** Create a Supabase project. Take the connection string from
+   *Project settings → Database → Connection string*, and use the **transaction pooler** (port
+   6543) rather than the direct connection (5432). A serverless function is short-lived and there
+   are many of them, so direct connections exhaust Postgres's connection limit under load.
 
-1. **Database.** Create one with [Turso](https://turso.tech):
+2. **Email.** Create a [Resend](https://resend.com) API key. Set `EMAIL_FROM` to an address on a
+   domain verified with them. Without a key the app still runs, but reset and confirmation links
+   are logged rather than sent — which in production means people get locked out silently.
+
+3. **Deploy.** Import the repository into Vercel and set `DATABASE_URL`, `RESEND_API_KEY` and
+   `EMAIL_FROM`. Nothing else is needed: QR codes and slip links take their origin from the
+   request headers, so they work on any domain.
+
+4. **Existing data (optional).** To bring across a database from an earlier SQLite build, let the
+   app connect once so the schema exists, then:
    ```bash
-   turso db create cpd-register
-   turso db show cpd-register --url      # -> TURSO_DATABASE_URL
-   turso db tokens create cpd-register   # -> TURSO_AUTH_TOKEN
+   npm i -D better-sqlite3
+   node scripts/import-sqlite.mjs data/cpd.db "$DATABASE_URL"
    ```
-   The schema is created on first connection; there is no migration step to run.
-
-2. **Email.** Create a [Resend](https://resend.com) API key and set `RESEND_API_KEY`. Set
-   `EMAIL_FROM` to an address on a domain you have verified with them. Without a key the app still
-   runs, but password-reset and confirmation links are logged rather than sent — which for a real
-   deployment means people get locked out silently.
-
-3. **Deploy.** Import the repository into Vercel and set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
-   `RESEND_API_KEY` and `EMAIL_FROM`. No other configuration is needed; QR codes and slip links
-   derive their origin from the request headers, so they work on any domain.
+   It preserves ids so every foreign key still points where it did, advances the identity
+   sequences past them, and refuses to run against a database that already has users.
 
 Production locally: `npm run build && npm start`.
 

@@ -60,13 +60,16 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
 
   const hash = await bcrypt.hash(password, 10);
   const now = new Date().toISOString();
-  const result = await db
+  const created = (await db
     .prepare(
       `INSERT INTO users (email, password_hash, full_name, profession, regulator, registration_number, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`
     )
-    .run(email, hash, fullName, profession || null, regulator || null, registrationNumber || null, now);
-  const userId = Number(result.lastInsertRowid);
+    .get(email, hash, fullName, profession || null, regulator || null, registrationNumber || null, now)) as {
+    id: number;
+  };
+  const userId = Number(created.id);
 
   await claimGuestSignatures(userId, email, await getGuestSlipCode());
   await forgetGuestSlip();
@@ -234,7 +237,7 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
 
   const db = await getDb();
   const code = newRegisterCode();
-  const result = await db
+  const created = (await db
     .prepare(
       `INSERT INTO registers
         (code, organiser_id, organiser_name, title, description, event_date, start_time, end_time, location,
@@ -242,7 +245,7 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
          feedback_enabled, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
-    .run(
+    .get(
       code,
       user.id,
       str(formData, "organiser_name") || user.full_name,
@@ -262,9 +265,9 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
       str(formData, "access_code").toUpperCase() || null,
       str(formData, "collect_feedback") === "yes" ? 1 : 0,
       new Date().toISOString()
-    );
+    )) as { id: number };
 
-  redirect(`/registers/${Number(result.lastInsertRowid)}`);
+  redirect(`/registers/${Number(created.id)}`);
 }
 
 async function requireOwnedRegister(user: User, registerId: number): Promise<Register> {
@@ -361,13 +364,14 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
   const now = new Date().toISOString();
 
   await db.transaction(async (tx) => {
-    const sigResult = await tx
+    const sigResult = (await tx
       .prepare(
         `INSERT INTO signatures
           (register_id, user_id, full_name, email, professional_body, registration_number, role_grade, signed_at, verification_code)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+         RETURNING id`
       )
-      .run(
+      .get(
         reg.id,
         user?.id ?? null,
         fullName,
@@ -377,7 +381,7 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
         roleGrade,
         now,
         verificationCode
-      );
+      )) as { id: number };
 
     if (user) {
       await tx.prepare(
@@ -385,7 +389,7 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
       ).run(
         user.id,
-        Number(sigResult.lastInsertRowid),
+        Number(sigResult.id),
         reg.title,
         reg.event_date,
         "Formal / educational",

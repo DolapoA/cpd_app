@@ -12,23 +12,23 @@
     "lint": "next lint"
   },
   "dependencies": {
-    "@libsql/client": "^0.17.4",
     "bcryptjs": "^3.0.2",
     "exceljs": "^4.4.0",
     "next": "^15.4.1",
     "pdf-lib": "^1.17.1",
+    "pg": "^8.23.0",
     "qrcode": "^1.5.4",
     "react": "^19.1.0",
     "react-dom": "^19.1.0",
     "resend": "^6.20.0"
   },
   "devDependencies": {
-    "@types/better-sqlite3": "^7.6.13",
     "@types/node": "^24.0.0",
+    "@types/pg": "^8.21.0",
     "@types/qrcode": "^1.5.5",
     "@types/react": "^19.1.0",
     "@types/react-dom": "^19.1.0",
-    "typescript": "^5.8.3",
-    "better-sqlite3": "^12.2.0"
+    "better-sqlite3": "^13.0.3",
+    "typescript": "^5.8.3"
   }
 }
