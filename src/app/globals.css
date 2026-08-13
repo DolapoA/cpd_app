@@ -1812,8 +1812,7 @@ body:has(.site-header--rail) {
   flex-wrap: wrap;
 }
 
-.site-header--rail ~ main,
-.site-header--rail ~ .guest-shell {
+.site-header--rail ~ .site-main {
   flex: 1;
   min-width: 0;
 }
@@ -1950,4 +1949,41 @@ body:has(.guest-shell) .site-rail__foot {
   .site-header--rail {
     display: none !important;
   }
+}
+
+/* ---- Footer ---- */
+
+.site-footer {
+  border-top: 1px solid var(--line);
+  margin-top: var(--space-12);
+  background: var(--surface);
+}
+
+.site-footer__inner {
+  max-width: var(--container-max);
+  margin: 0 auto;
+  padding: var(--space-4);
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  flex-wrap: wrap;
+}
+
+.site-footer__links {
+  display: flex;
+  gap: var(--space-4);
+  font-size: var(--text-s);
+}
+
+/* The footer sits at the bottom of the page column even when the page is
+   short, rather than floating up under a half-empty screen. */
+.site-main {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+.site-main > main {
+  flex: 1;
 }

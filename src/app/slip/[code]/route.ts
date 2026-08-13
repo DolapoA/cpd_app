@@ -10,12 +10,12 @@ const SOFT = rgb(0.32, 0.4, 0.48);
 
 export async function GET(_req: Request, ctx: { params: Promise<{ code: string }> }) {
   const { code } = await ctx.params;
-  const db = getDb();
-  const sig = db.prepare("SELECT * FROM signatures WHERE verification_code = ?").get(code) as
+  const db = await getDb();
+  const sig = await db.prepare("SELECT * FROM signatures WHERE verification_code = ?").get(code) as
     | Signature
     | undefined;
   if (!sig) return new NextResponse("Not found", { status: 404 });
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
 
   const baseUrl = await getBaseUrl();
   const verifyUrl = `${baseUrl}/verify/${sig.verification_code}`;

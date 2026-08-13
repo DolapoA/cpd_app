@@ -11,7 +11,8 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const reg = getDb().prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
+  const reg = await (await getDb())
+    .prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
     | Register
     | undefined;
   if (!reg || reg.organiser_id !== user.id) notFound();

@@ -5,8 +5,8 @@ export const metadata = { title: "Verify attendance slip — CPD Register" };
 
 export default async function VerifyPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const db = getDb();
-  const sig = db
+  const db = await getDb();
+  const sig = await db
     .prepare("SELECT * FROM signatures WHERE verification_code = ?")
     .get(decodeURIComponent(code)) as Signature | undefined;
 
@@ -24,7 +24,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
     );
   }
 
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
 
   return (
     <main className="container container--narrow stack">

@@ -7,22 +7,22 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return NextResponse.redirect(new URL("/login", "http://localhost"));
 
-  const db = getDb();
+  const db = await getDb();
   const { password_hash: _omitted, ...account } = user;
 
   const payload = {
     exported_at: new Date().toISOString(),
     account,
-    cpd_entries: db
+    cpd_entries: await db
       .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC")
       .all(user.id) as CpdEntry[],
-    attendances: db
+    attendances: await db
       .prepare("SELECT * FROM signatures WHERE user_id = ? ORDER BY signed_at DESC")
       .all(user.id) as Signature[],
-    registers_organised: db
+    registers_organised: await db
       .prepare("SELECT * FROM registers WHERE organiser_id = ? ORDER BY event_date DESC")
       .all(user.id) as Register[],
-    activity_type_goals: db
+    activity_type_goals: await db
       .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
       .all(user.id),
     // Feedback the user gave is deliberately not here: it is stored with no

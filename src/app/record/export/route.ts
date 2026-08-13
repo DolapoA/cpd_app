@@ -7,7 +7,7 @@ export async function GET() {
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorised", { status: 401 });
 
-  const entries = getDb()
+  const entries = await (await getDb())
     .prepare(
       `SELECT e.*, s.verification_code
        FROM cpd_entries e LEFT JOIN signatures s ON s.id = e.signature_id

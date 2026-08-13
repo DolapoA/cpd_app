@@ -19,10 +19,10 @@ export default async function DashboardPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const db = getDb();
+  const db = await getDb();
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const entries = db
+  const entries = await db
     .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC")
     .all(user.id) as CpdEntry[];
   // Only activity that can count toward the registration is totalled.
@@ -42,7 +42,7 @@ export default async function DashboardPage() {
   // Reminders for per-activity-type targets. A goal only nags once its type is
   // still uncovered and the date is within 90 days, so this stays quiet rather
   // than becoming background noise all year.
-  const goals = db
+  const goals = await db
     .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
     .all(user.id) as ActivityTypeGoal[];
   const dueGoals = goals

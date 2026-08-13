@@ -33,7 +33,7 @@ export default async function ActivityTypesPage({
       .slice(0, 10);
   const from = clampToRegistration(requestedFrom, user.registration_date);
 
-  const entries = getDb()
+  const entries = await (await getDb())
     .prepare(
       `SELECT * FROM cpd_entries
        WHERE user_id = ? AND activity_date >= ? AND activity_date <= ?
@@ -49,7 +49,7 @@ export default async function ActivityTypesPage({
   const missing = byType.filter((t) => t.activities.length === 0);
   const isHcpc = user.regulator === HCPC_AUDIT_PACK_REGULATOR;
 
-  const goals = getDb()
+  const goals = await (await getDb())
     .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
     .all(user.id) as ActivityTypeGoal[];
   const goalFor = (type: string) => goals.find((g) => g.activity_type === type)?.target_date ?? null;

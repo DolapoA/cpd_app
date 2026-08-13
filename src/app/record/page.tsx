@@ -28,7 +28,7 @@ export default async function RecordPage({
   const { imported } = await searchParams;
   const importedCount = imported && /^\d+$/.test(imported) ? Number(imported) : 0;
 
-  const entries = getDb()
+  const entries = await (await getDb())
     .prepare(
       `SELECT e.*, s.verification_code
        FROM cpd_entries e LEFT JOIN signatures s ON s.id = e.signature_id

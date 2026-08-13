@@ -18,13 +18,13 @@ export default async function SignedPage({
   const { sig, thanks } = await searchParams;
   if (!sig) notFound();
 
-  const db = getDb();
-  const signature = db
+  const db = await getDb();
+  const signature = await db
     .prepare("SELECT * FROM signatures WHERE verification_code = ?")
     .get(sig) as Signature | undefined;
   if (!signature) notFound();
 
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(signature.register_id) as
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(signature.register_id) as
     | Register
     | undefined;
   if (!reg || reg.code !== code) notFound();

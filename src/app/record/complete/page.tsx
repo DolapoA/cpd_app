@@ -15,7 +15,7 @@ export default async function CompleteRecordPage() {
   if (!user) redirect("/login");
 
   const framework = frameworkFor(user.regulator);
-  const entries = getDb()
+  const entries = await (await getDb())
     .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC, id DESC")
     .all(user.id) as CpdEntry[];
 

@@ -40,14 +40,14 @@ export async function getGuestSlip(): Promise<GuestSlip | null> {
   const code = (await cookies()).get(COOKIE)?.value;
   if (!code) return null;
 
-  const db = getDb();
-  const signature = db
+  const db = await getDb();
+  const signature = await db
     .prepare("SELECT * FROM signatures WHERE verification_code = ?")
     .get(code) as Signature | undefined;
   // Already attached to an account, or voided: nothing left to offer.
   if (!signature || signature.user_id !== null || signature.voided) return null;
 
-  const register = db
+  const register = await db
     .prepare("SELECT * FROM registers WHERE id = ?")
     .get(signature.register_id) as Register | undefined;
   if (!register) return null;

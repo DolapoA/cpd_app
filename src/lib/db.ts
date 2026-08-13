@@ -1,6 +1,4 @@
-import Database from "better-sqlite3";
-import fs from "fs";
-import path from "path";
+import { createClient, type Client, type InValue, type Transaction } from "@libsql/client";
 
 const SCHEMA = `
 CREATE TABLE IF NOT EXISTS users (
@@ -15,8 +13,33 @@ CREATE TABLE IF NOT EXISTS users (
   registration_date TEXT,
   annual_target_points REAL NOT NULL DEFAULT 50,
   backup_email TEXT,
+  email_verified_at TEXT,
   created_at TEXT NOT NULL
 );
+
+/*
+  Single-use tokens for password reset and email confirmation. Stored hashed:
+  a leaked database should not hand over working reset links, for the same
+  reason passwords are not stored in the clear.
+*/
+CREATE TABLE IF NOT EXISTS auth_tokens (
+  token_hash TEXT PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  purpose TEXT NOT NULL,
+  email TEXT NOT NULL,
+  expires_at TEXT NOT NULL,
+  used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_auth_tokens_user ON auth_tokens(user_id, purpose);
+
+/* Failed sign-in attempts, for rate limiting. Keyed by email so one account
+   cannot be ground down, and pruned as it is read. */
+CREATE TABLE IF NOT EXISTS auth_attempts (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  key TEXT NOT NULL,
+  attempted_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_auth_attempts_key ON auth_attempts(key, attempted_at);
 
 CREATE TABLE IF NOT EXISTS sessions (
   token TEXT PRIMARY KEY,
@@ -113,28 +136,36 @@ CREATE TABLE IF NOT EXISTS activity_type_goals (
 );
 `;
 
+/** SCHEMA and the rebuild below are multi-statement; libSQL executes one at a time. */
+async function execMany(client: Client, sql: string): Promise<void> {
+  for (const statement of sql.split(";")) {
+    const trimmed = statement.trim();
+    if (trimmed) await client.execute(trimmed);
+  }
+}
+
 /** Idempotent schema updates for databases created before a column existed. */
-function migrate(db: Database.Database): void {
-  const registerColumns = db.prepare("PRAGMA table_info(registers)").all() as { name: string }[];
+async function migrate(client: Client): Promise<void> {
+  const registerColumns = (await client.execute("PRAGMA table_info(registers)")).rows as unknown as { name: string }[];
   if (!registerColumns.some((c) => c.name === "feedback_enabled")) {
-    db.exec("ALTER TABLE registers ADD COLUMN feedback_enabled INTEGER NOT NULL DEFAULT 0");
+    await client.execute("ALTER TABLE registers ADD COLUMN feedback_enabled INTEGER NOT NULL DEFAULT 0");
   }
 
-  const signatureColumns = db.prepare("PRAGMA table_info(signatures)").all() as { name: string }[];
+  const signatureColumns = (await client.execute("PRAGMA table_info(signatures)")).rows as unknown as { name: string }[];
   if (!signatureColumns.some((c) => c.name === "feedback_given")) {
-    db.exec("ALTER TABLE signatures ADD COLUMN feedback_given INTEGER NOT NULL DEFAULT 0");
+    await client.execute("ALTER TABLE signatures ADD COLUMN feedback_given INTEGER NOT NULL DEFAULT 0");
   }
 
   // A register is other attendees' evidence, so it has to survive its
   // organiser closing their account. That means organiser_id must be
   // nullable, which in SQLite means rebuilding the table.
   const organiserCol = (
-    db.prepare("PRAGMA table_info(registers)").all() as { name: string; notnull: number }[]
+    (await client.execute("PRAGMA table_info(registers)")).rows as unknown as { name: string; notnull: number }[]
   ).find((c) => c.name === "organiser_id");
   if (organiserCol?.notnull === 1) {
-    const before = (db.prepare("SELECT COUNT(*) AS c FROM registers").get() as { c: number }).c;
-    db.pragma("foreign_keys = OFF");
-    db.exec(`
+    const before = Number(((await client.execute("SELECT COUNT(*) AS c FROM registers")).rows[0] as unknown as { c: number }).c);
+    await client.execute("PRAGMA foreign_keys = OFF");
+    await execMany(client, `
       CREATE TABLE registers_rebuilt (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         code TEXT NOT NULL UNIQUE,
@@ -167,39 +198,41 @@ function migrate(db: Database.Database): void {
       DROP TABLE registers;
       ALTER TABLE registers_rebuilt RENAME TO registers;
     `);
-    db.pragma("foreign_keys = ON");
-    const after = (db.prepare("SELECT COUNT(*) AS c FROM registers").get() as { c: number }).c;
+    await client.execute("PRAGMA foreign_keys = ON");
+    const after = Number(((await client.execute("SELECT COUNT(*) AS c FROM registers")).rows[0] as unknown as { c: number }).c);
     if (before !== after) {
       throw new Error(`Register rebuild lost rows: ${before} before, ${after} after`);
     }
   }
 
-  const userColumns = db.prepare("PRAGMA table_info(users)").all() as { name: string }[];
+  const userColumns = (await client.execute("PRAGMA table_info(users)")).rows as unknown as { name: string }[];
   if (!userColumns.some((c) => c.name === "backup_email")) {
-    db.exec("ALTER TABLE users ADD COLUMN backup_email TEXT");
+    await client.execute("ALTER TABLE users ADD COLUMN backup_email TEXT");
+  }
+  if (!userColumns.some((c) => c.name === "email_verified_at")) {
+    await client.execute("ALTER TABLE users ADD COLUMN email_verified_at TEXT");
   }
   if (!userColumns.some((c) => c.name === "registration_date")) {
-    db.exec("ALTER TABLE users ADD COLUMN registration_date TEXT");
+    await client.execute("ALTER TABLE users ADD COLUMN registration_date TEXT");
   }
   // Superseded by per-activity-type goals in activity_type_goals.
   if (userColumns.some((c) => c.name === "mix_goal_date")) {
-    db.exec("ALTER TABLE users DROP COLUMN mix_goal_date");
+    await client.execute("ALTER TABLE users DROP COLUMN mix_goal_date");
   }
 
-  const entryColumns = db.prepare("PRAGMA table_info(cpd_entries)").all() as { name: string }[];
+  const entryColumns = (await client.execute("PRAGMA table_info(cpd_entries)")).rows as unknown as { name: string }[];
   if (!entryColumns.some((c) => c.name === "standards")) {
-    db.exec("ALTER TABLE cpd_entries ADD COLUMN standards TEXT");
+    await client.execute("ALTER TABLE cpd_entries ADD COLUMN standards TEXT");
   }
 
   // An early build of this table linked each response to its signature. Drop
   // that shape rather than carry it: it only ever held pre-release test rows,
   // and keeping the link would defeat the anonymity promised on the form.
-  const feedbackColumns = db.prepare("PRAGMA table_info(feedback_responses)").all() as {
-    name: string;
-  }[];
+  const feedbackColumns = (await client.execute("PRAGMA table_info(feedback_responses)"))
+    .rows as unknown as { name: string }[];
   if (feedbackColumns.some((c) => c.name === "signature_id")) {
-    db.exec("DROP TABLE feedback_responses");
-    db.exec(`
+    await client.execute("DROP TABLE feedback_responses");
+    await execMany(client, `
       CREATE TABLE feedback_responses (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         register_id INTEGER NOT NULL REFERENCES registers(id),
@@ -217,24 +250,118 @@ function migrate(db: Database.Database): void {
   }
 }
 
-function createDb(): Database.Database {
-  const file = process.env.CPD_DB_PATH ?? path.join(process.cwd(), "data", "cpd.db");
-  fs.mkdirSync(path.dirname(file), { recursive: true });
-  const db = new Database(file);
-  db.pragma("journal_mode = WAL");
-  db.pragma("foreign_keys = ON");
-  db.exec(SCHEMA);
-  migrate(db);
-  return db;
+/* ---------------------------------------------------------------------------
+   Database access
+
+   libSQL rather than a local SQLite file, because the deployment target has a
+   read-only, ephemeral filesystem: a file database there would fail on write
+   and vanish on every cold start. The SQL is unchanged — libSQL is SQLite —
+   so what differs is only that calls are now asynchronous.
+
+   The shape below deliberately mirrors better-sqlite3's prepare().get/all/run,
+   so call sites read the same as before and simply await.
+
+   Local development uses the same client against a file: URL, so there is one
+   code path rather than one for development and another for production.
+--------------------------------------------------------------------------- */
+
+export type RunResult = { lastInsertRowid: number; changes: number };
+
+export interface Statement {
+  get<T>(...args: InValue[]): Promise<T | undefined>;
+  all<T>(...args: InValue[]): Promise<T[]>;
+  run(...args: InValue[]): Promise<RunResult>;
 }
 
-const globalForDb = globalThis as unknown as { __cpdDb?: Database.Database };
+export interface Queryable {
+  prepare(sql: string): Statement;
+}
 
-export function getDb(): Database.Database {
-  if (!globalForDb.__cpdDb) {
-    globalForDb.__cpdDb = createDb();
+export interface Db extends Queryable {
+  /** Runs several statements atomically; rolls back if the callback throws. */
+  transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T>;
+}
+
+function statement(run: (sql: string, args: InValue[]) => Promise<{
+  rows: unknown[];
+  lastInsertRowid?: bigint;
+  rowsAffected: number;
+}>, sql: string): Statement {
+  return {
+    async get<T>(...args: InValue[]) {
+      const rs = await run(sql, args);
+      return rs.rows[0] as unknown as T | undefined;
+    },
+    async all<T>(...args: InValue[]) {
+      const rs = await run(sql, args);
+      return rs.rows as unknown as T[];
+    },
+    async run(...args: InValue[]) {
+      const rs = await run(sql, args);
+      return {
+        // libSQL returns a bigint; every id in this schema is well inside
+        // Number's safe range, and the rest of the code expects a number.
+        lastInsertRowid: rs.lastInsertRowid === undefined ? 0 : Number(rs.lastInsertRowid),
+        changes: rs.rowsAffected,
+      };
+    },
+  };
+}
+
+function wrap(client: Client): Queryable {
+  return { prepare: (sql) => statement((s, args) => client.execute({ sql: s, args }), sql) };
+}
+
+function wrapTx(tx: Transaction): Queryable {
+  return { prepare: (sql) => statement((s, args) => tx.execute({ sql: s, args }), sql) };
+}
+
+function createClientFromEnv(): Client {
+  const url = process.env.TURSO_DATABASE_URL ?? `file:${process.env.CPD_DB_PATH ?? "data/cpd.db"}`;
+  return createClient({ url, authToken: process.env.TURSO_AUTH_TOKEN });
+}
+
+/** Schema and migrations run once per process, not once per request. */
+async function initialise(client: Client): Promise<void> {
+  // Only meaningful against a local file; a remote database manages its own.
+  if (!process.env.TURSO_DATABASE_URL) {
+    await client.execute("PRAGMA journal_mode = WAL");
   }
-  return globalForDb.__cpdDb;
+  await client.execute("PRAGMA foreign_keys = ON");
+  for (const stmt of SCHEMA.split(";")) {
+    const sql = stmt.trim();
+    if (sql) await client.execute(sql);
+  }
+  await migrate(client);
+}
+
+const globalForDb = globalThis as unknown as {
+  __cpdClient?: Client;
+  __cpdReady?: Promise<void>;
+};
+
+export async function getDb(): Promise<Db> {
+  if (!globalForDb.__cpdClient) {
+    globalForDb.__cpdClient = createClientFromEnv();
+    globalForDb.__cpdReady = initialise(globalForDb.__cpdClient);
+  }
+  await globalForDb.__cpdReady;
+  const client = globalForDb.__cpdClient;
+
+  return {
+    ...wrap(client),
+    async transaction<T>(fn: (tx: Queryable) => Promise<T>): Promise<T> {
+      const tx = await client.transaction("write");
+      try {
+        const result = await fn(wrapTx(tx));
+        await tx.commit();
+        return result;
+      } catch (error) {
+        await tx.rollback();
+        throw error;
+      }
+    },
+  };
 }
 
 export type User = {
@@ -251,6 +378,8 @@ export type User = {
   registration_date: string | null;
   annual_target_points: number;
   backup_email: string | null;
+  /** Set once the address has been confirmed by following an emailed link. */
+  email_verified_at: string | null;
   created_at: string;
 };
 

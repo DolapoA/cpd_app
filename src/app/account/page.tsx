@@ -7,6 +7,7 @@ import {
   changePassword,
   deleteAccount,
   revokeOtherSessions,
+  sendVerificationEmail,
   setBackupEmail,
 } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
@@ -17,22 +18,22 @@ export default async function AccountPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const db = getDb();
+  const db = await getDb();
   const sessions = (
-    db.prepare("SELECT COUNT(*) AS c FROM sessions WHERE user_id = ?").get(user.id) as { c: number }
+    await db.prepare("SELECT COUNT(*) AS c FROM sessions WHERE user_id = ?").get(user.id) as { c: number }
   ).c;
   const entries = (
-    db.prepare("SELECT COUNT(*) AS c FROM cpd_entries WHERE user_id = ?").get(user.id) as {
+    await db.prepare("SELECT COUNT(*) AS c FROM cpd_entries WHERE user_id = ?").get(user.id) as {
       c: number;
     }
   ).c;
   const signatures = (
-    db.prepare("SELECT COUNT(*) AS c FROM signatures WHERE user_id = ?").get(user.id) as {
+    await db.prepare("SELECT COUNT(*) AS c FROM signatures WHERE user_id = ?").get(user.id) as {
       c: number;
     }
   ).c;
   const registers = (
-    db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id) as {
+    await db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id) as {
       c: number;
     }
   ).c;
@@ -52,8 +53,28 @@ export default async function AccountPage() {
       <div className="card">
         <h2>Email</h2>
         <p className="muted small">
-          You sign in with <strong>{user.email}</strong>. Joined {formatDate(user.created_at.slice(0, 10))}.
+          You sign in with <strong>{user.email}</strong>. Joined{" "}
+          {formatDate(user.created_at.slice(0, 10))}.{" "}
+          {user.email_verified_at ? (
+            <span className="badge badge--verified">Confirmed</span>
+          ) : (
+            <span className="badge badge--pending">Not confirmed</span>
+          )}
         </p>
+        {!user.email_verified_at && (
+          <div className="notice notice--warn">
+            <p className="small">
+              Confirm this address so attendance you sign as a guest is matched to it
+              automatically. Until it is confirmed we only match slips signed while you were
+              logged in.
+            </p>
+            <form action={sendVerificationEmail}>
+              <button type="submit" className="btn btn--secondary btn--small">
+                Send me the link
+              </button>
+            </form>
+          </div>
+        )}
         <ActionForm action={setBackupEmail} submitLabel="Save backup email">
           <div className="field">
             <label htmlFor="backup_email">Backup email</label>

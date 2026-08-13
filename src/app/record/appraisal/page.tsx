@@ -26,7 +26,7 @@ export default async function AppraisalPage({
   // A period can't sensibly start before the user joined the register.
   const from = clampToRegistration(requestedFrom, user.registration_date);
 
-  const entries = getDb()
+  const entries = await (await getDb())
     .prepare(
       `SELECT e.*, s.verification_code
        FROM cpd_entries e LEFT JOIN signatures s ON s.id = e.signature_id

@@ -7,6 +7,9 @@ import { revalidatePath } from "next/cache";
 import { getDb, registerStatus, type CpdEntry, type Register, type Signature, type User } from "./db";
 import { createSession, destroySession, getCurrentUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
+import { getBaseUrl } from "./base-url";
+import { sendEmailConfirmation, sendPasswordReset } from "./email";
+import { claimToken, issueToken } from "./tokens";
 import { newRegisterCode, newVerificationCode } from "./ids";
 import { ACTIVITY_TYPES, EVENT_TYPES, REGULATORS } from "./format";
 import { mapRows, parseSpreadsheet, type ParsedEntry } from "./import";
@@ -51,13 +54,13 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
   if (regulator && !(REGULATORS as readonly string[]).includes(regulator))
     return { error: "Choose a valid regulator, or \"Other\" if yours isn't listed." };
 
-  const db = getDb();
-  const existing = db.prepare("SELECT id FROM users WHERE email = ?").get(email);
+  const db = await getDb();
+  const existing = await db.prepare("SELECT id FROM users WHERE email = ?").get(email);
   if (existing) return { error: "An account with that email already exists. Try logging in." };
 
   const hash = await bcrypt.hash(password, 10);
   const now = new Date().toISOString();
-  const result = db
+  const result = await db
     .prepare(
       `INSERT INTO users (email, password_hash, full_name, profession, regulator, registration_number, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?)`
@@ -65,16 +68,29 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
     .run(email, hash, fullName, profession || null, regulator || null, registrationNumber || null, now);
   const userId = Number(result.lastInsertRowid);
 
-  claimGuestSignatures(userId, email, await getGuestSlipCode());
+  await claimGuestSignatures(userId, email, await getGuestSlipCode());
   await forgetGuestSlip();
+
+  // Confirming the address is what lets future slips be matched to it safely.
+  // Failing to send must not lose the account that was just created.
+  try {
+    const token = await issueToken(userId, email, "verify");
+    await sendEmailConfirmation(email, fullName, `${await getBaseUrl()}/verify-email/${token}`);
+  } catch (error) {
+    console.error("[signup] confirmation email failed", error);
+  }
 
   await createSession(userId);
   redirect("/dashboard");
 }
 
-function claimGuestSignatures(userId: number, email: string, alsoCode?: string | null) {
-  const db = getDb();
-  const orphans = db
+async function claimGuestSignatures(
+  userId: number,
+  email: string,
+  alsoCode?: string | null
+): Promise<void> {
+  const db = await getDb();
+  const orphans = await db
     .prepare(
       `SELECT s.*, r.title, r.event_date, r.is_official, r.points, r.hours, r.organiser_name
        FROM signatures s JOIN registers r ON r.id = s.register_id
@@ -82,30 +98,31 @@ function claimGuestSignatures(userId: number, email: string, alsoCode?: string |
     )
     .all(email, alsoCode ?? "") as (Signature & Pick<Register, "title" | "event_date" | "is_official" | "points" | "hours" | "organiser_name">)[];
 
-  const claim = db.prepare("UPDATE signatures SET user_id = ? WHERE id = ?");
-  const insertEntry = db.prepare(
-    `INSERT INTO cpd_entries (user_id, signature_id, title, activity_date, activity_type, is_official, points, hours, provider, verified, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
-  );
+  if (orphans.length === 0) return;
+
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
+  await db.transaction(async (tx) => {
     for (const s of orphans) {
-      claim.run(userId, s.id);
-      insertEntry.run(
-        userId,
-        s.id,
-        s.title,
-        s.event_date,
-        "Formal / educational",
-        s.is_official,
-        s.points,
-        s.hours,
-        s.organiser_name,
-        now
-      );
+      await tx.prepare("UPDATE signatures SET user_id = ? WHERE id = ?").run(userId, s.id);
+      await tx
+        .prepare(
+          `INSERT INTO cpd_entries (user_id, signature_id, title, activity_date, activity_type, is_official, points, hours, provider, verified, created_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
+        )
+        .run(
+          userId,
+          s.id,
+          s.title,
+          s.event_date,
+          "Formal / educational",
+          s.is_official,
+          s.points,
+          s.hours,
+          s.organiser_name,
+          now
+        );
     }
   });
-  tx();
 }
 
 export async function login(_prev: ActionState, formData: FormData): Promise<ActionState> {
@@ -114,14 +131,25 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   if (!email || typeof password !== "string" || !password)
     return { error: "Enter your email and password." };
 
-  const db = getDb();
-  const user = db.prepare("SELECT * FROM users WHERE email = ?").get(email) as User | undefined;
-  if (!user || !(await bcrypt.compare(password, user.password_hash)))
+  if (await tooManyAttempts(email))
+    return {
+      error:
+        "Too many sign-in attempts for that address. Wait 15 minutes, or reset your password.",
+    };
+
+  const db = await getDb();
+  const user = (await db
+    .prepare("SELECT * FROM users WHERE email = ?")
+    .get(email)) as User | undefined;
+  if (!user || !(await bcrypt.compare(password, user.password_hash))) {
+    await recordFailedAttempt(email);
     return { error: "Email or password is incorrect." };
+  }
+  await clearAttempts(email);
 
   // Someone who signed a register as a guest and then logs in should get those
   // slips too — not just people who create an account afterwards.
-  claimGuestSignatures(user.id, email, await getGuestSlipCode());
+  await claimGuestSignatures(user.id, email, await getGuestSlipCode());
   await forgetGuestSlip();
 
   await createSession(user.id);
@@ -152,7 +180,7 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
       return { error: "Your registration date can’t be in the future." };
   }
 
-  getDb()
+  await (await getDb())
     .prepare(
       `UPDATE users SET full_name = ?, profession = ?, regulator = ?, registration_number = ?, role_grade = ?, registration_date = ?, annual_target_points = ?
        WHERE id = ?`
@@ -204,9 +232,9 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
   if (endsAt <= opensAt) return { error: "End time must be after the start time." };
   const closesAt = new Date(endsAt.getTime() + closeAfterHours * 60 * 60 * 1000);
 
-  const db = getDb();
+  const db = await getDb();
   const code = newRegisterCode();
-  const result = db
+  const result = await db
     .prepare(
       `INSERT INTO registers
         (code, organiser_id, organiser_name, title, description, event_date, start_time, end_time, location,
@@ -239,8 +267,9 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
   redirect(`/registers/${Number(result.lastInsertRowid)}`);
 }
 
-function requireOwnedRegister(user: User, registerId: number): Register {
-  const reg = getDb().prepare("SELECT * FROM registers WHERE id = ?").get(registerId) as
+async function requireOwnedRegister(user: User, registerId: number): Promise<Register> {
+  const reg = await (await getDb())
+    .prepare("SELECT * FROM registers WHERE id = ?").get(registerId) as
     | Register
     | undefined;
   if (!reg || reg.organiser_id !== user.id) {
@@ -254,8 +283,9 @@ export async function setRegisterClosed(formData: FormData): Promise<void> {
   if (!user) redirect("/login");
   const registerId = Number(formData.get("register_id"));
   const closed = str(formData, "closed") === "1";
-  requireOwnedRegister(user, registerId);
-  getDb().prepare("UPDATE registers SET closed_manually = ? WHERE id = ?").run(closed ? 1 : 0, registerId);
+  await requireOwnedRegister(user, registerId);
+  await (await getDb())
+    .prepare("UPDATE registers SET closed_manually = ? WHERE id = ?").run(closed ? 1 : 0, registerId);
   revalidatePath(`/registers/${registerId}`);
 }
 
@@ -264,8 +294,8 @@ export async function setFeedbackEnabled(formData: FormData): Promise<void> {
   if (!user) redirect("/login");
   const registerId = Number(formData.get("register_id"));
   const enabled = str(formData, "enabled") === "1";
-  requireOwnedRegister(user, registerId);
-  getDb()
+  await requireOwnedRegister(user, registerId);
+  await (await getDb())
     .prepare("UPDATE registers SET feedback_enabled = ? WHERE id = ?")
     .run(enabled ? 1 : 0, registerId);
   revalidatePath(`/registers/${registerId}`);
@@ -277,18 +307,19 @@ export async function voidSignature(formData: FormData): Promise<void> {
   const signatureId = Number(formData.get("signature_id"));
   const reason = str(formData, "reason") || "Voided by organiser";
 
-  const db = getDb();
-  const sig = db.prepare("SELECT * FROM signatures WHERE id = ?").get(signatureId) as
+  const db = await getDb();
+  const sig = await db.prepare("SELECT * FROM signatures WHERE id = ?").get(signatureId) as
     | Signature
     | undefined;
   if (!sig) return;
-  requireOwnedRegister(user, sig.register_id);
+  await requireOwnedRegister(user, sig.register_id);
 
-  const tx = db.transaction(() => {
-    db.prepare("UPDATE signatures SET voided = 1, void_reason = ? WHERE id = ?").run(reason, signatureId);
-    db.prepare("UPDATE cpd_entries SET verified = 0 WHERE signature_id = ?").run(signatureId);
+  await db.transaction(async (tx) => {
+    await tx
+      .prepare("UPDATE signatures SET voided = 1, void_reason = ? WHERE id = ?")
+      .run(reason, signatureId);
+    await tx.prepare("UPDATE cpd_entries SET verified = 0 WHERE signature_id = ?").run(signatureId);
   });
-  tx();
   revalidatePath(`/registers/${sig.register_id}`);
 }
 
@@ -298,8 +329,8 @@ export async function voidSignature(formData: FormData): Promise<void> {
 
 export async function signRegister(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const code = str(formData, "register_code");
-  const db = getDb();
-  const reg = db.prepare("SELECT * FROM registers WHERE code = ?").get(code) as Register | undefined;
+  const db = await getDb();
+  const reg = await db.prepare("SELECT * FROM registers WHERE code = ?").get(code) as Register | undefined;
   if (!reg) return { error: "This register no longer exists." };
 
   const status = registerStatus(reg);
@@ -321,7 +352,7 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
   if (!fullName) return { error: "Enter your full name." };
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
 
-  const dup = db
+  const dup = await db
     .prepare("SELECT id FROM signatures WHERE register_id = ? AND email = ? AND voided = 0")
     .get(reg.id, email);
   if (dup) return { error: "This email has already signed the register for this event." };
@@ -329,8 +360,8 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
   const verificationCode = newVerificationCode();
   const now = new Date().toISOString();
 
-  const tx = db.transaction(() => {
-    const sigResult = db
+  await db.transaction(async (tx) => {
+    const sigResult = await tx
       .prepare(
         `INSERT INTO signatures
           (register_id, user_id, full_name, email, professional_body, registration_number, role_grade, signed_at, verification_code)
@@ -349,7 +380,7 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
       );
 
     if (user) {
-      db.prepare(
+      await tx.prepare(
         `INSERT INTO cpd_entries (user_id, signature_id, title, activity_date, activity_type, is_official, points, hours, provider, verified, created_at)
          VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, ?)`
       ).run(
@@ -366,7 +397,6 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
       );
     }
   });
-  tx();
 
   // Guests only: an account holder's slip is already on their record.
   if (!user) await rememberGuestSlip(verificationCode);
@@ -380,15 +410,15 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
 
 export async function submitFeedback(_prev: ActionState, formData: FormData): Promise<ActionState> {
   const verificationCode = str(formData, "verification_code");
-  const db = getDb();
+  const db = await getDb();
 
-  const sig = db
+  const sig = await db
     .prepare("SELECT * FROM signatures WHERE verification_code = ?")
     .get(verificationCode) as Signature | undefined;
   if (!sig) return { error: "We could not match that attendance record." };
   if (sig.voided) return { error: "This attendance record has been voided." };
 
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as
     | Register
     | undefined;
   if (!reg || !reg.feedback_enabled)
@@ -409,8 +439,8 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
   const comments = str(formData, "comments").slice(0, 4000);
   const keepReflection = str(formData, "keep_reflection") === "yes";
 
-  const tx = db.transaction(() => {
-    db.prepare(
+  await db.transaction(async (tx) => {
+    await tx.prepare(
       `INSERT INTO feedback_responses
         (register_id, question_set_version, q1, q2, q3, q4, q5, comments, submitted_on)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
@@ -428,13 +458,13 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
 
     // The flag lives on the signature, so a second submission can be refused
     // without the response itself pointing back at anyone.
-    db.prepare("UPDATE signatures SET feedback_given = 1 WHERE id = ?").run(sig.id);
+    await tx.prepare("UPDATE signatures SET feedback_given = 1 WHERE id = ?").run(sig.id);
 
     // The attendee's own copy is a different thing from the organiser's
     // anonymous aggregate: it sits on their CPD record, attributed to them,
     // because regulators ask for exactly this reflection.
     if (keepReflection && sig.user_id) {
-      const entry = db
+      const entry = await tx
         .prepare("SELECT id, notes FROM cpd_entries WHERE signature_id = ? AND user_id = ?")
         .get(sig.id, sig.user_id) as { id: number; notes: string | null } | undefined;
       if (entry) {
@@ -448,14 +478,13 @@ export async function submitFeedback(_prev: ActionState, formData: FormData): Pr
           .filter(Boolean)
           .join(" ");
         const merged = entry.notes ? `${entry.notes}\n\n${reflection}` : reflection;
-        db.prepare("UPDATE cpd_entries SET notes = ? WHERE id = ?").run(
+        await tx.prepare("UPDATE cpd_entries SET notes = ? WHERE id = ?").run(
           merged.slice(0, 2000),
           entry.id
         );
       }
     }
   });
-  tx();
 
   redirect(`/r/${reg.code}/signed?sig=${verificationCode}&thanks=1`);
 }
@@ -485,7 +514,7 @@ export async function addManualEntry(_prev: ActionState, formData: FormData): Pr
     standards = serialiseStandards(chosen);
   }
 
-  getDb()
+  await (await getDb())
     .prepare(
       `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, created_at)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
@@ -525,8 +554,8 @@ export async function fillEntryGaps(_prev: ActionState, formData: FormData): Pro
   if (!user) redirect("/login");
 
   const entryId = Number(formData.get("entry_id"));
-  const db = getDb();
-  const entry = db
+  const db = await getDb();
+  const entry = await db
     .prepare("SELECT * FROM cpd_entries WHERE id = ? AND user_id = ?")
     .get(entryId, user.id) as CpdEntry | undefined;
   if (!entry) return { error: "That activity is no longer in your record." };
@@ -542,7 +571,7 @@ export async function fillEntryGaps(_prev: ActionState, formData: FormData): Pro
     ? validStandards(framework, formData.getAll("standards").map(String))
     : [];
 
-  db.prepare(
+  await db.prepare(
     `UPDATE cpd_entries
        SET notes = ?, hours = ?, activity_type = ?, standards = ?
      WHERE id = ? AND user_id = ?`
@@ -577,10 +606,10 @@ export async function setActivityTypeGoal(
     return { error: "Unknown activity type." };
 
   const target = str(formData, "target_date");
-  const db = getDb();
+  const db = await getDb();
 
   if (!target) {
-    db.prepare("DELETE FROM activity_type_goals WHERE user_id = ? AND activity_type = ?").run(
+    await db.prepare("DELETE FROM activity_type_goals WHERE user_id = ? AND activity_type = ?").run(
       user.id,
       activityType
     );
@@ -589,7 +618,7 @@ export async function setActivityTypeGoal(
       return { error: "Enter a valid date." };
     if (target < new Date().toISOString().slice(0, 10))
       return { error: "Pick a date in the future." };
-    db.prepare(
+    await db.prepare(
       `INSERT INTO activity_type_goals (user_id, activity_type, target_date)
        VALUES (?, ?, ?)
        ON CONFLICT(user_id, activity_type) DO UPDATE SET target_date = excluded.target_date`
@@ -612,7 +641,7 @@ export async function setEntryStandards(formData: FormData): Promise<void> {
   const chosen = validStandards(framework, formData.getAll("standards").map(String));
   if (chosen.length === 0) return;
 
-  getDb()
+  await (await getDb())
     .prepare("UPDATE cpd_entries SET standards = ? WHERE id = ? AND user_id = ?")
     .run(serialiseStandards(chosen), entryId, user.id);
 
@@ -676,13 +705,13 @@ export async function commitImport(_prev: ActionState, formData: FormData): Prom
   if (valid.length === 0) return { error: "The import data was missing or malformed. Upload the file again." };
 
   const framework = frameworkFor(user.regulator);
-  const db = getDb();
-  const insert = db.prepare(
+  const db = await getDb();
+  const insert = await db.prepare(
     `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, created_at)
      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
   );
   const now = new Date().toISOString();
-  const tx = db.transaction(() => {
+  await db.transaction(async (tx) => {
     for (const e of valid) {
       // Codes the sheet supplied are only kept if the user's own framework
       // defines them; anything else is dropped and the entry shows up in the
@@ -706,7 +735,6 @@ export async function commitImport(_prev: ActionState, formData: FormData): Prom
       );
     }
   });
-  tx();
 
   redirect(`/record?imported=${valid.length}`);
 }
@@ -716,7 +744,7 @@ export async function updateEntryNotes(formData: FormData): Promise<void> {
   if (!user) redirect("/login");
   const entryId = Number(formData.get("entry_id"));
   const notes = str(formData, "notes");
-  getDb()
+  (await getDb())
     .prepare("UPDATE cpd_entries SET notes = ? WHERE id = ? AND user_id = ?")
     .run(notes || null, entryId, user.id);
   revalidatePath("/record");
@@ -726,7 +754,7 @@ export async function deleteEntry(formData: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const entryId = Number(formData.get("entry_id"));
-  getDb()
+  await (await getDb())
     .prepare("DELETE FROM cpd_entries WHERE id = ? AND user_id = ? AND verified = 0")
     .run(entryId, user.id);
   revalidatePath("/record");
@@ -755,15 +783,15 @@ export async function changePassword(
   if (next !== confirm) return { error: "The two new passwords don’t match." };
   if (next === current) return { error: "That’s already your password." };
 
-  const db = getDb();
+  const db = await getDb();
   const hash = await bcrypt.hash(next, 10);
   // Changing a password should end any session you did not change it from —
   // that is the point of changing it if someone else has been signed in.
   const currentToken = (await cookies()).get("cpd_session")?.value ?? "";
-  db.transaction(() => {
-    db.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, user.id);
-    db.prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?").run(user.id, currentToken);
-  })();
+  await db.transaction(async (tx) => {
+    await tx.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, user.id);
+    await tx.prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?").run(user.id, currentToken);
+  });
 
   revalidatePath("/account");
   return null;
@@ -774,10 +802,10 @@ export async function setBackupEmail(_prev: ActionState, formData: FormData): Pr
   if (!user) redirect("/login");
 
   const email = str(formData, "backup_email").toLowerCase();
-  const db = getDb();
+  const db = await getDb();
 
   if (!email) {
-    db.prepare("UPDATE users SET backup_email = NULL WHERE id = ?").run(user.id);
+    await db.prepare("UPDATE users SET backup_email = NULL WHERE id = ?").run(user.id);
     revalidatePath("/account");
     return null;
   }
@@ -787,12 +815,12 @@ export async function setBackupEmail(_prev: ActionState, formData: FormData): Pr
     return { error: "That’s already the email on your account. Use a different one." };
 
   // A backup address must not be a route into somebody else's account.
-  const taken = db
+  const taken = await db
     .prepare("SELECT id FROM users WHERE (email = ? OR backup_email = ?) AND id != ?")
     .get(email, email, user.id);
   if (taken) return { error: "That address is already in use on another account." };
 
-  db.prepare("UPDATE users SET backup_email = ? WHERE id = ?").run(email, user.id);
+  await db.prepare("UPDATE users SET backup_email = ? WHERE id = ?").run(email, user.id);
   revalidatePath("/account");
   return null;
 }
@@ -802,7 +830,7 @@ export async function revokeOtherSessions(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   const currentToken = (await cookies()).get("cpd_session")?.value ?? "";
-  getDb()
+  await (await getDb())
     .prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?")
     .run(user.id, currentToken);
   revalidatePath("/account");
@@ -820,17 +848,17 @@ export async function deleteAccount(_prev: ActionState, formData: FormData): Pro
   if (str(formData, "confirm") !== "DELETE")
     return { error: "Type DELETE in the box to confirm." };
 
-  const db = getDb();
-  db.transaction(() => {
+  const db = await getDb();
+  await db.transaction(async (tx) => {
     // Yours alone — removed outright.
-    db.prepare("DELETE FROM cpd_entries WHERE user_id = ?").run(user.id);
-    db.prepare("DELETE FROM activity_type_goals WHERE user_id = ?").run(user.id);
+    await tx.prepare("DELETE FROM cpd_entries WHERE user_id = ?").run(user.id);
+    await tx.prepare("DELETE FROM activity_type_goals WHERE user_id = ?").run(user.id);
 
     // Signatures are somebody else's evidence: an organiser's register and any
     // slip already handed to an auditor. Deleting them would silently alter a
     // record other people rely on and break every issued verification code, so
     // the person is removed from them instead of the attendance.
-    db.prepare(
+    await tx.prepare(
       `UPDATE signatures
          SET user_id = NULL,
              full_name = 'Deleted account',
@@ -845,13 +873,103 @@ export async function deleteAccount(_prev: ActionState, formData: FormData): Pro
     // organiser's name stays because it is printed on issued slips and shown
     // on the public verification page. Open ones are closed: nobody is left
     // to run them.
-    db.prepare("UPDATE registers SET closed_manually = 1 WHERE organiser_id = ?").run(user.id);
-    db.prepare("UPDATE registers SET organiser_id = NULL WHERE organiser_id = ?").run(user.id);
+    await tx.prepare("UPDATE registers SET closed_manually = 1 WHERE organiser_id = ?").run(user.id);
+    await tx.prepare("UPDATE registers SET organiser_id = NULL WHERE organiser_id = ?").run(user.id);
 
-    db.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
-    db.prepare("DELETE FROM users WHERE id = ?").run(user.id);
-  })();
+    await tx.prepare("DELETE FROM sessions WHERE user_id = ?").run(user.id);
+    await tx.prepare("DELETE FROM users WHERE id = ?").run(user.id);
+  });
 
   (await cookies()).delete("cpd_session");
   redirect("/?deleted=1");
+}
+
+// ---------------------------------------------------------------------------
+// Password reset, email confirmation and sign-in throttling
+// ---------------------------------------------------------------------------
+
+const MAX_ATTEMPTS = 8;
+const ATTEMPT_WINDOW_MIN = 15;
+
+/** Failed sign-ins per email in a rolling window, so a password cannot be guessed. */
+async function tooManyAttempts(key: string): Promise<boolean> {
+  const db = await getDb();
+  const since = new Date(Date.now() - ATTEMPT_WINDOW_MIN * 60 * 1000).toISOString();
+  // Pruning here keeps the table from growing without a scheduled job.
+  await db.prepare("DELETE FROM auth_attempts WHERE attempted_at < ?").run(since);
+  const row = (await db
+    .prepare("SELECT COUNT(*) AS c FROM auth_attempts WHERE key = ? AND attempted_at >= ?")
+    .get(key, since)) as { c: number };
+  return Number(row.c) >= MAX_ATTEMPTS;
+}
+
+async function recordFailedAttempt(key: string): Promise<void> {
+  const db = await getDb();
+  await db
+    .prepare("INSERT INTO auth_attempts (key, attempted_at) VALUES (?, ?)")
+    .run(key, new Date().toISOString());
+}
+
+async function clearAttempts(key: string): Promise<void> {
+  const db = await getDb();
+  await db.prepare("DELETE FROM auth_attempts WHERE key = ?").run(key);
+}
+
+export async function requestPasswordReset(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const email = str(formData, "email").toLowerCase();
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
+
+  const db = await getDb();
+  const user = (await db
+    .prepare("SELECT id, full_name, email FROM users WHERE email = ? OR backup_email = ?")
+    .get(email, email)) as { id: number; full_name: string; email: string } | undefined;
+
+  // Deliberately the same outcome either way: telling a stranger whether an
+  // address has an account here reveals that someone is a registrant.
+  if (user) {
+    const token = await issueToken(Number(user.id), user.email, "reset");
+    const base = await getBaseUrl();
+    await sendPasswordReset(user.email, user.full_name, `${base}/reset/${token}`);
+  }
+  redirect("/reset/sent");
+}
+
+export async function resetPassword(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const token = str(formData, "token");
+  const password = formData.get("password");
+  const confirm = formData.get("confirm");
+
+  if (typeof password !== "string" || password.length < 8)
+    return { error: "Your new password must be at least 8 characters." };
+  if (password !== confirm) return { error: "The two passwords don’t match." };
+
+  const claimed = await claimToken(token, "reset");
+  if (!claimed)
+    return { error: "That link has expired or has already been used. Request a new one." };
+
+  const db = await getDb();
+  const hash = await bcrypt.hash(password, 10);
+  await db.transaction(async (tx) => {
+    await tx.prepare("UPDATE users SET password_hash = ? WHERE id = ?").run(hash, claimed.user_id);
+    // Whoever prompted the reset should not still be signed in somewhere.
+    await tx.prepare("DELETE FROM sessions WHERE user_id = ?").run(claimed.user_id);
+    await tx.prepare("DELETE FROM auth_attempts WHERE key = ?").run(claimed.email);
+  });
+
+  redirect("/login?reset=1");
+}
+
+/** Sends (or resends) the confirmation link for the signed-in user's address. */
+export async function sendVerificationEmail(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.email_verified_at) return;
+
+  const token = await issueToken(user.id, user.email, "verify");
+  const base = await getBaseUrl();
+  await sendEmailConfirmation(user.email, user.full_name, `${base}/verify-email/${token}`);
+  revalidatePath("/account");
 }

@@ -72,18 +72,45 @@ v1.0 MVP: the complete capture-to-evidence loop.
 
 ## Stack
 
-Next.js 15 (App Router, server actions) · TypeScript · SQLite via better-sqlite3 (file lives in
-`data/`, created on first run; override with `CPD_DB_PATH`) · `pdf-lib` for attendance slips ·
-`qrcode` for sharing. No external services required.
+Next.js 15 (App Router, server actions) · TypeScript · libSQL/SQLite via `@libsql/client` ·
+`pdf-lib` for attendance slips · `qrcode` for sharing · Resend for email.
 
 ## Run it
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
+cp .env.example .env.local   # optional; the defaults work
+npm run dev                  # http://localhost:3000
 ```
 
-Production: `npm run build && npm start`.
+With no environment set, the app uses a SQLite file at `data/cpd.db` and writes email to the
+server log instead of sending it — so development needs no accounts.
+
+## Deploying
+
+The database is libSQL rather than a local file because a serverless filesystem is read-only and
+wiped between invocations: a file database there fails on write and loses everything on each cold
+start. The SQL is unchanged — libSQL is SQLite — so the same schema and migrations run in both
+places.
+
+1. **Database.** Create one with [Turso](https://turso.tech):
+   ```bash
+   turso db create cpd-register
+   turso db show cpd-register --url      # -> TURSO_DATABASE_URL
+   turso db tokens create cpd-register   # -> TURSO_AUTH_TOKEN
+   ```
+   The schema is created on first connection; there is no migration step to run.
+
+2. **Email.** Create a [Resend](https://resend.com) API key and set `RESEND_API_KEY`. Set
+   `EMAIL_FROM` to an address on a domain you have verified with them. Without a key the app still
+   runs, but password-reset and confirmation links are logged rather than sent — which for a real
+   deployment means people get locked out silently.
+
+3. **Deploy.** Import the repository into Vercel and set `TURSO_DATABASE_URL`, `TURSO_AUTH_TOKEN`,
+   `RESEND_API_KEY` and `EMAIL_FROM`. No other configuration is needed; QR codes and slip links
+   derive their origin from the request headers, so they work on any domain.
+
+Production locally: `npm run build && npm start`.
 
 ## Try the loop
 

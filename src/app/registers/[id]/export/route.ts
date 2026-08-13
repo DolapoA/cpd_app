@@ -8,13 +8,13 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
   if (!user) return new NextResponse("Unauthorised", { status: 401 });
 
   const { id } = await ctx.params;
-  const db = getDb();
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
+  const db = await getDb();
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
     | Register
     | undefined;
   if (!reg || reg.organiser_id !== user.id) return new NextResponse("Not found", { status: 404 });
 
-  const signatures = db
+  const signatures = await db
     .prepare("SELECT * FROM signatures WHERE register_id = ? ORDER BY signed_at ASC")
     .all(reg.id) as Signature[];
 

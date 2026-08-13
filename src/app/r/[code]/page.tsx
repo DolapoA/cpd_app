@@ -10,7 +10,8 @@ export const metadata = { title: "Sign the attendance register — CPD Register"
 
 export default async function PublicSignPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const reg = getDb().prepare("SELECT * FROM registers WHERE code = ?").get(code) as
+  const reg = await (await getDb())
+    .prepare("SELECT * FROM registers WHERE code = ?").get(code) as
     | Register
     | undefined;
   if (!reg) notFound();
@@ -18,8 +19,8 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
   const user = await getCurrentUser();
   const status = registerStatus(reg);
   const alreadySigned = user
-    ? getDb()
-        .prepare("SELECT id FROM signatures WHERE register_id = ? AND email = ? AND voided = 0")
+    ? await (await getDb())
+    .prepare("SELECT id FROM signatures WHERE register_id = ? AND email = ? AND voided = 0")
         .get(reg.id, user.email)
     : null;
 

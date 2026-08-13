@@ -12,13 +12,13 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
   if (!user) redirect("/login");
 
   const { id } = await params;
-  const db = getDb();
-  const reg = db.prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
+  const db = await getDb();
+  const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
     | Register
     | undefined;
   if (!reg || reg.organiser_id !== user.id) notFound();
 
-  const responses = db
+  const responses = await db
     .prepare("SELECT * FROM feedback_responses WHERE register_id = ? ORDER BY id ASC")
     .all(reg.id) as FeedbackResponse[];
 

@@ -13,8 +13,8 @@ export default async function RegistersPage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const db = getDb();
-  const registers = db
+  const db = await getDb();
+  const registers = await db
     .prepare(
       `SELECT r.*, (SELECT COUNT(*) FROM signatures s WHERE s.register_id = r.id AND s.voided = 0) AS signature_count
        FROM registers r WHERE r.organiser_id = ? ORDER BY r.event_date DESC, r.id DESC`
