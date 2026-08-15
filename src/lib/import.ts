@@ -19,6 +19,19 @@ export type ImportResult = {
   entries: ParsedEntry[];
   issues: string[];
   totalRows: number;
+  /**
+   * What became of each column in the file. A migration tool has to be able to
+   * answer "did you keep my data?" before the user commits, not after — and
+   * silence reads as loss even when nothing was lost.
+   */
+  mapping: {
+    /** Your heading -> the field it filled. */
+    matched: { header: string; field: string }[];
+    /** Your headings kept inside the notes, labelled. */
+    carriedToNotes: string[];
+    /** Headings with no data under them anywhere. */
+    ignored: string[];
+  };
 };
 
 const HEADER_ALIASES: Record<keyof typeof COLUMN_LABELS, string[]> = {
@@ -310,7 +323,13 @@ function parseNumber(raw: string): number | null {
 }
 
 export function mapRows(rows: string[][]): ImportResult {
-  if (rows.length === 0) return { entries: [], issues: ["The file contains no rows."], totalRows: 0 };
+  if (rows.length === 0)
+    return {
+      entries: [],
+      issues: ["The file contains no rows."],
+      totalRows: 0,
+      mapping: { matched: [], carriedToNotes: [], ignored: [] },
+    };
 
   const headerIndex = findHeaderRow(rows);
   if (headerIndex === -1) {
@@ -319,6 +338,7 @@ export function mapRows(rows: string[][]): ImportResult {
       issues: [
         `Could not find a header row. The first row should contain column names — at minimum "${COLUMN_LABELS.date}" and "${COLUMN_LABELS.title}" (or close equivalents such as "Activity" or "Event").`,
       ],
+      mapping: { matched: [], carriedToNotes: [], ignored: [] },
       totalRows: rows.length,
     };
   }
@@ -404,7 +424,26 @@ export function mapRows(rows: string[][]): ImportResult {
     });
   });
 
-  return { entries, issues, totalRows: dataRows.length };
+  // Everything the file contained, and where it went.
+  const matched = (Object.keys(col) as (keyof typeof COLUMN_LABELS)[])
+    .map((key) => ({ header: (headers[col[key]!] ?? "").trim(), field: COLUMN_LABELS[key] }))
+    .filter((m) => m.header !== "");
+
+  // A carried-over column with no data in any row is noise, not content.
+  const carriedWithData = carriedOver.filter((c) =>
+    dataRows.some((row) => (row[c.index] ?? "").trim() !== "")
+  );
+
+  return {
+    entries,
+    issues,
+    totalRows: dataRows.length,
+    mapping: {
+      matched,
+      carriedToNotes: carriedWithData.map((c) => c.header),
+      ignored: carriedOver.filter((c) => !carriedWithData.includes(c)).map((c) => c.header),
+    },
+  };
 }
 
 function findHeaderRow(rows: string[][]): number {

@@ -13,7 +13,7 @@ import { claimToken, issueToken } from "./tokens";
 import { bucketSize, record } from "./analytics";
 import { newRegisterCode, newVerificationCode } from "./ids";
 import { ACTIVITY_TYPES, EVENT_TYPES, REGULATORS } from "./format";
-import { mapRows, parseSpreadsheet, type ParsedEntry } from "./import";
+import { mapRows, parseSpreadsheet, type ImportResult, type ParsedEntry } from "./import";
 import { FEEDBACK_QUESTIONS, QUESTION_SET_VERSION, SCALE_POINTS } from "./feedback";
 import { frameworkFor, serialiseStandards, validStandards } from "./standards";
 
@@ -21,7 +21,13 @@ export type ActionState = { error: string } | null;
 
 export type ImportPreviewState =
   | { error: string }
-  | { fileName: string; entries: ParsedEntry[]; issues: string[]; totalRows: number }
+  | {
+      fileName: string;
+      entries: ParsedEntry[];
+      issues: string[];
+      totalRows: number;
+      mapping: ImportResult["mapping"];
+    }
   | null;
 
 function str(formData: FormData, key: string): string {
@@ -684,7 +690,7 @@ export async function parseImportFile(
     return { error: e instanceof Error ? e.message : "That file could not be read as a CSV or Excel spreadsheet." };
   }
 
-  const { entries, issues, totalRows } = mapRows(rows);
+  const { entries, issues, totalRows, mapping } = mapRows(rows);
   if (entries.length === 0) {
     return {
       error:
@@ -692,7 +698,7 @@ export async function parseImportFile(
         (issues[0] ?? "Check the file matches the expected columns — download the template for an example."),
     };
   }
-  return { fileName: file.name, entries, issues, totalRows };
+  return { fileName: file.name, entries, issues, totalRows, mapping };
 }
 
 export async function commitImport(_prev: ActionState, formData: FormData): Promise<ActionState> {

@@ -64,6 +64,34 @@ export function ImportForm() {
             </div>
           )}
 
+          {/* A migration tool has to answer "did you keep my data?" before the
+              user commits. Listing every column and where it went is the only
+              honest way to do that — silence reads as loss. */}
+          <div className="notice notice--info">
+            <h3 className="notice__title">Every column in your file</h3>
+            <p className="small">
+              <strong>Matched to a field:</strong>{" "}
+              {preview.mapping.matched.length === 0
+                ? "none"
+                : preview.mapping.matched
+                    .map((m) => `${m.header} → ${m.field}`)
+                    .join(", ")}
+            </p>
+            {preview.mapping.carriedToNotes.length > 0 && (
+              <p className="small">
+                <strong>Kept in notes, labelled:</strong>{" "}
+                {preview.mapping.carriedToNotes.join(", ")}. Nothing is discarded — anything we
+                don&rsquo;t have a field for is added to the entry&rsquo;s notes with its heading.
+              </p>
+            )}
+            {preview.mapping.ignored.length > 0 && (
+              <p className="small muted">
+                <strong>Empty in every row, so skipped:</strong>{" "}
+                {preview.mapping.ignored.join(", ")}.
+              </p>
+            )}
+          </div>
+
           <div className="table-wrap table-wrap--scroll">
             <table className="table">
               <thead>
@@ -93,7 +121,7 @@ export function ImportForm() {
                       </div>
                     </td>
                     <td className="small">{e.provider ?? "—"}</td>
-                    <td className="small">{e.notes ? `${e.notes.slice(0, 80)}${e.notes.length > 80 ? "…" : ""}` : "—"}</td>
+                    <td className="small prewrap">{e.notes ?? "—"}</td>
                   </tr>
                 ))}
               </tbody>
