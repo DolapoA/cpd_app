@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { PDFDocument, StandardFonts, rgb } from "pdf-lib";
 import { getDb, type Register, type Signature } from "@/lib/db";
+import { record } from "@/lib/analytics";
 import { getBaseUrl } from "@/lib/base-url";
 import { formatDate, formatDateTime } from "@/lib/format";
 
@@ -15,6 +16,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
     | Signature
     | undefined;
   if (!sig) return new NextResponse("Not found", { status: 404 });
+  await record({ name: "slip_downloaded" });
   const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
 
   const baseUrl = await getBaseUrl();

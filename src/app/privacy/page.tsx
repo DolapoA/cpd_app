@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-export const metadata = { title: "Privacy" };
+export const metadata = {
+  title: "Privacy",
+  description:
+    "What CPD Register holds about you, why, how long for, and how to remove it. Written plainly, including what closing your account does not delete and why.",
+  alternates: { canonical: "/privacy" },
+  robots: { index: true, follow: true },
+};
 
 const UPDATED = "13 August 2026";
 

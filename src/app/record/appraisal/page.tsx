@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
+import { record } from "@/lib/analytics";
 import { formatDate, GMC_APPRAISAL_REGULATOR } from "@/lib/format";
 import { clampToRegistration } from "@/lib/registration";
 import { getBaseUrl } from "@/lib/base-url";
@@ -15,6 +16,7 @@ export default async function AppraisalPage({
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+  await record({ name: "compliance_pack_generated", kind: "gmc" });
 
   const sp = await searchParams;
   const to = sp.to ?? new Date().toISOString().slice(0, 10);

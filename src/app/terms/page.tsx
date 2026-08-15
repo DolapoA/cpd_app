@@ -1,6 +1,12 @@
 import Link from "next/link";
 
-export const metadata = { title: "Terms of use" };
+export const metadata = {
+  title: "Terms of use",
+  description:
+    "Terms for using CPD Register: what the service does, what it does not claim to do, and your responsibilities when signing or organising an attendance register.",
+  alternates: { canonical: "/terms" },
+  robots: { index: true, follow: true },
+};
 
 const UPDATED = "13 August 2026";
 

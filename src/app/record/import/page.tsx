@@ -1,3 +1,4 @@
+import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { ImportForm } from "@/components/import-form";
@@ -71,6 +72,11 @@ export default async function ImportPage() {
       </div>
 
       <ImportForm />
+          <p className="muted small">
+        Spreadsheet not importing as you expect?{" "}
+        <Link href="/feedback?about=/record/import">Tell us what it looks like</Link> — column
+        names vary hugely between employers, and every example makes the matching better.
+      </p>
     </main>
   );
 }

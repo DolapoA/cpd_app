@@ -4,6 +4,23 @@ import { getCurrentUser } from "@/lib/auth";
 import { RollingProfessions } from "@/components/rolling-professions";
 import { Reveal } from "@/components/reveal";
 
+export const metadata = {
+  // The one page meant to be found. The title carries the job people search
+  // for, not the product name alone.
+  title: "CPD records and attendance registers for UK professionals",
+  description:
+    "Run an attendance register at your event, let people sign with a QR code, and keep a dated CPD record you can export for audit or appraisal. Built for HCPC, GMC, NMC, GDC, GPhC, RICS and other UK regulated professions.",
+  alternates: { canonical: "/" },
+  robots: { index: true, follow: true },
+  openGraph: {
+    title: "CPD evidence that captures itself",
+    description:
+      "Attendance registers, verifiable slips, and a CPD record ready for audit or appraisal.",
+    url: "/",
+    type: "website",
+  },
+};
+
 export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");

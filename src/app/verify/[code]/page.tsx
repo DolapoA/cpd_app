@@ -1,5 +1,6 @@
 import { getDb, type Register, type Signature } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
+import { record } from "@/lib/analytics";
 
 export const metadata = { title: "Verify attendance slip — CPD Register" };
 
@@ -11,6 +12,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
     .get(decodeURIComponent(code)) as Signature | undefined;
 
   if (!sig) {
+    await record({ name: "verification_viewed", outcome: "not_found" });
     return (
       <main className="container container--narrow stack">
         <div className="card">
@@ -25,6 +27,7 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
   }
 
   const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(sig.register_id) as Register;
+  await record({ name: "verification_viewed", outcome: sig.voided ? "voided" : "verified" });
 
   return (
     <main className="container container--narrow stack">

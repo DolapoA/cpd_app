@@ -103,6 +103,10 @@ export default async function SignedPage({
           </p>
         </div>
       )}
+          <p className="muted small">
+        Something not right with this slip?{" "}
+        <Link href="/feedback?about=/r/signed">Let us know</Link>.
+      </p>
     </main>
   );
 }

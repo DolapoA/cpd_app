@@ -8,8 +8,9 @@ import { getDb, registerStatus, type CpdEntry, type Register, type Signature, ty
 import { createSession, destroySession, getCurrentUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
 import { getBaseUrl } from "./base-url";
-import { sendEmailConfirmation, sendPasswordReset } from "./email";
+import { sendEmailConfirmation, sendFeedbackReport, sendPasswordReset } from "./email";
 import { claimToken, issueToken } from "./tokens";
+import { bucketSize, record } from "./analytics";
 import { newRegisterCode, newVerificationCode } from "./ids";
 import { ACTIVITY_TYPES, EVENT_TYPES, REGULATORS } from "./format";
 import { mapRows, parseSpreadsheet, type ParsedEntry } from "./import";
@@ -71,8 +72,10 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
   };
   const userId = Number(created.id);
 
-  await claimGuestSignatures(userId, email, await getGuestSlipCode());
+  const fromSlip = await getGuestSlipCode();
+  await claimGuestSignatures(userId, email, fromSlip);
   await forgetGuestSlip();
+  await record({ name: "signup", source: fromSlip ? "guest_slip" : "direct" });
 
   // Confirming the address is what lets future slips be matched to it safely.
   // Failing to send must not lose the account that was just created.
@@ -267,6 +270,12 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
       new Date().toISOString()
     )) as { id: number };
 
+  await record({
+    name: "register_created",
+    official: isOfficial,
+    collecting_feedback: str(formData, "collect_feedback") === "yes",
+  });
+
   redirect(`/registers/${Number(created.id)}`);
 }
 
@@ -401,6 +410,8 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
       );
     }
   });
+
+  await record({ name: "register_signed", as: user ? "account" : "guest" });
 
   // Guests only: an account holder's slip is already on their record.
   if (!user) await rememberGuestSlip(verificationCode);
@@ -740,6 +751,8 @@ export async function commitImport(_prev: ActionState, formData: FormData): Prom
     }
   });
 
+  await record({ name: "record_imported", size: bucketSize(valid.length) });
+
   redirect(`/record?imported=${valid.length}`);
 }
 
@@ -976,4 +989,52 @@ export async function sendVerificationEmail(): Promise<void> {
   const base = await getBaseUrl();
   await sendEmailConfirmation(user.email, user.full_name, `${base}/verify-email/${token}`);
   revalidatePath("/account");
+}
+
+// ---------------------------------------------------------------------------
+// User feedback
+// ---------------------------------------------------------------------------
+
+const FEEDBACK_KINDS = ["Something is broken", "Something is confusing", "An idea", "Anything else"];
+
+export async function submitFeedbackReport(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const message = str(formData, "message");
+  if (message.length < 10)
+    return { error: "Tell us a little more — a sentence or two is enough." };
+  if (message.length > 4000) return { error: "That is longer than we can send. Trim it a little." };
+
+  const kind = str(formData, "kind");
+  if (!FEEDBACK_KINDS.includes(kind)) return { error: "Choose what kind of report this is." };
+
+  const user = await getCurrentUser();
+  const given = str(formData, "reply_to").toLowerCase();
+  if (given && !/^\S+@\S+\.\S+$/.test(given))
+    return { error: "That email address doesn't look right. Leave it blank if you'd rather not." };
+
+  // One person cannot flood the inbox. Keyed on the account or the reported
+  // page, whichever identifies them, and reusing the sign-in throttle table.
+  const key = `feedback:${user?.email ?? (given || "anonymous")}`;
+  if (await tooManyAttempts(key))
+    return { error: "Thanks — that's several reports in a short time. Try again in 15 minutes." };
+  await recordFailedAttempt(key);
+
+  try {
+    await sendFeedbackReport({
+      kind,
+      message,
+      page: str(formData, "page") || null,
+      from: user?.email ?? (given || null),
+      userAgent: str(formData, "user_agent").slice(0, 300) || null,
+    });
+  } catch (error) {
+    console.error("[feedback] send failed", error);
+    return { error: "We couldn't send that just now. Please try again in a moment." };
+  }
+
+  await record({ name: "report_submitted", kind });
+
+  redirect("/feedback/thanks");
 }
