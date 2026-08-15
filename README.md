@@ -102,9 +102,16 @@ locally.
    6543) rather than the direct connection (5432). A serverless function is short-lived and there
    are many of them, so direct connections exhaust Postgres's connection limit under load.
 
-2. **Email.** Create a [Resend](https://resend.com) API key. Set `EMAIL_FROM` to an address on a
-   domain verified with them. Without a key the app still runs, but reset and confirmation links
-   are logged rather than sent — which in production means people get locked out silently.
+2. **Email.** Create a [Resend](https://resend.com) API key, then **add and verify your domain**
+   under *Domains*. Until a domain is verified Resend only delivers to the address on your own
+   account, so testers would receive neither the confirmation link nor a password reset. Set
+   `EMAIL_FROM` to an address on the verified domain and `FEEDBACK_TO` to wherever problem
+   reports should go. Without a key the app still runs, but links are written to the server log
+   rather than sent — which in production means silent lockouts.
+
+   Messages are sent multipart: branded HTML with the plain text as fallback. The HTML lives in
+   `src/lib/email-template.ts`, which keeps its own copy of the palette because email clients
+   support neither CSS custom properties nor external stylesheets.
 
 3. **Deploy.** Import the repository into Vercel and set `DATABASE_URL`, `RESEND_API_KEY` and
    `EMAIL_FROM`. Nothing else is needed: QR codes and slip links take their origin from the

@@ -1,5 +1,6 @@
 import "server-only";
 import { Resend } from "resend";
+import { renderEmail, type EmailBlock } from "./email-template";
 
 /**
  * Outbound email.
@@ -18,7 +19,8 @@ async function send(
   to: string,
   subject: string,
   text: string,
-  replyTo?: string
+  replyTo?: string,
+  html?: string
 ): Promise<void> {
   if (!emailConfigured()) {
     console.warn(
@@ -31,17 +33,16 @@ async function send(
     from: FROM,
     to,
     subject,
+    // Sent multipart: a client that refuses HTML still gets the full message.
     text,
+    ...(html ? { html } : {}),
     ...(replyTo ? { replyTo } : {}),
   });
   if (error) throw new Error(`Sending email failed: ${error.message}`);
 }
 
 export async function sendPasswordReset(to: string, name: string, url: string): Promise<void> {
-  await send(
-    to,
-    "Reset your CPD Register password",
-    `Hello ${name},
+  const text = `Hello ${name},
 
 Someone asked to reset the password for your CPD Register account. If that was
 you, open this link within the next hour:
@@ -51,7 +52,32 @@ ${url}
 If it wasn't you, nothing has changed and you can ignore this email. Your
 current password still works.
 
-CPD Register`
+CPD Register`;
+
+  await send(
+    to,
+    "Reset your CPD Register password",
+    text,
+    undefined,
+    renderEmail({
+      title: "Reset your password",
+      preheader: "A link to set a new password. It expires in an hour.",
+      blocks: [
+        { kind: "text", content: `Hello ${name},` },
+        {
+          kind: "text",
+          content:
+            "Someone asked to reset the password for your CPD Register account. If that was you, set a new one here.",
+        },
+        { kind: "button", label: "Set a new password", url },
+        { kind: "fallbackUrl", url },
+        {
+          kind: "note",
+          content:
+            "The link works for one hour and once only. If it wasn't you, nothing has changed and your current password still works — you can ignore this.",
+        },
+      ],
+    })
   );
 }
 
@@ -98,10 +124,16 @@ Sent:    ${new Date().toISOString()}`,
 }
 
 export async function sendEmailConfirmation(to: string, name: string, url: string): Promise<void> {
-  await send(
-    to,
-    "Confirm your email for CPD Register",
-    `Hello ${name},
+  const title = "Confirm your email";
+  // The one email a new account holder has to open, so it carries the
+  // orientation rather than sending a separate welcome minutes later.
+  const orientation = [
+    "Sign a register at your next event and it lands on your record for you, marked platform-verified.",
+    "Already keep a spreadsheet? Import it and your history moves across in one go.",
+    "When your regulator asks, export the whole record — or a dated audit pack.",
+  ];
+
+  const text = `Hello ${name},
 
 Confirm this address so attendance you sign at events can be added to your CPD
 record automatically:
@@ -111,6 +143,40 @@ ${url}
 The link works for 24 hours. If you didn't create a CPD Register account, you
 can ignore this email.
 
-CPD Register`
+Once you're in:
+${orientation.map((o) => `  - ${o}`).join("\n")}
+
+This is a test release, so please keep your own copy of anything you would not
+want to lose.
+
+CPD Register`;
+
+  const blocks: EmailBlock[] = [
+    { kind: "text", content: `Hello ${name},` },
+    {
+      kind: "text",
+      content:
+        "Confirm this address so attendance you sign at events can be added to your CPD record automatically.",
+    },
+    { kind: "button", label: "Confirm my email", url },
+    { kind: "fallbackUrl", url },
+    { kind: "list", heading: "Once you're in", items: orientation },
+    {
+      kind: "note",
+      content:
+        "The link works for 24 hours. If you didn't create a CPD Register account, you can ignore this email — nothing was set up.",
+    },
+  ];
+
+  await send(
+    to,
+    "Confirm your email for CPD Register",
+    text,
+    undefined,
+    renderEmail({
+      title,
+      preheader: "One click to confirm, and your attendance records itself from here.",
+      blocks,
+    })
   );
 }
