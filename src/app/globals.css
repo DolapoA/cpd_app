@@ -1719,9 +1719,28 @@ body:has(.guest-shell) .logo {
   background: var(--surface-sunken);
 }
 
+/* The icon is drawn, not typed, so it needs a box rather than a font size. */
 .nav-link__icon {
-  font-size: var(--text-m);
-  line-height: var(--leading-none);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: none;
+  width: 20px;
+  height: 20px;
+  color: var(--ink-soft);
+}
+
+.nav-link[aria-current="page"] .nav-link__icon {
+  color: var(--brand);
+}
+
+.nav-link:hover .nav-link__icon {
+  color: var(--brand-dark);
+}
+
+/* Both labels are in the markup; the width decides which is shown. */
+.nav-link__short {
+  display: none;
 }
 
 /* The account is not a fourth section, so it is set apart by a rule. */
@@ -1881,6 +1900,14 @@ body:has(.site-header--rail) {
     justify-content: space-around;
     flex-wrap: nowrap;
     overflow: visible;
+  }
+
+  .site-rail .nav-link__full {
+    display: none;
+  }
+
+  .site-rail .nav-link__short {
+    display: inline;
   }
 
   .site-rail .nav-link {
