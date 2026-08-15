@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { EntryNotes } from "@/components/entry-notes";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { record } from "@/lib/analytics";
@@ -156,7 +157,7 @@ export default async function AppraisalPage({
                       {e.points != null ? `${e.points} pts` : "—"}
                       {e.hours != null ? ` · ${e.hours} h` : ""}
                     </td>
-                    <td className="small">{e.notes ?? "—"}</td>
+                    <td className="small">{e.notes ? <EntryNotes notes={e.notes} /> : "—"}</td>
                     <td className="small">
                       {e.verified ? "Platform-verified" : "Self-reported"}
                       {e.verification_code && (

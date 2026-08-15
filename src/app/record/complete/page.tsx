@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EntryNotes } from "@/components/entry-notes";
 import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -83,7 +84,7 @@ export default async function CompleteRecordPage() {
               </p>
               {entry.notes && (
                 <p className="muted small prewrap">
-                  {entry.notes}
+                  <EntryNotes notes={entry.notes} />
                 </p>
               )}
               <GapForm entryId={entry.id} gaps={gaps} framework={framework} />

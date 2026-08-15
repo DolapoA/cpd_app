@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { EntryNotes } from "@/components/entry-notes";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { record } from "@/lib/analytics";
@@ -197,7 +198,7 @@ export default async function AuditPackPage({
                     <td>
                       <strong>{e.title}</strong>
                       {e.provider && <div className="muted small">{e.provider}</div>}
-                      {e.notes && <div className="small">Reflection: {e.notes}</div>}
+                      {e.notes && <EntryNotes notes={e.notes} className="small" />}
                     </td>
                     <td className="small">{e.activity_type}</td>
                     {framework && (

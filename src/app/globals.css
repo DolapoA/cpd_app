@@ -1987,3 +1987,40 @@ body:has(.guest-shell) .site-rail__foot {
 .site-main > main {
   flex: 1;
 }
+
+/* ---- Entry notes ----
+   Imported notes carry one "Heading: value" pair per line. Laid out so each
+   column the importer kept is findable at a glance rather than buried in a
+   paragraph. */
+
+.entry-notes {
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+}
+
+/* The heading sits above its text rather than beside it. These appear inside
+   an already-narrow table cell, and a label column there leaves the text a
+   ribbon a few words wide. */
+.entry-notes__row + .entry-notes__row {
+  margin-top: var(--space-2);
+}
+
+.entry-notes__label {
+  display: block;
+  font-weight: 600;
+  color: var(--ink-soft);
+  font-size: var(--text-2xs);
+  letter-spacing: 0.03em;
+}
+
+.entry-notes__value {
+  display: block;
+  margin: 0;
+}
+
+/* On paper the labels carry more weight — an assessor is scanning for them. */
+.print-doc .entry-notes__label {
+  color: var(--ink);
+}

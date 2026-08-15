@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { EntryNotes } from "@/components/entry-notes";
 import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -182,7 +183,7 @@ export default async function RecordPage({
                     <td data-label=".">
                       <strong>{e.title}</strong>
                       {e.provider && <div className="muted small">{e.provider}</div>}
-                      {e.notes && <div className="muted small">{e.notes}</div>}
+                      {e.notes && <EntryNotes notes={e.notes} className="muted small" />}
                     </td>
                     <td className="small" data-label="Type">{e.activity_type}</td>
                     {framework && (
