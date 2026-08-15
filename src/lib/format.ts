@@ -51,6 +51,12 @@ export const REGULATORS = [
   "ARB",
   "RIBA",
   "Engineering Council",
+  // Teaching is regulated separately in each nation, and only Scotland ties
+  // CPD to registration. England has no statutory CPD requirement and no
+  // registering body for it, so English teachers belong under "Other".
+  "GTCS",
+  "EWC (Wales)",
+  "GTCNI",
   "Other",
   "None",
 ] as const;
@@ -58,6 +64,7 @@ export const REGULATORS = [
 /** Regulators with a dedicated compliance pack — gates which packs are offered on the dashboard and record page. */
 export const HCPC_AUDIT_PACK_REGULATOR = "HCPC";
 export const GMC_APPRAISAL_REGULATOR = "GMC";
+export const GTCS_UPDATE_REGULATOR = "GTCS";
 
 export function formatDate(iso: string): string {
   const d = new Date(iso.length === 10 ? iso + "T00:00:00" : iso);

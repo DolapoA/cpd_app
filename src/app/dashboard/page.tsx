@@ -6,6 +6,7 @@ import {
   ACTIVITY_TYPES,
   formatDate,
   GMC_APPRAISAL_REGULATOR,
+  GTCS_UPDATE_REGULATOR,
   HCPC_AUDIT_PACK_REGULATOR,
 } from "@/lib/format";
 import { frameworkFor } from "@/lib/standards";
@@ -206,7 +207,9 @@ export default async function DashboardPage() {
         )}
       </div>
 
-      {(user.regulator === HCPC_AUDIT_PACK_REGULATOR || user.regulator === GMC_APPRAISAL_REGULATOR) && (
+      {(user.regulator === HCPC_AUDIT_PACK_REGULATOR ||
+        user.regulator === GMC_APPRAISAL_REGULATOR ||
+        user.regulator === GTCS_UPDATE_REGULATOR) && (
         <>
           {user.regulator === HCPC_AUDIT_PACK_REGULATOR && (
             <div className="card">
@@ -216,6 +219,17 @@ export default async function DashboardPage() {
               </p>
               <Link href="/record/audit-pack" className="btn btn--secondary">
                 Generate audit pack
+              </Link>
+            </div>
+          )}
+          {user.regulator === GTCS_UPDATE_REGULATOR && (
+            <div className="card">
+              <h3>Professional Update record</h3>
+              <p className="muted small">
+                Your reflective record of professional learning, over the five-year cycle.
+              </p>
+              <Link href="/record/professional-update" className="btn btn--secondary">
+                Generate the record
               </Link>
             </div>
           )}
@@ -233,7 +247,9 @@ export default async function DashboardPage() {
         </>
       )}
 
-      {user.regulator !== HCPC_AUDIT_PACK_REGULATOR && user.regulator !== GMC_APPRAISAL_REGULATOR && (
+      {user.regulator !== HCPC_AUDIT_PACK_REGULATOR &&
+        user.regulator !== GMC_APPRAISAL_REGULATOR &&
+        user.regulator !== GTCS_UPDATE_REGULATOR && (
         <div className="card">
           <h3>Export your CPD record</h3>
           <p className="muted small">

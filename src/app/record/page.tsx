@@ -7,6 +7,7 @@ import {
   ACTIVITY_TYPES,
   formatDate,
   GMC_APPRAISAL_REGULATOR,
+  GTCS_UPDATE_REGULATOR,
   HCPC_AUDIT_PACK_REGULATOR,
 } from "@/lib/format";
 import { frameworkFor, parseStandards } from "@/lib/standards";
@@ -75,6 +76,11 @@ export default async function RecordPage({
           {user.regulator === HCPC_AUDIT_PACK_REGULATOR && (
             <Link href="/record/audit-pack" className="btn btn--quiet">
               HCPC audit pack
+            </Link>
+          )}
+          {user.regulator === GTCS_UPDATE_REGULATOR && (
+            <Link href="/record/professional-update" className="btn btn--quiet">
+              Professional Update record
             </Link>
           )}
           {user.regulator === GMC_APPRAISAL_REGULATOR && (

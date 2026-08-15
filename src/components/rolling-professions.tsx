@@ -18,6 +18,8 @@ const PROFESSIONS: [string, string][] = [
   ["Architects", "registered with the ARB"],
   ["Accountants", "chartered with ICAEW"],
   ["Engineers", "registered with the Engineering Council"],
+  ["Teachers", "registered with the GTCS"],
+  ["Teachers", "registered with the EWC in Wales"],
 ];
 
 export function RollingProfessions() {

@@ -25,7 +25,7 @@ export type PackColumnId =
   | "provider"
   | "evidence";
 
-export type PackKind = "hcpc" | "gmc";
+export type PackKind = "hcpc" | "gmc" | "gtcs";
 
 export type PackColumn = {
   id: PackColumnId;
@@ -69,6 +69,18 @@ function locksFor(kind: PackKind, framework: StandardsFramework | null, body: st
         id: "reflection",
         because:
           "HCPC standards 3 and 4 ask you to show CPD contributed to your practice and benefited service users. Reflection is where that is evidenced.",
+      },
+    ],
+    gtcs: [
+      {
+        id: "reflection",
+        because:
+          "Professional Update requires a reflective record of your learning and evidence of its impact — the reflection is that record.",
+      },
+      {
+        id: "type",
+        because:
+          "Professional Review and Development looks at the range of learning you have engaged in, not only its volume.",
       },
     ],
     gmc: [
