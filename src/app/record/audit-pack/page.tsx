@@ -8,13 +8,15 @@ import { frameworkFor, parseStandards } from "@/lib/standards";
 import { clampToRegistration } from "@/lib/registration";
 import { getBaseUrl } from "@/lib/base-url";
 import { PrintButton } from "@/components/print-button";
+import { PackColumnsForm } from "@/components/pack-columns-form";
+import { resolvePackColumns } from "@/lib/pack-columns";
 
 export const metadata = { title: "HCPC audit pack — CPD Register" };
 
 export default async function AuditPackPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; cols?: string | string[] }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -41,6 +43,15 @@ export default async function AuditPackPage({
 
   const baseUrl = await getBaseUrl();
   const framework = frameworkFor(user.regulator);
+
+  // Absent from the query string means "not chosen yet", which is different
+  // from "chosen nothing" — the first view shows the full pack.
+  const chosen =
+    sp.cols === undefined
+      ? null
+      : (Array.isArray(sp.cols) ? sp.cols : [sp.cols]).filter((c) => c !== "");
+  const columns = resolvePackColumns("hcpc", framework, user.regulator ?? "Your regulator", chosen);
+  const show = (id: Parameters<typeof columns.visible.has>[0]) => columns.visible.has(id);
   const byType = ACTIVITY_TYPES.map((t) => ({
     type: t,
     count: entries.filter((e) => e.activity_type === t).length,
@@ -101,7 +112,13 @@ export default async function AuditPackPage({
         <p className="hint">
           Tip: match this to your two-year HCPC cycle.
         </p>
+        {/* Keeps the column choice when only the period changes. */}
+        {chosen?.map((c) => (
+          <input key={c} type="hidden" name="cols" value={c} />
+        ))}
       </form>
+
+      <PackColumnsForm selection={columns} hiddenFields={{ from, to }} />
 
       <div className="card">
         <h1>Continuing Professional Development record</h1>
@@ -183,47 +200,57 @@ export default async function AuditPackPage({
             <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Activity</th>
-                  <th>Type</th>
-                  {framework && <th>{framework.columnHeader}</th>}
-                  <th>CPD</th>
-                  <th>Evidence</th>
+                  {show("date") && <th>Date</th>}
+                  {show("activity") && <th>Activity</th>}
+                  {show("provider") && <th>Provider</th>}
+                  {show("type") && <th>Type</th>}
+                  {show("standards") && framework && <th>{framework.columnHeader}</th>}
+                  {show("reflection") && <th>Reflection and outcomes</th>}
+                  {show("cpd") && <th>CPD</th>}
+                  {show("evidence") && <th>Evidence</th>}
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
                   <tr key={e.id}>
-                    <td>{formatDate(e.activity_date)}</td>
-                    <td>
-                      <strong>{e.title}</strong>
-                      {e.provider && <div className="muted small">{e.provider}</div>}
-                      {e.notes && <EntryNotes notes={e.notes} className="small" />}
-                    </td>
-                    <td className="small">{e.activity_type}</td>
-                    {framework && (
-                      <td className="small">
-                        {parseStandards(e.standards).join(", ") || "—"}
+                    {show("date") && <td>{formatDate(e.activity_date)}</td>}
+                    {show("activity") && (
+                      <td>
+                        <strong>{e.title}</strong>
                       </td>
                     )}
-                    <td className="small">
-                      {e.is_official ? "Official" : "Unofficial"}
-                      <div>
-                        {e.points != null ? `${e.points} pts` : ""}
-                        {e.points != null && e.hours != null ? " · " : ""}
-                        {e.hours != null ? `${e.hours} h` : ""}
-                      </div>
-                    </td>
-                    <td className="small">
-                      {e.verified ? "Platform-verified attendance" : "Self-reported"}
-                      {e.verification_code && (
-                        <div className="mono">
-                          {e.verification_code}
-                          <br />
-                          Verify: {baseUrl}/verify/{e.verification_code}
+                    {show("provider") && <td className="small">{e.provider ?? "—"}</td>}
+                    {show("type") && <td className="small">{e.activity_type}</td>}
+                    {show("standards") && framework && (
+                      <td className="small">{parseStandards(e.standards).join(", ") || "—"}</td>
+                    )}
+                    {show("reflection") && (
+                      <td className="small">
+                        {e.notes ? <EntryNotes notes={e.notes} /> : "—"}
+                      </td>
+                    )}
+                    {show("cpd") && (
+                      <td className="small">
+                        {e.is_official ? "Official" : "Unofficial"}
+                        <div>
+                          {e.points != null ? `${e.points} pts` : ""}
+                          {e.points != null && e.hours != null ? " · " : ""}
+                          {e.hours != null ? `${e.hours} h` : ""}
                         </div>
-                      )}
-                    </td>
+                      </td>
+                    )}
+                    {show("evidence") && (
+                      <td className="small">
+                        {e.verified ? "Platform-verified attendance" : "Self-reported"}
+                        {e.verification_code && (
+                          <div className="mono">
+                            {e.verification_code}
+                            <br />
+                            Verify: {baseUrl}/verify/{e.verification_code}
+                          </div>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

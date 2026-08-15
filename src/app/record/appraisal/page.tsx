@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { frameworkFor, parseStandards } from "@/lib/standards";
 import { EntryNotes } from "@/components/entry-notes";
 import { getDb, type CpdEntry } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
@@ -7,13 +8,15 @@ import { formatDate, GMC_APPRAISAL_REGULATOR } from "@/lib/format";
 import { clampToRegistration } from "@/lib/registration";
 import { getBaseUrl } from "@/lib/base-url";
 import { PrintButton } from "@/components/print-button";
+import { PackColumnsForm } from "@/components/pack-columns-form";
+import { resolvePackColumns } from "@/lib/pack-columns";
 
 export const metadata = { title: "GMC appraisal summary — CPD Register" };
 
 export default async function AppraisalPage({
   searchParams,
 }: {
-  searchParams: Promise<{ from?: string; to?: string }>;
+  searchParams: Promise<{ from?: string; to?: string; cols?: string | string[] }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
@@ -39,6 +42,13 @@ export default async function AppraisalPage({
     .all(user.id, from, to) as (CpdEntry & { verification_code: string | null })[];
 
   const baseUrl = await getBaseUrl();
+  const framework = frameworkFor(user.regulator);
+  const chosen =
+    sp.cols === undefined
+      ? null
+      : (Array.isArray(sp.cols) ? sp.cols : [sp.cols]).filter((c) => c !== "");
+  const columns = resolvePackColumns("gmc", framework, user.regulator ?? "Your regulator", chosen);
+  const show = (id: Parameters<typeof columns.visible.has>[0]) => columns.visible.has(id);
   const totalPoints = entries.reduce((sum, e) => sum + (e.points ?? 0), 0);
   const totalHours = entries.reduce((sum, e) => sum + (e.hours ?? 0), 0);
   const official = entries.filter((e) => e.is_official).length;
@@ -134,36 +144,48 @@ export default async function AppraisalPage({
             <table className="table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Activity</th>
-                  <th>Credits / hours</th>
-                  <th>Reflection</th>
-                  <th>Evidence</th>
+                  {show("date") && <th>Date</th>}
+                  {show("activity") && <th>Activity</th>}
+                  {show("provider") && <th>Provider</th>}
+                  {show("type") && <th>Type</th>}
+                  {show("standards") && framework && <th>{framework.columnHeader}</th>}
+                  {show("cpd") && <th>Credits / hours</th>}
+                  {show("reflection") && <th>Reflection</th>}
+                  {show("evidence") && <th>Evidence</th>}
                 </tr>
               </thead>
               <tbody>
                 {entries.map((e) => (
                   <tr key={e.id}>
-                    <td>{formatDate(e.activity_date)}</td>
-                    <td>
-                      <strong>{e.title}</strong>
-                      {e.provider && <div className="muted small">{e.provider}</div>}
-                      <div className="muted small">
-                        {e.activity_type}
-                        {e.is_official ? " · Official CPD" : ""}
-                      </div>
-                    </td>
-                    <td className="small">
-                      {e.points != null ? `${e.points} pts` : "—"}
-                      {e.hours != null ? ` · ${e.hours} h` : ""}
-                    </td>
-                    <td className="small">{e.notes ? <EntryNotes notes={e.notes} /> : "—"}</td>
-                    <td className="small">
-                      {e.verified ? "Platform-verified" : "Self-reported"}
-                      {e.verification_code && (
-                        <div className="mono">{baseUrl}/verify/{e.verification_code}</div>
-                      )}
-                    </td>
+                    {show("date") && <td>{formatDate(e.activity_date)}</td>}
+                    {show("activity") && (
+                      <td>
+                        <strong>{e.title}</strong>
+                        {e.is_official && <div className="muted small">Official CPD</div>}
+                      </td>
+                    )}
+                    {show("provider") && <td className="small">{e.provider ?? "—"}</td>}
+                    {show("type") && <td className="small">{e.activity_type}</td>}
+                    {show("standards") && framework && (
+                      <td className="small">{parseStandards(e.standards).join(", ") || "—"}</td>
+                    )}
+                    {show("cpd") && (
+                      <td className="small">
+                        {e.points != null ? `${e.points} pts` : "—"}
+                        {e.hours != null ? ` · ${e.hours} h` : ""}
+                      </td>
+                    )}
+                    {show("reflection") && (
+                      <td className="small">{e.notes ? <EntryNotes notes={e.notes} /> : "—"}</td>
+                    )}
+                    {show("evidence") && (
+                      <td className="small">
+                        {e.verified ? "Platform-verified" : "Self-reported"}
+                        {e.verification_code && (
+                          <div className="mono">{baseUrl}/verify/{e.verification_code}</div>
+                        )}
+                      </td>
+                    )}
                   </tr>
                 ))}
               </tbody>

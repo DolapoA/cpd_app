@@ -2024,3 +2024,71 @@ body:has(.guest-shell) .site-rail__foot {
 .print-doc .entry-notes__label {
   color: var(--ink);
 }
+
+/* ---- Pack column picker ---- */
+
+.pack-cols {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(15rem, 1fr));
+  gap: var(--space-2);
+}
+
+.pack-col {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: var(--space-2);
+  align-items: start;
+  padding: var(--space-25) var(--space-3);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-md);
+  font-weight: 400;
+  margin-bottom: 0;
+  cursor: pointer;
+}
+
+.pack-col:hover {
+  border-color: var(--brand);
+  background: var(--brand-soft);
+}
+
+/* A locked column is not a disabled control the user should keep trying —
+   it reads as settled, and says why beside it. */
+.pack-col--locked {
+  cursor: default;
+  background: var(--surface-sunken);
+}
+
+.pack-col--locked:hover {
+  border-color: var(--line);
+  background: var(--surface-sunken);
+}
+
+.pack-col input {
+  margin-top: var(--space-1);
+}
+
+.pack-col__label {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-weight: 600;
+  font-size: var(--text-s);
+}
+
+.pack-col__pill {
+  font-size: var(--text-3xs);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  border-radius: var(--radius-pill);
+  padding: 0 var(--space-2);
+}
+
+.pack-col__hint {
+  display: block;
+  color: var(--ink-soft);
+  font-size: var(--text-xs);
+  margin-top: var(--space-05);
+}
