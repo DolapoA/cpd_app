@@ -9,6 +9,7 @@ import {
   GMC_APPRAISAL_REGULATOR,
   GTCS_UPDATE_REGULATOR,
   HCPC_AUDIT_PACK_REGULATOR,
+  isEngineeringBody,
 } from "@/lib/format";
 import { frameworkFor, parseStandards } from "@/lib/standards";
 import { gapsFor } from "@/lib/completeness";
@@ -81,6 +82,11 @@ export default async function RecordPage({
           {user.regulator === GTCS_UPDATE_REGULATOR && (
             <Link href="/record/professional-update" className="btn btn--quiet">
               Professional Update record
+            </Link>
+          )}
+          {isEngineeringBody(user.regulator) && (
+            <Link href="/record/engineering" className="btn btn--quiet">
+              CPD record for sampling
             </Link>
           )}
           {user.regulator === GMC_APPRAISAL_REGULATOR && (

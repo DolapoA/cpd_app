@@ -25,7 +25,7 @@ export type PackColumnId =
   | "provider"
   | "evidence";
 
-export type PackKind = "hcpc" | "gmc" | "gtcs";
+export type PackKind = "hcpc" | "gmc" | "gtcs" | "engineering";
 
 export type PackColumn = {
   id: PackColumnId;
@@ -81,6 +81,13 @@ function locksFor(kind: PackKind, framework: StandardsFramework | null, body: st
         id: "type",
         because:
           "Professional Review and Development looks at the range of learning you have engaged in, not only its volume.",
+      },
+    ],
+    engineering: [
+      {
+        id: "reflection",
+        because:
+          "The sample asks what you got from your development, not how long you spent. Reflection is the substance of what your institution reviews.",
       },
     ],
     gmc: [

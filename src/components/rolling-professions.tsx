@@ -17,6 +17,8 @@ const PROFESSIONS: [string, string][] = [
   ["Financial advisers", "regulated by the FCA"],
   ["Architects", "registered with the ARB"],
   ["Accountants", "chartered with ICAEW"],
+  ["Mechanical engineers", "registered through the IMechE"],
+  ["Civil engineers", "registered through the ICE"],
   ["Engineers", "registered with the Engineering Council"],
   ["Teachers", "registered with the GTCS"],
   ["Teachers", "registered with the EWC in Wales"],

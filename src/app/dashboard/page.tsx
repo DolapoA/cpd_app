@@ -8,6 +8,7 @@ import {
   GMC_APPRAISAL_REGULATOR,
   GTCS_UPDATE_REGULATOR,
   HCPC_AUDIT_PACK_REGULATOR,
+  isEngineeringBody,
 } from "@/lib/format";
 import { frameworkFor } from "@/lib/standards";
 import { gapsFor } from "@/lib/completeness";
@@ -209,7 +210,8 @@ export default async function DashboardPage() {
 
       {(user.regulator === HCPC_AUDIT_PACK_REGULATOR ||
         user.regulator === GMC_APPRAISAL_REGULATOR ||
-        user.regulator === GTCS_UPDATE_REGULATOR) && (
+        user.regulator === GTCS_UPDATE_REGULATOR ||
+        isEngineeringBody(user.regulator)) && (
         <>
           {user.regulator === HCPC_AUDIT_PACK_REGULATOR && (
             <div className="card">
@@ -219,6 +221,17 @@ export default async function DashboardPage() {
               </p>
               <Link href="/record/audit-pack" className="btn btn--secondary">
                 Generate audit pack
+              </Link>
+            </div>
+          )}
+          {isEngineeringBody(user.regulator) && (
+            <div className="card">
+              <h3>CPD record for sampling</h3>
+              <p className="muted small">
+                Your last twelve months, ready if you are picked for the annual 5% sample.
+              </p>
+              <Link href="/record/engineering" className="btn btn--secondary">
+                Generate the record
               </Link>
             </div>
           )}
@@ -249,7 +262,8 @@ export default async function DashboardPage() {
 
       {user.regulator !== HCPC_AUDIT_PACK_REGULATOR &&
         user.regulator !== GMC_APPRAISAL_REGULATOR &&
-        user.regulator !== GTCS_UPDATE_REGULATOR && (
+        user.regulator !== GTCS_UPDATE_REGULATOR &&
+        !isEngineeringBody(user.regulator) && (
         <div className="card">
           <h3>Export your CPD record</h3>
           <p className="muted small">
