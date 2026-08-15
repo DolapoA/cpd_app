@@ -43,6 +43,19 @@ export default async function LandingPage() {
       <div className="container stack">
         <div className="grid-2">
           <Reveal className="card">
+            <h3>Audit-ready records</h3>
+            <p className="muted">
+              Dated, categorised, and exportable for any period — in the shape your regulator
+              expects. Every slip carries a code an auditor can verify online.
+            </p>
+          </Reveal>
+          <Reveal className="card" delay={80}>
+            <h3>Official and unofficial CPD</h3>
+            <p className="muted">
+              Accredited conferences and informal journal clubs both count.
+            </p>
+          </Reveal>
+          <Reveal className="card">
             <h3>For event organisers</h3>
             <p className="muted">
               Create a register in a minute, put the QR on your closing slide, and watch
@@ -57,26 +70,13 @@ export default async function LandingPage() {
               holders get it added to their record automatically.
             </p>
           </Reveal>
-          <Reveal className="card">
-            <h3>Audit-ready records</h3>
-            <p className="muted">
-              Dated, categorised, and exportable for any period — in the shape your regulator
-              expects. Every slip carries a code an auditor can verify online.
-            </p>
-          </Reveal>
-          <Reveal className="card" delay={80}>
-            <h3>Official and unofficial CPD</h3>
-            <p className="muted">
-              Accredited conferences and informal journal clubs both count.
-            </p>
-          </Reveal>
         </div>
 
         <Reveal className="card">
           <h3>Bringing a record with you?</h3>
           <p className="muted">
-            Upload a CSV or Excel file, check the preview, and your history moves across in one
-            go — however you labelled your columns.
+            Upload a CSV or Excel file, check the preview, and your CPD record moves across in
+            one go.
           </p>
         </Reveal>
       </div>

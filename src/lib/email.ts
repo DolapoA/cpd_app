@@ -20,7 +20,8 @@ async function send(
   subject: string,
   text: string,
   replyTo?: string,
-  html?: string
+  html?: string,
+  attachments?: FeedbackAttachment[]
 ): Promise<void> {
   if (!emailConfigured()) {
     console.warn(
@@ -37,6 +38,9 @@ async function send(
     text,
     ...(html ? { html } : {}),
     ...(replyTo ? { replyTo } : {}),
+    ...(attachments?.length
+      ? { attachments: attachments.map((a) => ({ filename: a.filename, content: a.content })) }
+      : {}),
   });
   if (error) throw new Error(`Sending email failed: ${error.message}`);
 }
@@ -91,6 +95,8 @@ CPD Register`;
  */
 const FEEDBACK_TO = process.env.FEEDBACK_TO;
 
+export type FeedbackAttachment = { filename: string; content: Buffer };
+
 export type FeedbackReport = {
   kind: string;
   message: string;
@@ -99,6 +105,8 @@ export type FeedbackReport = {
   /** Only if they are signed in or chose to give one. */
   from: string | null;
   userAgent: string | null;
+  /** A screenshot, where one was given. Usually worth more than the words. */
+  attachment: FeedbackAttachment | null;
 };
 
 export async function sendFeedbackReport(report: FeedbackReport): Promise<void> {
@@ -117,9 +125,11 @@ Kind:    ${report.kind}
 Page:    ${report.page ?? "not given"}
 From:    ${report.from ?? "not given"}
 Browser: ${report.userAgent ?? "not given"}
-Sent:    ${new Date().toISOString()}`,
+Sent:    ${new Date().toISOString()}${report.attachment ? `\nAttached: ${report.attachment.filename}` : ""}`,
     // So a reply goes to the person who reported it, not into the void.
-    report.from ?? undefined
+    report.from ?? undefined,
+    undefined,
+    report.attachment ? [report.attachment] : undefined
   );
 }
 

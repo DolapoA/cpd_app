@@ -56,6 +56,20 @@ export function FeedbackReportForm({
         </div>
       </div>
 
+      <div className="field">
+        <label htmlFor="screenshot">Screenshot</label>
+        <input
+          id="screenshot"
+          name="screenshot"
+          type="file"
+          accept="image/png,image/jpeg,image/webp,image/gif"
+        />
+        <div className="hint">
+          Optional, and usually the most useful thing you can send. Up to 3&nbsp;MB. Please check
+          it doesn&rsquo;t show anything about a patient, client or colleague.
+        </div>
+      </div>
+
       {signedInAs ? (
         <p className="hint">
           We&rsquo;ll reply to <strong>{signedInAs}</strong>, and we can see which page you were on.

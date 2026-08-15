@@ -1027,6 +1027,23 @@ export async function submitFeedbackReport(
     return { error: "Thanks — that's several reports in a short time. Try again in 15 minutes." };
   await recordFailedAttempt(key);
 
+  // A screenshot usually says more than the description does. Kept small
+  // enough to survive the serverless request-body cap with room to spare.
+  const MAX_SHOT_BYTES = 3 * 1024 * 1024;
+  const ALLOWED = ["image/png", "image/jpeg", "image/webp", "image/gif"];
+  let attachment: { filename: string; content: Buffer } | null = null;
+  const shot = formData.get("screenshot");
+  if (shot instanceof File && shot.size > 0) {
+    if (!ALLOWED.includes(shot.type))
+      return { error: "That file isn't an image. PNG, JPEG, WebP or GIF, please." };
+    if (shot.size > MAX_SHOT_BYTES)
+      return { error: "That image is over 3 MB. Crop it, or send a smaller screenshot." };
+    attachment = {
+      filename: shot.name || "screenshot.png",
+      content: Buffer.from(await shot.arrayBuffer()),
+    };
+  }
+
   try {
     await sendFeedbackReport({
       kind,
@@ -1034,6 +1051,7 @@ export async function submitFeedbackReport(
       page: str(formData, "page") || null,
       from: user?.email ?? (given || null),
       userAgent: str(formData, "user_agent").slice(0, 300) || null,
+      attachment,
     });
   } catch (error) {
     console.error("[feedback] send failed", error);
