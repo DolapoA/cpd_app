@@ -1768,12 +1768,17 @@ body:has(.site-header--rail) {
   align-items: flex-start;
 }
 
+/* Sticky needs the element to be shorter than the space it scrolls within.
+   Stretching it to the full page height — which align-self: stretch does by
+   default on a flex item — leaves nothing to stick inside, so it scrolled away
+   with the content. One viewport tall, pinned to the top. */
 .site-header--rail {
   border-bottom: none;
   border-right: 1px solid var(--line);
   position: sticky;
   top: 0;
-  align-self: stretch;
+  align-self: flex-start;
+  height: 100vh;
 }
 
 .site-rail {
@@ -1781,8 +1786,11 @@ body:has(.site-header--rail) {
   flex-direction: column;
   gap: var(--space-6);
   width: 13rem;
-  min-height: 100vh;
+  height: 100%;
   padding: var(--space-5) var(--space-3);
+  /* If the sections ever outgrow the viewport, the rail scrolls rather than
+     pushing the account out of reach. */
+  overflow-y: auto;
 }
 
 .site-rail .site-nav {
@@ -1845,6 +1853,7 @@ body:has(.site-header--rail) {
     position: fixed;
     inset: auto 0 0 0;
     z-index: 30;
+    height: auto;
     border-right: none;
     border-top: 1px solid var(--line);
     background: var(--surface);
@@ -1854,7 +1863,8 @@ body:has(.site-header--rail) {
     flex-direction: row;
     align-items: center;
     width: auto;
-    min-height: 0;
+    height: auto;
+    overflow: visible;
     padding: var(--space-1) var(--space-2);
   }
 
@@ -1927,9 +1937,12 @@ body:has(.guest-shell) .site-header--rail {
   border-right: none;
   border-bottom: 1px solid var(--line);
   position: static;
+  height: auto;
 }
 
 body:has(.guest-shell) .site-rail {
+  height: auto;
+  overflow: visible;
   flex-direction: row;
   justify-content: center;
   width: auto;
