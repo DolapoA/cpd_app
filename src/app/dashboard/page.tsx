@@ -14,6 +14,9 @@ import { frameworkFor } from "@/lib/standards";
 import { gapsFor } from "@/lib/completeness";
 import { countsTowardCpd } from "@/lib/registration";
 import { daysUntil, goalUrgency } from "@/lib/goal";
+import { setupState } from "@/lib/setup";
+import { hideSetupPrompt } from "@/lib/actions";
+import { SetupChecklist } from "@/components/setup-checklist";
 
 export const metadata = { title: "Dashboard — CPD Register" };
 
@@ -55,6 +58,23 @@ export default async function DashboardPage() {
   const upcoming = plans.filter((p) => (p.ends_on ?? p.starts_on) >= today).slice(0, 3);
   const unanswered = plans.filter((p) => (p.ends_on ?? p.starts_on) < today);
 
+  // The setup prompt is shown until the profile is complete, or until it is
+  // put away. Suggestions do not hold it open: someone who has told us
+  // everything we need should stop being asked for anything.
+  const registerCount = Number(
+    (
+      (await db
+        .prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?")
+        .get(user.id)) as { c: number }
+    ).c
+  );
+  const setup = setupState(user, {
+    entries: entries.length,
+    plans: plans.length,
+    registers: registerCount,
+  });
+  const showSetup = !setup.complete && !user.setup_hidden_at;
+
   const goals = await db
     .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
     .all(user.id) as ActivityTypeGoal[];
@@ -81,6 +101,24 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {showSetup && (
+        <div className="card">
+          <div className="page-head">
+            <h2>Finish setting up</h2>
+            <form action={hideSetupPrompt}>
+              <button type="submit" className="btn btn--quiet btn--small">
+                Hide this
+              </button>
+            </form>
+          </div>
+          <p className="muted small">
+            A few details decide what the app can do for you — which audit pack it can produce,
+            and which of your activity counts.
+          </p>
+          <SetupChecklist state={setup} />
+        </div>
+      )}
 
       <div className="grid-4">
         <div className="stat">

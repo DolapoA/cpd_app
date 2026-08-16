@@ -28,6 +28,9 @@ CREATE TABLE IF NOT EXISTS users (
   /* Whether they see what others in their profession have shared. On by
      default: an empty listing teaches nobody that the feature exists. */
   discover_events INTEGER NOT NULL DEFAULT 1,
+  /* Set when someone hides the setup prompt. A first-run nudge that cannot be
+     put away stops being a nudge and becomes furniture. */
+  setup_hidden_at TEXT,
   created_at TEXT NOT NULL
 );
 
@@ -223,6 +226,7 @@ async function migrate(p: Pool): Promise<void> {
   await p.query(
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS discover_events INTEGER NOT NULL DEFAULT 1"
   );
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_hidden_at TEXT");
   await p.query(
     "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS is_public INTEGER NOT NULL DEFAULT 0"
   );
@@ -392,6 +396,7 @@ export type User = {
   backup_email_verified_at: string | null;
   calendar_token: string | null;
   discover_events: number;
+  setup_hidden_at: string | null;
   totp_secret: string | null;
   /** Set only when a first code has been verified — until then 2FA is not on. */
   totp_confirmed_at: string | null;

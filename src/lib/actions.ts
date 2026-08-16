@@ -1796,3 +1796,14 @@ export async function addSharedEventToPlan(formData: FormData): Promise<void> {
   revalidatePath("/record/planned");
   redirect("/record/planned");
 }
+
+/** Puts the setup prompt away. The profile page still shows how far it got. */
+export async function hideSetupPrompt(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  await (await getDb())
+    .prepare("UPDATE users SET setup_hidden_at = ? WHERE id = ?")
+    .run(new Date().toISOString(), user.id);
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}

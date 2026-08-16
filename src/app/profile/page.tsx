@@ -5,12 +5,24 @@ import { getCurrentUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
 import { ProfessionField } from "@/components/profession-field";
+import { SetupChecklist } from "@/components/setup-checklist";
+import { getDb } from "@/lib/db";
+import { setupState } from "@/lib/setup";
 
 export const metadata = { title: "Profile — CPD Register" };
 
 export default async function ProfilePage() {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const db = await getDb();
+  const count = async (sql: string) =>
+    Number(((await db.prepare(sql).get(user.id)) as { c: number }).c);
+  const setup = setupState(user, {
+    entries: await count("SELECT COUNT(*) AS c FROM cpd_entries WHERE user_id = ?"),
+    plans: await count("SELECT COUNT(*) AS c FROM planned_events WHERE user_id = ?"),
+    registers: await count("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?"),
+  });
 
   return (
     <main className="container container--narrow stack">
@@ -19,6 +31,26 @@ export default async function ProfilePage() {
           <h1>Your profile</h1>
           <p>These pre-fill any register you sign.</p>
         </div>
+      </div>
+
+      {/* Kept here even once it is complete, and even when the dashboard
+          prompt has been hidden: this is the page the answer lives on, so it
+          is where someone comes to check what they have told us. */}
+      <div className={`notice notice--${setup.complete ? "ok" : "info"}`}>
+        <h3 className="notice__title">
+          {setup.complete ? "Your profile is complete" : "Finish your profile"}
+        </h3>
+        {setup.complete ? (
+          <p className="small">
+            Everything the app needs is here. Change any of it below whenever it changes.
+          </p>
+        ) : (
+          <p className="small">
+            Each of these decides something: which audit pack we can produce, which activity
+            counts, and who you share events with.
+          </p>
+        )}
+        <SetupChecklist state={setup} showSuggestions={!setup.complete} />
       </div>
       <div className="card">
         <ActionForm action={updateProfile} submitLabel="Save changes">
