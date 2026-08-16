@@ -163,9 +163,6 @@ can ignore this email.
 Once you're in:
 ${orientation.map((o) => `  - ${o}`).join("\n")}
 
-This is a test release, so please keep your own copy of anything you would not
-want to lose.
-
 CPD Register`;
 
   const blocks: EmailBlock[] = [

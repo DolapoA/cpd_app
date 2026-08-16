@@ -20,15 +20,6 @@ export default function TermsPage() {
         </div>
       </div>
 
-      <div className="notice notice--warn">
-        <h3 className="notice__title">This is a test release</h3>
-        <p className="small">
-          The service is being trialled with a small group. It may change, go offline, or lose
-          data. <strong>Do not rely on it as your only record of CPD.</strong> Keep your own copy —
-          the account page exports everything, and the record page exports CSV.
-        </p>
-      </div>
-
       <div className="card">
         <h2>What this service does</h2>
         <p className="small">
@@ -71,8 +62,9 @@ export default function TermsPage() {
         <h2>Availability and liability</h2>
         <p className="small">
           The service is provided as it is, with no guarantee of availability or of fitness for a
-          particular purpose. During testing in particular, please keep your own exported copy of
-          anything you would not want to lose.
+          particular purpose. Your CPD record is your evidence, so keep your own exported copy of
+          anything you would not want to lose — the account page exports everything, and the
+          record page exports CSV.
         </p>
       </div>
 

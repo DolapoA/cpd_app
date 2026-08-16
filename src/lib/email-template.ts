@@ -150,8 +150,7 @@ export function renderEmail({
 
         <tr>
           <td style="padding:20px 4px 0;font-size:12px;line-height:1.6;color:${C.inkSoft};">
-            CPD Register &middot; attendance registers and CPD records for regulated professionals.<br>
-            This is a test release, so please keep your own copy of anything you would not want to lose.
+            CPD Register &middot; attendance registers and CPD records for regulated professionals.
           </td>
         </tr>
 

@@ -20,8 +20,8 @@ export default async function FeedbackPage({
         <div>
           <h1>Tell us what&rsquo;s wrong</h1>
           <p>
-            This is a test release, so reports genuinely change what gets fixed next. Small
-            annoyances are worth sending — those are the ones nobody reports.
+            Reports genuinely change what gets fixed next. Small annoyances are worth sending —
+            those are the ones nobody reports.
           </p>
         </div>
       </div>
