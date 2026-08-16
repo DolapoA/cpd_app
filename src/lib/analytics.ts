@@ -31,7 +31,8 @@ export type ProductEvent =
   /** The payoff: a record turned into something a regulator asked for. */
   | { name: "compliance_pack_generated"; kind: "hcpc" | "gmc" | "gtcs" | "engineering" }
   /** A user told us something was wrong. */
-  | { name: "report_submitted"; kind: string };
+  | { name: "report_submitted"; kind: string }
+  | { name: "planned_event_added" };
 
 export function bucketSize(n: number): "1-10" | "11-50" | "51-200" | "200+" {
   if (n <= 10) return "1-10";

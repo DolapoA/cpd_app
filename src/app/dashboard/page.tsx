@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getDb, type ActivityTypeGoal, type CpdEntry } from "@/lib/db";
+import { getDb, type ActivityTypeGoal, type CpdEntry, type PlannedEvent } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import {
   ACTIVITY_TYPES,
@@ -44,6 +44,17 @@ export default async function DashboardPage() {
   // Reminders for per-activity-type targets. A goal only nags once its type is
   // still uncovered and the date is within 90 days, so this stays quiet rather
   // than becoming background noise all year.
+  // What they have planned, and anything whose date has passed without an
+  // answer — the moment a plan either becomes evidence or is forgotten.
+  const today = new Date().toISOString().slice(0, 10);
+  const plans = (await db
+    .prepare(
+      "SELECT * FROM planned_events WHERE user_id = ? AND outcome IS NULL ORDER BY starts_on"
+    )
+    .all(user.id)) as PlannedEvent[];
+  const upcoming = plans.filter((p) => (p.ends_on ?? p.starts_on) >= today).slice(0, 3);
+  const unanswered = plans.filter((p) => (p.ends_on ?? p.starts_on) < today);
+
   const goals = await db
     .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
     .all(user.id) as ActivityTypeGoal[];
@@ -118,6 +129,19 @@ export default async function DashboardPage() {
         </div>
       )}
 
+      {unanswered.length > 0 && (
+        <div className="notice notice--info">
+          <h3 className="notice__title">Did you go?</h3>
+          <p className="small">
+            {unanswered.length === 1
+              ? `${unanswered[0].title} has been and gone.`
+              : `${unanswered.length} things you planned have been and gone.`}{" "}
+            Say whether you attended and it joins your record.{" "}
+            <Link href="/record/planned">Answer now →</Link>
+          </p>
+        </div>
+      )}
+
       {dueGoals.length > 0 && (
         <div className={`notice${anyOverdue ? " notice--warn" : " notice--info"}`}>
           <h3 className="notice__title">
@@ -151,6 +175,37 @@ export default async function DashboardPage() {
             only {typesCovered.size === 1 ? "one" : "none"}.{" "}
             <Link href="/record/activity-types">See what&rsquo;s missing →</Link>
           </p>
+        </div>
+      )}
+
+      {upcoming.length > 0 && (
+        <div className="card">
+          <div className="page-head">
+            <h2>Coming up</h2>
+            <Link href="/record/planned" className="small">
+              Planned CPD →
+            </Link>
+          </div>
+          <div className="table-wrap">
+            <table className="table">
+              <tbody>
+                {upcoming.map((p) => (
+                  <tr key={p.id}>
+                    <td className="col--date">{formatDate(p.starts_on)}</td>
+                    <td>
+                      <strong>{p.title}</strong>
+                      <div className="muted small">
+                        {[p.provider, p.location].filter(Boolean).join(" · ")}
+                      </div>
+                    </td>
+                    <td className="small">
+                      {p.expected_points != null ? `${p.expected_points} pts expected` : ""}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
         </div>
       )}
 

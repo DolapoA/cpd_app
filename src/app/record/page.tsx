@@ -68,6 +68,9 @@ export default async function RecordPage({
           <Link href="/record/new" className="btn">
             Log activity
           </Link>
+          <Link href="/record/planned" className="btn btn--secondary">
+            Planned CPD
+          </Link>
           <Link href="/record/import" className="btn btn--quiet">
             Import spreadsheet
           </Link>

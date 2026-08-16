@@ -1,10 +1,19 @@
 "use server";
 
 import bcrypt from "bcryptjs";
+import crypto from "crypto";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
-import { getDb, registerStatus, type CpdEntry, type Register, type Signature, type User } from "./db";
+import {
+  getDb,
+  registerStatus,
+  type CpdEntry,
+  type PlannedEvent,
+  type Register,
+  type Signature,
+  type User,
+} from "./db";
 import { createSession, destroySession, getCurrentUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
 import { getBaseUrl } from "./base-url";
@@ -1397,4 +1406,203 @@ async function flashRecoveryCodes(codes: string[]): Promise<void> {
 export async function dismissRecoveryCodes(): Promise<void> {
   (await cookies()).delete(RECOVERY_FLASH_COOKIE);
   redirect("/account");
+}
+
+// ---------------------------------------------------------------------------
+// Planned CPD, and the calendar feed it publishes
+// ---------------------------------------------------------------------------
+
+/** Reads a planned event's fields from a form, or says what is wrong. */
+function plannedFields(formData: FormData): { error: string } | Record<string, unknown> {
+  const title = str(formData, "title");
+  const startsOn = str(formData, "starts_on");
+  const endsOn = str(formData, "ends_on");
+  const startTime = str(formData, "start_time");
+  const endTime = str(formData, "end_time");
+
+  if (!title) return { error: "Give it a name — whatever you'd recognise it by." };
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startsOn)) return { error: "Enter the date it starts." };
+  if (endsOn && endsOn < startsOn) return { error: "The end date is before the start date." };
+  if (endTime && !startTime)
+    return { error: "Add a start time as well, or leave both blank for an all-day entry." };
+  if (endTime && startTime && (endsOn || startsOn) === startsOn && endTime <= startTime)
+    return { error: "The end time is before the start time." };
+
+  return {
+    title,
+    startsOn,
+    endsOn: endsOn || null,
+    startTime: startTime || null,
+    endTime: endTime || null,
+    location: str(formData, "location") || null,
+    provider: str(formData, "provider") || null,
+    url: str(formData, "url") || null,
+    notes: str(formData, "notes") || null,
+    points: num(formData, "expected_points"),
+    hours: num(formData, "expected_hours"),
+  };
+}
+
+export async function addPlannedEvent(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const fields = plannedFields(formData);
+  if ("error" in fields) return fields as { error: string };
+  const f = fields as Record<string, string | number | null>;
+
+  const now = new Date().toISOString();
+  await (await getDb())
+    .prepare(
+      `INSERT INTO planned_events
+         (user_id, title, starts_on, ends_on, start_time, end_time, location, provider, url,
+          notes, expected_points, expected_hours, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      user.id, f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location,
+      f.provider, f.url, f.notes, f.points, f.hours, now, now
+    );
+
+  await record({ name: "planned_event_added" });
+  revalidatePath("/record/planned");
+  redirect("/record/planned");
+}
+
+export async function updatePlannedEvent(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const id = num(formData, "id");
+  if (id === null) return { error: "Something went wrong. Try again from the list." };
+
+  const fields = plannedFields(formData);
+  if ("error" in fields) return fields as { error: string };
+  const f = fields as Record<string, string | number | null>;
+
+  // revision is bumped so a calendar that already holds this event treats the
+  // new version as an update rather than ignoring it.
+  const result = await (await getDb())
+    .prepare(
+      `UPDATE planned_events
+          SET title = ?, starts_on = ?, ends_on = ?, start_time = ?, end_time = ?,
+              location = ?, provider = ?, url = ?, notes = ?, expected_points = ?,
+              expected_hours = ?, revision = revision + 1, updated_at = ?
+        WHERE id = ? AND user_id = ?`
+    )
+    .run(
+      f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location, f.provider,
+      f.url, f.notes, f.points, f.hours, new Date().toISOString(), id, user.id
+    );
+  if (result.changes === 0) return { error: "That plan no longer exists." };
+
+  revalidatePath("/record/planned");
+  redirect("/record/planned");
+}
+
+export async function deletePlannedEvent(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const id = num(formData, "id");
+  if (id === null) redirect("/record/planned");
+
+  await (await getDb())
+    .prepare("DELETE FROM planned_events WHERE id = ? AND user_id = ?")
+    .run(id, user.id);
+  revalidatePath("/record/planned");
+  redirect("/record/planned");
+}
+
+/**
+ * Turns a plan that happened into a record entry.
+ *
+ * Self-reported, never verified: intending to attend and attending are not the
+ * same claim, and only a signed register can tell them apart.
+ */
+export async function recordPlannedEvent(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const id = num(formData, "id");
+  if (id === null) redirect("/record/planned");
+
+  const db = await getDb();
+  const plan = (await db
+    .prepare("SELECT * FROM planned_events WHERE id = ? AND user_id = ?")
+    .get(id, user.id)) as PlannedEvent | undefined;
+  if (!plan || plan.outcome) redirect("/record/planned");
+
+  const now = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    const created = (await tx
+      .prepare(
+        `INSERT INTO cpd_entries
+           (user_id, title, activity_date, activity_type, is_official, points, hours,
+            provider, notes, verified, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 0, ?)
+         RETURNING id`
+      )
+      .get(
+        user.id, plan.title, plan.starts_on, "Formal / educational",
+        plan.expected_points, plan.expected_hours, plan.provider, plan.notes, now
+      )) as { id: number };
+
+    await tx
+      .prepare(
+        "UPDATE planned_events SET outcome = 'recorded', cpd_entry_id = ?, updated_at = ? WHERE id = ?"
+      )
+      .run(Number(created.id), now, id);
+  });
+
+  revalidatePath("/record");
+  redirect("/record/complete");
+}
+
+/** Answers "did you go?" with no, so it stops being asked. */
+export async function dismissPlannedEvent(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const id = num(formData, "id");
+  if (id === null) redirect("/record/planned");
+
+  await (await getDb())
+    .prepare(
+      "UPDATE planned_events SET outcome = 'missed', updated_at = ? WHERE id = ? AND user_id = ?"
+    )
+    .run(new Date().toISOString(), id, user.id);
+  revalidatePath("/record/planned");
+  redirect("/record/planned");
+}
+
+/**
+ * The secret in the subscription URL.
+ *
+ * Minted on first use rather than at signup, so an account that never opens
+ * the calendar page never has a live feed address in the first place.
+ */
+export async function ensureCalendarToken(userId: number): Promise<string> {
+  const db = await getDb();
+  const row = (await db
+    .prepare("SELECT calendar_token FROM users WHERE id = ?")
+    .get(userId)) as { calendar_token: string | null };
+  if (row.calendar_token) return row.calendar_token;
+
+  const token = crypto.randomBytes(24).toString("base64url");
+  await db.prepare("UPDATE users SET calendar_token = ? WHERE id = ?").run(token, userId);
+  return token;
+}
+
+/** Replaces the address, which is the only way to revoke a shared one. */
+export async function regenerateCalendarToken(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  await (await getDb())
+    .prepare("UPDATE users SET calendar_token = ? WHERE id = ?")
+    .run(crypto.randomBytes(24).toString("base64url"), user.id);
+  revalidatePath("/record/planned");
+  redirect("/record/planned?feed=new");
 }

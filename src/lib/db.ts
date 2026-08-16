@@ -21,6 +21,10 @@ CREATE TABLE IF NOT EXISTS users (
      totp_confirmed_at is set, so an abandoned setup cannot lock anyone out. */
   totp_secret TEXT,
   totp_confirmed_at TEXT,
+  /* The secret in a calendar subscription URL. A calendar app cannot send a
+     cookie, so the address itself is the credential — hence a random token
+     that can be replaced without touching the password. */
+  calendar_token TEXT UNIQUE,
   created_at TEXT NOT NULL
 );
 
@@ -147,6 +151,39 @@ CREATE TABLE IF NOT EXISTS feedback_responses (
 );
 CREATE INDEX IF NOT EXISTS idx_feedback_register ON feedback_responses(register_id);
 
+/*
+  CPD someone intends to do, as opposed to CPD they have done. Deliberately a
+  separate table from cpd_entries rather than a flag on it: an intention is not
+  evidence, and an audit pack that could contain plans nobody attended would be
+  worth less than one that cannot.
+*/
+CREATE TABLE IF NOT EXISTS planned_events (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  starts_on TEXT NOT NULL,
+  /* Conferences run for days; a single date would misrepresent them. */
+  ends_on TEXT,
+  /* Both null means an all-day entry, which is what most people know first. */
+  start_time TEXT,
+  end_time TEXT,
+  location TEXT,
+  provider TEXT,
+  url TEXT,
+  notes TEXT,
+  expected_points DOUBLE PRECISION,
+  expected_hours DOUBLE PRECISION,
+  /* Bumped on every edit. Subscribed calendars use it to notice a change:
+     without it a moved conference silently keeps its old slot. */
+  revision INTEGER NOT NULL DEFAULT 0,
+  /* NULL while still ahead; 'recorded' or 'missed' once answered for. */
+  outcome TEXT,
+  cpd_entry_id INTEGER REFERENCES cpd_entries(id),
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_planned_user ON planned_events(user_id, starts_on);
+
 CREATE TABLE IF NOT EXISTS activity_type_goals (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -173,6 +210,10 @@ async function migrate(p: Pool): Promise<void> {
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email_verified_at TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token TEXT");
+  await p.query(
+    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token)"
+  );
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT");
   await p.query("ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT");
 
@@ -331,10 +372,32 @@ export type User = {
   email_verified_at: string | null;
   /** Until this is set, the recovery address is a note to us, not a way in. */
   backup_email_verified_at: string | null;
+  calendar_token: string | null;
   totp_secret: string | null;
   /** Set only when a first code has been verified — until then 2FA is not on. */
   totp_confirmed_at: string | null;
   created_at: string;
+};
+
+export type PlannedEvent = {
+  id: number;
+  user_id: number;
+  title: string;
+  starts_on: string;
+  ends_on: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  provider: string | null;
+  url: string | null;
+  notes: string | null;
+  expected_points: number | null;
+  expected_hours: number | null;
+  revision: number;
+  outcome: string | null;
+  cpd_entry_id: number | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type ActivityTypeGoal = {
