@@ -21,8 +21,7 @@ export default async function ChangeEmailPage({ params }: { params: Promise<{ to
         <p>
           {result.ok ? (
             <>
-              You now sign in with <strong>{result.email}</strong>, and it is already confirmed —
-              attendance you sign at events will be matched to it. Anywhere else you were signed
+              You now sign in with <strong>{result.email}</strong>. Anywhere else you were signed
               in has been signed out.
             </>
           ) : result.reason === "taken" ? (
