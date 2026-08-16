@@ -8,7 +8,14 @@ import { getDb, registerStatus, type CpdEntry, type Register, type Signature, ty
 import { createSession, destroySession, getCurrentUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
 import { getBaseUrl } from "./base-url";
-import { sendEmailConfirmation, sendFeedbackReport, sendPasswordReset } from "./email";
+import {
+  sendEmailChangeConfirmation,
+  sendEmailChangeNotice,
+  sendEmailConfirmation,
+  sendFeedbackReport,
+  sendPasswordReset,
+  sendRecoveryConfirmation,
+} from "./email";
 import { claimToken, issueToken } from "./tokens";
 import {
   consumeRecoveryCode,
@@ -842,7 +849,9 @@ export async function setBackupEmail(_prev: ActionState, formData: FormData): Pr
   const db = await getDb();
 
   if (!email) {
-    await db.prepare("UPDATE users SET backup_email = NULL WHERE id = ?").run(user.id);
+    await db
+      .prepare("UPDATE users SET backup_email = NULL, backup_email_verified_at = NULL WHERE id = ?")
+      .run(user.id);
     revalidatePath("/account");
     return null;
   }
@@ -851,15 +860,126 @@ export async function setBackupEmail(_prev: ActionState, formData: FormData): Pr
   if (email === user.email.toLowerCase())
     return { error: "That’s already the email on your account. Use a different one." };
 
-  // A backup address must not be a route into somebody else's account.
+  // A recovery address must not be a route into somebody else's account.
   const taken = await db
     .prepare("SELECT id FROM users WHERE (email = ? OR backup_email = ?) AND id != ?")
     .get(email, email, user.id);
   if (taken) return { error: "That address is already in use on another account." };
 
-  await db.prepare("UPDATE users SET backup_email = ? WHERE id = ?").run(email, user.id);
+  // Saving it always resets the confirmation: a new address has proved
+  // nothing, and re-saving the same one is how someone asks for another link.
+  await db
+    .prepare("UPDATE users SET backup_email = ?, backup_email_verified_at = NULL WHERE id = ?")
+    .run(email, user.id);
+
+  try {
+    const token = await issueToken(user.id, email, "verify_backup");
+    const base = await getBaseUrl();
+    await sendRecoveryConfirmation(email, user.full_name, `${base}/verify-recovery/${token}`, user.email);
+  } catch (error) {
+    console.error("[account] recovery confirmation failed", error);
+    redirect("/account?recovery=failed");
+  }
   revalidatePath("/account");
-  return null;
+  redirect("/account?recovery=sent");
+}
+
+/** Confirms the recovery address, from the link sent to it. */
+export async function applyRecoveryConfirmation(token: string): Promise<boolean> {
+  const claimed = await claimToken(token, "verify_backup");
+  if (!claimed) return false;
+
+  const db = await getDb();
+  // The address on the account may have been changed since the link was sent;
+  // confirming a stale one would mark the current address proved when it isn't.
+  const result = await db
+    .prepare(
+      "UPDATE users SET backup_email_verified_at = ? WHERE id = ? AND backup_email = ?"
+    )
+    .run(new Date().toISOString(), claimed.user_id, claimed.email);
+  return result.changes > 0;
+}
+
+/**
+ * Starts a change of the sign-in address.
+ *
+ * The new address is only stored once it has been confirmed, because guest
+ * attendance is matched by email: switching first and asking later would let
+ * anyone claim a colleague's slips by typing their address.
+ */
+export async function requestEmailChange(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const email = str(formData, "new_email").toLowerCase();
+  const password = formData.get("password");
+
+  if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
+  if (email === user.email.toLowerCase())
+    return { error: "That is already the address on your account." };
+  // Changing where sign-in links and reset links go is a credential change.
+  if (typeof password !== "string" || !(await bcrypt.compare(password, user.password_hash)))
+    return { error: "That password isn’t right." };
+
+  const db = await getDb();
+  const taken = await db
+    .prepare("SELECT id FROM users WHERE (email = ? OR backup_email = ?) AND id != ?")
+    .get(email, email, user.id);
+  if (taken) return { error: "That address is already in use on another account." };
+
+  try {
+    const token = await issueToken(user.id, email, "email_change");
+    const base = await getBaseUrl();
+    await sendEmailChangeConfirmation(email, user.full_name, `${base}/change-email/${token}`, user.email);
+    // The address being replaced is told, so a change made with a stolen
+    // password is not silent to the person it is being taken from.
+    await sendEmailChangeNotice(user.email, user.full_name, email);
+  } catch (error) {
+    console.error("[account] email change email failed", error);
+    redirect("/account?change=failed");
+  }
+  revalidatePath("/account");
+  redirect("/account?change=sent");
+}
+
+/** Completes the change, from the link sent to the new address. */
+export async function applyEmailChange(
+  token: string
+): Promise<{ ok: true; email: string } | { ok: false; reason: "invalid" | "taken" }> {
+  const claimed = await claimToken(token, "email_change");
+  if (!claimed) return { ok: false, reason: "invalid" };
+
+  const db = await getDb();
+  // Re-checked at this point, not just when the link was sent: someone else
+  // may have signed up with the address in the meantime.
+  const taken = await db
+    .prepare("SELECT id FROM users WHERE (email = ? OR backup_email = ?) AND id != ?")
+    .get(claimed.email, claimed.email, claimed.user_id);
+  if (taken) return { ok: false, reason: "taken" };
+
+  const now = new Date().toISOString();
+  await db
+    .prepare("UPDATE users SET email = ?, email_verified_at = ? WHERE id = ?")
+    .run(claimed.email, now, claimed.user_id);
+
+  // Confirmed, so guest slips signed with this address are theirs — the same
+  // rule that applies at signup.
+  await claimGuestSignatures(claimed.user_id, claimed.email);
+
+  // Other sessions go, as with a password change: if the change was not the
+  // owner's doing, whoever made it should not keep a way in.
+  const current = (await cookies()).get("cpd_session")?.value;
+  await db
+    .prepare("DELETE FROM sessions WHERE user_id = ? AND token != ?")
+    .run(claimed.user_id, current ?? "");
+
+  // No revalidatePath here: this runs while the confirmation page renders, and
+  // revalidating during a render is unsupported. The account page is dynamic,
+  // so it reads the new address on its next request anyway.
+  return { ok: true, email: claimed.email };
 }
 
 /** Ends every session except the one making the request. */
@@ -967,15 +1087,34 @@ export async function requestPasswordReset(
 
   const db = await getDb();
   const user = (await db
-    .prepare("SELECT id, full_name, email FROM users WHERE email = ? OR backup_email = ?")
-    .get(email, email)) as { id: number; full_name: string; email: string } | undefined;
+    .prepare(
+      `SELECT id, full_name, email, backup_email, backup_email_verified_at
+         FROM users WHERE email = ? OR backup_email = ?`
+    )
+    .get(email, email)) as
+    | {
+        id: number;
+        full_name: string;
+        email: string;
+        backup_email: string | null;
+        backup_email_verified_at: string | null;
+      }
+    | undefined;
 
   // Deliberately the same outcome either way: telling a stranger whether an
   // address has an account here reveals that someone is a registrant.
   if (user) {
-    const token = await issueToken(Number(user.id), user.email, "reset");
+    // The point of a recovery address is the day the main one is unreachable,
+    // so a reset asked for from a confirmed recovery address is sent there.
+    // An unconfirmed one is not used: it has proved nothing, and sending a
+    // reset link to it would make typing an address enough to take an account.
+    const sendTo =
+      email === user.backup_email?.toLowerCase() && user.backup_email_verified_at
+        ? user.backup_email
+        : user.email;
+    const token = await issueToken(Number(user.id), sendTo, "reset");
     const base = await getBaseUrl();
-    await sendPasswordReset(user.email, user.full_name, `${base}/reset/${token}`);
+    await sendPasswordReset(sendTo, user.full_name, `${base}/reset/${token}`);
   }
   redirect("/reset/sent");
 }

@@ -7,6 +7,7 @@ import { unusedRecoveryCount } from "@/lib/totp";
 import {
   beginTwoFactor,
   changePassword,
+  requestEmailChange,
   disableTwoFactor,
   deleteAccount,
   revokeOtherSessions,
@@ -20,12 +21,12 @@ export const metadata = { title: "Account — CPD Register" };
 export default async function AccountPage({
   searchParams,
 }: {
-  searchParams: Promise<{ sent?: string }>;
+  searchParams: Promise<{ sent?: string; change?: string; recovery?: string }>;
 }) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const sent = (await searchParams).sent;
+  const { sent, change, recovery } = await searchParams;
 
   const db = await getDb();
   const sessions = (
@@ -99,9 +100,95 @@ export default async function AccountPage({
             </form>
           </div>
         )}
-        <ActionForm action={setBackupEmail} submitLabel="Save backup email">
+      </div>
+
+      <div className="card">
+        <h2>Change your email</h2>
+        {change === "sent" ? (
+          <div className="notice notice--ok">
+            <p className="small">
+              <strong>Confirmation link sent.</strong> Open it from the new address and the
+              change takes effect. Until then you carry on signing in with{" "}
+              <strong>{user.email}</strong> — so a typo costs you nothing but another go.
+            </p>
+          </div>
+        ) : change === "failed" ? (
+          <div className="notice notice--warn">
+            <p className="small">
+              <strong>That didn&rsquo;t send.</strong> Check the address and try again in a few
+              minutes. Nothing has changed.
+            </p>
+          </div>
+        ) : (
+          <p className="muted small">
+            Useful if you signed up with a work address you might one day leave. Your CPD record,
+            your registers and everything you have signed come with you.
+          </p>
+        )}
+        <ActionForm action={requestEmailChange} submitLabel="Send confirmation link">
           <div className="field">
-            <label htmlFor="backup_email">Backup email</label>
+            <label htmlFor="new_email">New email address</label>
+            <input id="new_email" name="new_email" type="email" required autoComplete="email" />
+          </div>
+          <div className="field">
+            <label htmlFor="change_password">Your password</label>
+            <input
+              id="change_password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+            />
+            <div className="hint">
+              This is where sign-in and reset links go, so changing it asks for your password.
+            </div>
+          </div>
+        </ActionForm>
+      </div>
+
+      <div className="card">
+        <h2>Recovery email</h2>
+        {user.backup_email && (
+          <p className="muted small">
+            <strong>{user.backup_email}</strong>{" "}
+            {user.backup_email_verified_at ? (
+              <span className="badge badge--verified">Confirmed</span>
+            ) : (
+              <span className="badge badge--pending">Not confirmed</span>
+            )}
+          </p>
+        )}
+        {recovery === "sent" ? (
+          <div className="notice notice--ok">
+            <p className="small">
+              <strong>Confirmation link sent.</strong> Open it from that address to finish. Until
+              you do, it can&rsquo;t be used to reset your password.
+            </p>
+          </div>
+        ) : recovery === "failed" ? (
+          <div className="notice notice--warn">
+            <p className="small">
+              <strong>That didn&rsquo;t send.</strong> The address is saved but unconfirmed —
+              check the spelling and save it again to get another link.
+            </p>
+          </div>
+        ) : user.backup_email && !user.backup_email_verified_at ? (
+          <div className="notice notice--warn">
+            <p className="small">
+              Confirm this address and it becomes your way back in if you lose access to{" "}
+              <strong>{user.email}</strong>. Unconfirmed, it does nothing. Save it again below to
+              get another link.
+            </p>
+          </div>
+        ) : (
+          <p className="muted small">
+            A second address you can reset your password from if you ever lose access to the one
+            you sign in with — a personal address, if you sign in with a work one.
+          </p>
+        )}
+        <ActionForm action={setBackupEmail} submitLabel="Save recovery email">
+          <div className="field">
+            <label htmlFor="backup_email">Recovery email</label>
             <input
               id="backup_email"
               name="backup_email"
@@ -111,8 +198,7 @@ export default async function AccountPage({
               autoComplete="email"
             />
             <div className="hint">
-              A second address to reach you on if you lose access to the first — useful if you sign
-              in with a work address you might one day leave. Clear the box to remove it.
+              We&rsquo;ll email it a link to confirm. Clear the box to remove it.
             </div>
           </div>
         </ActionForm>

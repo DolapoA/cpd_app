@@ -197,3 +197,142 @@ CPD Register`;
     })
   );
 }
+
+export async function sendEmailChangeConfirmation(
+  to: string,
+  name: string,
+  url: string,
+  currentEmail: string
+): Promise<void> {
+  const text = `Hello ${name},
+
+You asked to change the email address on your CPD Register account from
+${currentEmail} to this one. Confirm it here:
+
+${url}
+
+Until you do, nothing changes and you carry on signing in with ${currentEmail}.
+The link works for 24 hours.
+
+If you weren't expecting this, ignore it — whoever sent it cannot complete the
+change without this link.
+
+CPD Register`;
+
+  await send(
+    to,
+    "Confirm your new email for CPD Register",
+    text,
+    undefined,
+    renderEmail({
+      title: "Confirm your new address",
+      preheader: "One click and this becomes the address you sign in with.",
+      blocks: [
+        { kind: "text", content: `Hello ${name},` },
+        {
+          kind: "text",
+          content: `You asked to change the email on your CPD Register account from ${currentEmail} to this one.`,
+        },
+        { kind: "button", label: "Confirm this address", url },
+        { kind: "fallbackUrl", url },
+        {
+          kind: "note",
+          content: `The link works for 24 hours. Until you use it nothing changes and you carry on signing in with ${currentEmail}. If you weren't expecting this, ignore it — the change cannot happen without this link.`,
+        },
+      ],
+    })
+  );
+}
+
+/**
+ * Sent to the address being replaced. It carries no link on purpose: its job
+ * is to warn, and the only useful action for someone who did not ask for this
+ * is to secure the account, not to click something in an email they distrust.
+ */
+export async function sendEmailChangeNotice(
+  to: string,
+  name: string,
+  newEmail: string
+): Promise<void> {
+  const text = `Hello ${name},
+
+Someone asked to change the email address on your CPD Register account to
+${newEmail}. It will only take effect once that address is confirmed.
+
+If that was you, there is nothing to do.
+
+If it wasn't, someone may have your password. Change it now at
+cpdregister.app, and turn on two-factor authentication while you are there.
+
+CPD Register`;
+
+  await send(
+    to,
+    "Your CPD Register email is being changed",
+    text,
+    undefined,
+    renderEmail({
+      title: "Your email is being changed",
+      preheader: "If this wasn't you, someone may have your password.",
+      blocks: [
+        { kind: "text", content: `Hello ${name},` },
+        {
+          kind: "text",
+          content: `Someone asked to change the email address on your CPD Register account to ${newEmail}. It only takes effect once that address is confirmed.`,
+        },
+        {
+          kind: "note",
+          content:
+            "If that was you, there is nothing to do. If it wasn't, someone may have your password — change it, and turn on two-factor authentication while you are there.",
+        },
+      ],
+    })
+  );
+}
+
+export async function sendRecoveryConfirmation(
+  to: string,
+  name: string,
+  url: string,
+  accountEmail: string
+): Promise<void> {
+  const text = `Hello ${name},
+
+This address was added as the recovery address for the CPD Register account
+belonging to ${accountEmail}. Confirm it here:
+
+${url}
+
+Once confirmed, you can use it to reset that account's password if you ever
+lose access to ${accountEmail} — which is what makes it worth confirming now,
+while you still can.
+
+The link works for 24 hours. If you don't know what this is, ignore it: an
+unconfirmed address can do nothing.
+
+CPD Register`;
+
+  await send(
+    to,
+    "Confirm your recovery address for CPD Register",
+    text,
+    undefined,
+    renderEmail({
+      title: "Confirm your recovery address",
+      preheader: "So you can still get in if you lose your main address.",
+      blocks: [
+        { kind: "text", content: `Hello ${name},` },
+        {
+          kind: "text",
+          content: `This address was added as the recovery address for the CPD Register account belonging to ${accountEmail}.`,
+        },
+        { kind: "button", label: "Confirm this address", url },
+        { kind: "fallbackUrl", url },
+        {
+          kind: "note",
+          content: `Once confirmed you can use it to reset that account's password if you lose access to ${accountEmail} — worth doing now, while you still can. If you don't know what this is, ignore it: an unconfirmed address can do nothing.`,
+        },
+      ],
+    })
+  );
+}

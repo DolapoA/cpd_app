@@ -13,6 +13,9 @@ CREATE TABLE IF NOT EXISTS users (
   registration_date TEXT,
   annual_target_points DOUBLE PRECISION NOT NULL DEFAULT 50,
   backup_email TEXT,
+  /* A recovery address can receive password-reset links, which makes it a way
+     into the account — so it counts for nothing until its owner proves it. */
+  backup_email_verified_at TEXT,
   email_verified_at TEXT,
   /* Base32 TOTP secret. Present once setup has begun; only trusted once
      totp_confirmed_at is set, so an abandoned setup cannot lock anyone out. */
@@ -167,6 +170,7 @@ async function migrate(p: Pool): Promise<void> {
   await p.query("ALTER TABLE signatures ADD COLUMN IF NOT EXISTS feedback_given INTEGER NOT NULL DEFAULT 0");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email_verified_at TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT");
@@ -325,6 +329,8 @@ export type User = {
   backup_email: string | null;
   /** Set once the address has been confirmed by following an emailed link. */
   email_verified_at: string | null;
+  /** Until this is set, the recovery address is a note to us, not a way in. */
+  backup_email_verified_at: string | null;
   totp_secret: string | null;
   /** Set only when a first code has been verified — until then 2FA is not on. */
   totp_confirmed_at: string | null;
