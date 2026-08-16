@@ -14,8 +14,25 @@ CREATE TABLE IF NOT EXISTS users (
   annual_target_points DOUBLE PRECISION NOT NULL DEFAULT 50,
   backup_email TEXT,
   email_verified_at TEXT,
+  /* Base32 TOTP secret. Present once setup has begun; only trusted once
+     totp_confirmed_at is set, so an abandoned setup cannot lock anyone out. */
+  totp_secret TEXT,
+  totp_confirmed_at TEXT,
   created_at TEXT NOT NULL
 );
+
+/*
+  Single-use recovery codes, stored hashed for the same reason passwords are:
+  they are a full second factor, and a leaked database should not hand over
+  working ones. Without these, losing a phone means losing the account.
+*/
+CREATE TABLE IF NOT EXISTS recovery_codes (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash TEXT NOT NULL,
+  used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_recovery_codes_user ON recovery_codes(user_id);
 
 /*
   Single-use tokens for password reset and email confirmation. Stored hashed:
@@ -150,6 +167,8 @@ async function migrate(p: Pool): Promise<void> {
   await p.query("ALTER TABLE signatures ADD COLUMN IF NOT EXISTS feedback_given INTEGER NOT NULL DEFAULT 0");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
+  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT");
   await p.query("ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT");
 
@@ -306,6 +325,9 @@ export type User = {
   backup_email: string | null;
   /** Set once the address has been confirmed by following an emailed link. */
   email_verified_at: string | null;
+  totp_secret: string | null;
+  /** Set only when a first code has been verified — until then 2FA is not on. */
+  totp_confirmed_at: string | null;
   created_at: string;
 };
 

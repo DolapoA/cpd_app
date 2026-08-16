@@ -3,8 +3,11 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { getDb } from "@/lib/db";
 import { formatDate } from "@/lib/format";
+import { unusedRecoveryCount } from "@/lib/totp";
 import {
+  beginTwoFactor,
   changePassword,
+  disableTwoFactor,
   deleteAccount,
   revokeOtherSessions,
   sendVerificationEmail,
@@ -32,6 +35,7 @@ export default async function AccountPage() {
       c: number;
     }
   ).c;
+  const recoveryCodes = user.totp_confirmed_at ? await unusedRecoveryCount(user.id) : 0;
   const registers = (
     await db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id) as {
       c: number;
@@ -144,6 +148,55 @@ export default async function AccountPage() {
       </div>
 
       <div className="card">
+        <h2>Two-factor authentication</h2>
+        {user.totp_confirmed_at ? (
+          <>
+            <p className="muted small">
+              <span className="badge badge--verified">On</span> You are asked for a code from your
+              authenticator app each time you sign in. You have{" "}
+              <strong>{recoveryCodes}</strong> unused recovery{" "}
+              {recoveryCodes === 1 ? "code" : "codes"}.
+            </p>
+            {recoveryCodes === 0 && (
+              <p className="hint">
+                With no recovery codes left, losing your phone means losing access to this
+                account. Generate a new set.
+              </p>
+            )}
+            <Link href="/account/two-factor" className="btn btn--secondary">
+              Manage
+            </Link>
+            <ActionForm action={disableTwoFactor} submitLabel="Turn off" submitTone="danger">
+              <div className="field">
+                <label htmlFor="disable_2fa_password">
+                  Confirm your password to turn it off
+                </label>
+                <input
+                  id="disable_2fa_password"
+                  name="password"
+                  type="password"
+                  required
+                  autoComplete="current-password"
+                />
+              </div>
+            </ActionForm>
+          </>
+        ) : (
+          <>
+            <p className="muted small">
+              Add a six-digit code from your phone to your password. Your CPD record is evidence
+              for your regulator, so it is worth protecting properly.
+            </p>
+            <form action={beginTwoFactor}>
+              <button type="submit" className="btn btn--secondary">
+                Set up two-factor authentication
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+
+      <div className="card">
         <h2>Where you&rsquo;re signed in</h2>
         <p className="muted small">
           {sessions === 1
@@ -230,8 +283,26 @@ export default async function AccountPage() {
             />
           </div>
           <div className="field">
-            <label htmlFor="confirm">Type DELETE to confirm</label>
-            <input id="confirm" name="confirm" type="text" required autoComplete="off" />
+            <label htmlFor="delete_confirmation">Type DELETE to confirm</label>
+            {/* Sitting beside a password input, a plain text field reads to a
+                password manager as the username and gets filled with an email
+                address — which then fails the check for reasons the user
+                cannot see. autoComplete="off" alone is widely ignored, so the
+                major managers are each told explicitly to leave it alone. */}
+            <input
+              id="delete_confirmation"
+              name="confirm"
+              type="text"
+              required
+              autoComplete="off"
+              autoCapitalize="characters"
+              autoCorrect="off"
+              spellCheck={false}
+              data-1p-ignore
+              data-lpignore="true"
+              data-bwignore
+              data-form-type="other"
+            />
           </div>
         </ActionForm>
       </div>

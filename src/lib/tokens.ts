@@ -9,11 +9,13 @@ import { getDb } from "./db";
  * that leaks should not hand over working ones — the same argument as for
  * password hashes.
  */
-export type TokenPurpose = "reset" | "verify";
+export type TokenPurpose = "reset" | "verify" | "2fa";
 
 const LIFETIME_MS: Record<TokenPurpose, number> = {
   reset: 60 * 60 * 1000, // an hour: long enough to find the email, short enough to matter
   verify: 24 * 60 * 60 * 1000,
+  // Half a sign-in, held only while someone fetches their phone.
+  "2fa": 10 * 60 * 1000,
 };
 
 function hash(token: string): string {

@@ -10,6 +10,13 @@ import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-si
 import { getBaseUrl } from "./base-url";
 import { sendEmailConfirmation, sendFeedbackReport, sendPasswordReset } from "./email";
 import { claimToken, issueToken } from "./tokens";
+import {
+  consumeRecoveryCode,
+  issueRecoveryCodes,
+  newSecret,
+  RECOVERY_FLASH_COOKIE,
+  verifyCode,
+} from "./totp";
 import { bucketSize, record } from "./analytics";
 import { newRegisterCode, newVerificationCode } from "./ids";
 import { ACTIVITY_TYPES, EVENT_TYPES, REGULATORS } from "./format";
@@ -158,6 +165,13 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
     return { error: "Email or password is incorrect." };
   }
   await clearAttempts(email);
+
+  // A correct password is only the first factor. Nothing is signed in until
+  // the code is right.
+  if (user.totp_confirmed_at) {
+    await issuePendingTwoFactor(user.id, email);
+    redirect("/login/two-factor");
+  }
 
   // Someone who signed a register as a guest and then logs in should get those
   // slips too — not just people who create an account afterwards.
@@ -914,8 +928,14 @@ export async function deleteAccount(_prev: ActionState, formData: FormData): Pro
 const MAX_ATTEMPTS = 8;
 const ATTEMPT_WINDOW_MIN = 15;
 
-/** Failed sign-ins per email in a rolling window, so a password cannot be guessed. */
-async function tooManyAttempts(key: string): Promise<boolean> {
+/**
+ * Failed sign-ins per email in a rolling window, so a password cannot be guessed.
+ *
+ * `max` is lower for one-time codes: six digits is a million possibilities
+ * against a password's effectively unbounded space, and an attacker trying
+ * them already holds the password.
+ */
+async function tooManyAttempts(key: string, max = MAX_ATTEMPTS): Promise<boolean> {
   const db = await getDb();
   const since = new Date(Date.now() - ATTEMPT_WINDOW_MIN * 60 * 1000).toISOString();
   // Pruning here keeps the table from growing without a scheduled job.
@@ -923,7 +943,7 @@ async function tooManyAttempts(key: string): Promise<boolean> {
   const row = (await db
     .prepare("SELECT COUNT(*) AS c FROM auth_attempts WHERE key = ? AND attempted_at >= ?")
     .get(key, since)) as { c: number };
-  return Number(row.c) >= MAX_ATTEMPTS;
+  return Number(row.c) >= max;
 }
 
 async function recordFailedAttempt(key: string): Promise<void> {
@@ -1061,4 +1081,172 @@ export async function submitFeedbackReport(
   await record({ name: "report_submitted", kind });
 
   redirect("/feedback/thanks");
+}
+
+// ---------------------------------------------------------------------------
+// Two-factor authentication
+// ---------------------------------------------------------------------------
+
+const PENDING_2FA_COOKIE = "cpd_2fa_pending";
+/** Long enough to fetch a phone, short enough that a shared computer is safe. */
+const PENDING_2FA_MINUTES = 10;
+/** Deliberately below the password limit — see tooManyAttempts. */
+const MAX_CODE_ATTEMPTS = 5;
+
+/** Begins setup: mints a secret but does not switch 2FA on. */
+export async function beginTwoFactor(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (user.totp_confirmed_at) redirect("/account/two-factor");
+
+  await (await getDb())
+    .prepare("UPDATE users SET totp_secret = ? WHERE id = ?")
+    .run(newSecret(), user.id);
+  redirect("/account/two-factor");
+}
+
+/** Switches 2FA on, but only once a code proves the app is set up correctly. */
+export async function confirmTwoFactor(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!user.totp_secret) return { error: "Start again — no setup is in progress." };
+  if (user.totp_confirmed_at) return { error: "Two-factor authentication is already on." };
+
+  if (!verifyCode(user.totp_secret, user.email, str(formData, "code")))
+    return { error: "That code isn't right. Check your app and try the current code." };
+
+  await (await getDb())
+    .prepare("UPDATE users SET totp_confirmed_at = ? WHERE id = ?")
+    .run(new Date().toISOString(), user.id);
+  await flashRecoveryCodes(await issueRecoveryCodes(user.id));
+  redirect("/account/two-factor?new=1");
+}
+
+export async function disableTwoFactor(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  // Turning a second factor off is exactly what an attacker with a borrowed
+  // session would do, so it costs a password.
+  const password = formData.get("password");
+  if (typeof password !== "string" || !(await bcrypt.compare(password, user.password_hash)))
+    return { error: "That password isn't right." };
+
+  const db = await getDb();
+  await db.transaction(async (tx) => {
+    await tx
+      .prepare("UPDATE users SET totp_secret = NULL, totp_confirmed_at = NULL WHERE id = ?")
+      .run(user.id);
+    await tx.prepare("DELETE FROM recovery_codes WHERE user_id = ?").run(user.id);
+  });
+  revalidatePath("/account");
+  redirect("/account");
+}
+
+export async function regenerateRecoveryCodes(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user?.totp_confirmed_at) redirect("/account");
+  await flashRecoveryCodes(await issueRecoveryCodes(user.id));
+  redirect("/account/two-factor?new=1");
+}
+
+/**
+ * The second step of signing in.
+ *
+ * The password stage leaves a short-lived pending token rather than a session,
+ * so a correct password alone never grants access.
+ */
+export async function completeTwoFactor(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const token = (await cookies()).get(PENDING_2FA_COOKIE)?.value;
+  if (!token) redirect("/login");
+
+  const claimed = await claimToken(token, "2fa");
+  if (!claimed) {
+    (await cookies()).delete(PENDING_2FA_COOKIE);
+    return { error: "That took too long. Sign in again." };
+  }
+
+  const db = await getDb();
+  const user = (await db.prepare("SELECT * FROM users WHERE id = ?").get(claimed.user_id)) as
+    | User
+    | undefined;
+  if (!user?.totp_secret) redirect("/login");
+
+  // Throttled separately from the password: six digits is a small space, and
+  // an attacker reaching this step already holds the password.
+  const key = `2fa:${user.email}`;
+  if (await tooManyAttempts(key, MAX_CODE_ATTEMPTS))
+    return { error: "Too many codes tried. Wait 15 minutes and sign in again." };
+
+  const entered = str(formData, "code");
+  const ok = str(formData, "mode") === "recovery"
+    ? await consumeRecoveryCode(user.id, entered)
+    : verifyCode(user.totp_secret, user.email, entered);
+
+  if (!ok) {
+    await recordFailedAttempt(key);
+    // A spent token cannot be reused, so a fresh one keeps the attempt alive
+    // without letting a wrong guess restart the clock from the password stage.
+    await issuePendingTwoFactor(user.id, user.email);
+    return { error: "That code isn't right. Try the current one, or a recovery code." };
+  }
+
+  await clearAttempts(key);
+  (await cookies()).delete(PENDING_2FA_COOKIE);
+
+  // The same claim the one-step path does. It lives here rather than beside
+  // the password check because until the code is right nobody is signed in,
+  // and slips must not be moved onto an account that was never reached.
+  await claimGuestSignatures(user.id, user.email, await getGuestSlipCode());
+  await forgetGuestSlip();
+
+  await createSession(user.id);
+  redirect("/dashboard");
+}
+
+/** Stores the half-finished sign-in as a short-lived, single-use token. */
+async function issuePendingTwoFactor(userId: number, email: string): Promise<void> {
+  const token = await issueToken(userId, email, "2fa");
+  (await cookies()).set(PENDING_2FA_COOKIE, token, {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    expires: new Date(Date.now() + PENDING_2FA_MINUTES * 60 * 1000),
+    path: "/",
+  });
+}
+
+/**
+ * Carries a freshly issued set of codes through the redirect to the page that
+ * shows them.
+ *
+ * They are stored hashed, so this is the only moment they exist in readable
+ * form — but a redirect cannot carry a value, and putting ten working second
+ * factors in a URL would write them into browser history and server logs. A
+ * short-lived httpOnly cookie keeps them out of both, and out of reach of any
+ * script on the page.
+ */
+async function flashRecoveryCodes(codes: string[]): Promise<void> {
+  (await cookies()).set(RECOVERY_FLASH_COOKIE, codes.join(","), {
+    httpOnly: true,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    expires: new Date(Date.now() + 15 * 60 * 1000),
+    path: "/",
+  });
+}
+
+/** Clears the codes from the browser once the user says they have saved them. */
+export async function dismissRecoveryCodes(): Promise<void> {
+  (await cookies()).delete(RECOVERY_FLASH_COOKIE);
+  redirect("/account");
 }

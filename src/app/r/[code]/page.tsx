@@ -117,6 +117,8 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
             {reg.access_code && (
               <div className="field">
                 <label htmlFor="access_code">Access code</label>
+                {/* A one-time code announced in a room; nothing a password
+                    manager holds could ever be the right value. */}
                 <input
                   id="access_code"
                   name="access_code"
@@ -124,6 +126,13 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
                   required
                   maxLength={12}
                   autoComplete="off"
+                  autoCapitalize="characters"
+                  autoCorrect="off"
+                  spellCheck={false}
+                  data-1p-ignore
+                  data-lpignore="true"
+                  data-bwignore
+                  data-form-type="other"
                 />
                 <div className="hint">Announced in the room by the organiser.</div>
               </div>
