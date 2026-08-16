@@ -116,12 +116,6 @@ export default async function AccountPage({
             </div>
           </div>
         </ActionForm>
-        <p className="hint">
-          It is kept as a contact address only. Attendance slips are still matched to{" "}
-          <strong>{user.email}</strong>, because confirming ownership of a second address needs
-          email we don&rsquo;t send yet — and until it is confirmed, matching slips to it would let
-          anyone claim attendance by typing someone else&rsquo;s address.
-        </p>
       </div>
 
       <div className="card">
