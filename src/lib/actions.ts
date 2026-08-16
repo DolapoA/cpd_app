@@ -36,6 +36,7 @@ import {
 import { bucketSize, record } from "./analytics";
 import { newRegisterCode, newVerificationCode } from "./ids";
 import { ACTIVITY_TYPES, EVENT_TYPES, REGULATORS } from "./format";
+import { OTHER_PROFESSION, PROFESSIONS, professionKey } from "./professions";
 import { mapRows, parseSpreadsheet, type ImportResult, type ParsedEntry } from "./import";
 import { FEEDBACK_QUESTIONS, QUESTION_SET_VERSION, SCALE_POINTS } from "./feedback";
 import { frameworkFor, serialiseStandards, validStandards } from "./standards";
@@ -58,6 +59,20 @@ function str(formData: FormData, key: string): string {
   return typeof v === "string" ? v.trim() : "";
 }
 
+/**
+ * The profession, from a list plus a box for anything not on it.
+ *
+ * "Other" is not itself a profession, so it is never stored: what gets kept is
+ * either a listed title or the words they typed. Storing "Other" would put
+ * everyone whose job is missing into one meaningless group.
+ */
+function profession(formData: FormData): string | null {
+  const chosen = str(formData, "profession");
+  if (chosen === OTHER_PROFESSION) return str(formData, "profession_other") || null;
+  if (chosen && !(PROFESSIONS as readonly string[]).includes(chosen)) return null;
+  return chosen || null;
+}
+
 function num(formData: FormData, key: string): number | null {
   const s = str(formData, key);
   if (s === "") return null;
@@ -73,7 +88,7 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
   const email = str(formData, "email").toLowerCase();
   const password = formData.get("password");
   const fullName = str(formData, "full_name");
-  const profession = str(formData, "profession");
+  const chosenProfession = profession(formData);
   const regulator = str(formData, "regulator");
   const registrationNumber = str(formData, "registration_number");
 
@@ -96,7 +111,7 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
        VALUES (?, ?, ?, ?, ?, ?, ?)
        RETURNING id`
     )
-    .get(email, hash, fullName, profession || null, regulator || null, registrationNumber || null, now)) as {
+    .get(email, hash, fullName, chosenProfession, regulator || null, registrationNumber || null, now)) as {
     id: number;
   };
   const userId = Number(created.id);
@@ -224,17 +239,19 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
 
   await (await getDb())
     .prepare(
-      `UPDATE users SET full_name = ?, profession = ?, regulator = ?, registration_number = ?, role_grade = ?, registration_date = ?, annual_target_points = ?
+      `UPDATE users SET full_name = ?, profession = ?, regulator = ?, registration_number = ?, role_grade = ?, registration_date = ?, annual_target_points = ?, discover_events = ?
        WHERE id = ?`
     )
     .run(
       fullName,
-      str(formData, "profession") || null,
+      profession(formData),
       regulator || null,
       str(formData, "registration_number") || null,
       str(formData, "role_grade") || null,
       registrationDate || null,
       target ?? 50,
+      // An unticked checkbox sends nothing at all, so absence is the "off".
+      formData.get("discover_events") ? 1 : 0,
       user.id
     );
   revalidatePath("/", "layout");
@@ -1428,7 +1445,14 @@ function plannedFields(formData: FormData): { error: string } | Record<string, u
   if (endTime && startTime && (endsOn || startsOn) === startsOn && endTime <= startTime)
     return { error: "The end time is before the start time." };
 
+  // Sharing is two answers, not one: whether anyone may attend, and whether to
+  // let it be seen. The second is meaningless without the first, so it is
+  // dropped rather than trusted when the first is missing.
+  const isPublic = formData.get("is_public") ? 1 : 0;
+
   return {
+    isPublic,
+    shared: isPublic && formData.get("shared") ? 1 : 0,
     title,
     startsOn,
     endsOn: endsOn || null,
@@ -1459,12 +1483,12 @@ export async function addPlannedEvent(
     .prepare(
       `INSERT INTO planned_events
          (user_id, title, starts_on, ends_on, start_time, end_time, location, provider, url,
-          notes, expected_points, expected_hours, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          notes, expected_points, expected_hours, is_public, shared, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       user.id, f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location,
-      f.provider, f.url, f.notes, f.points, f.hours, now, now
+      f.provider, f.url, f.notes, f.points, f.hours, f.isPublic, f.shared, now, now
     );
 
   await record({ name: "planned_event_added" });
@@ -1492,12 +1516,14 @@ export async function updatePlannedEvent(
       `UPDATE planned_events
           SET title = ?, starts_on = ?, ends_on = ?, start_time = ?, end_time = ?,
               location = ?, provider = ?, url = ?, notes = ?, expected_points = ?,
-              expected_hours = ?, revision = revision + 1, updated_at = ?
+              expected_hours = ?, is_public = ?, shared = ?, revision = revision + 1,
+              updated_at = ?
         WHERE id = ? AND user_id = ?`
     )
     .run(
       f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location, f.provider,
-      f.url, f.notes, f.points, f.hours, new Date().toISOString(), id, user.id
+      f.url, f.notes, f.points, f.hours, f.isPublic, f.shared, new Date().toISOString(),
+      id, user.id
     );
   if (result.changes === 0) return { error: "That plan no longer exists." };
 
@@ -1605,4 +1631,113 @@ export async function regenerateCalendarToken(): Promise<void> {
     .run(crypto.randomBytes(24).toString("base64url"), user.id);
   revalidatePath("/record/planned");
   redirect("/record/planned?feed=new");
+}
+
+/**
+ * What other people in the same profession have shared.
+ *
+ * Grouped by event rather than listed per person, and returning no identity at
+ * all — not merely an undisplayed one. What someone plans to attend says where
+ * they will be on a given day, and can say what they are struggling with; the
+ * useful part of sharing is the event, and the useful part is all that leaves
+ * this function.
+ */
+export type DiscoveredEvent = {
+  key: string;
+  title: string;
+  starts_on: string;
+  ends_on: string | null;
+  start_time: string | null;
+  end_time: string | null;
+  location: string | null;
+  provider: string | null;
+  url: string | null;
+  /** How many people in the profession have it planned. Never who. */
+  interested: number;
+  /** True if the person asking has already got it. */
+  mine: boolean;
+};
+
+export async function discoverEvents(user: User): Promise<DiscoveredEvent[]> {
+  const key = professionKey(user.profession);
+  if (!key || !user.discover_events) return [];
+
+  const db = await getDb();
+  const today = new Date().toISOString().slice(0, 10);
+  // Matching happens in code rather than SQL because the key is a normalising
+  // function — one place that decides what counts as the same profession, used
+  // by every caller, rather than a rule reimplemented in each query.
+  const rows = (await db
+    .prepare(
+      `SELECT p.*, u.profession AS owner_profession
+         FROM planned_events p
+         JOIN users u ON u.id = p.user_id
+        WHERE p.shared = 1 AND p.is_public = 1 AND p.outcome IS NULL
+          AND COALESCE(p.ends_on, p.starts_on) >= ?
+        ORDER BY p.starts_on`
+    )
+    .all(today)) as (PlannedEvent & { owner_profession: string | null })[];
+
+  const groups = new Map<string, DiscoveredEvent>();
+  for (const row of rows) {
+    if (professionKey(row.owner_profession) !== key) continue;
+    // Two people typing the same conference differently should still meet, so
+    // the grouping key ignores case and spacing rather than demanding an
+    // identical string.
+    const groupKey = `${professionKey(row.title)}|${row.starts_on}`;
+    const existing = groups.get(groupKey);
+    if (existing) {
+      existing.interested += 1;
+      existing.mine = existing.mine || row.user_id === user.id;
+      // Details missing from the first copy are filled from later ones.
+      existing.location ??= row.location;
+      existing.provider ??= row.provider;
+      existing.url ??= row.url;
+      continue;
+    }
+    groups.set(groupKey, {
+      key: groupKey,
+      title: row.title,
+      starts_on: row.starts_on,
+      ends_on: row.ends_on,
+      start_time: row.start_time,
+      end_time: row.end_time,
+      location: row.location,
+      provider: row.provider,
+      url: row.url,
+      interested: 1,
+      mine: row.user_id === user.id,
+    });
+  }
+
+  return [...groups.values()].sort((a, b) => a.starts_on.localeCompare(b.starts_on));
+}
+
+/** Copies a shared event onto your own plan. Yours from then on, not a link to theirs. */
+export async function addSharedEventToPlan(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const key = str(formData, "key");
+  const found = (await discoverEvents(user)).find((e) => e.key === key);
+  if (!found || found.mine) redirect("/record/discover");
+
+  const now = new Date().toISOString();
+  await (await getDb())
+    .prepare(
+      `INSERT INTO planned_events
+         (user_id, title, starts_on, ends_on, start_time, end_time, location, provider, url,
+          is_public, shared, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 0, ?, ?)`
+    )
+    .run(
+      user.id, found.title, found.starts_on, found.ends_on, found.start_time, found.end_time,
+      found.location, found.provider, found.url, now, now
+    );
+
+  // Copied as unshared: taking an interest in something is not the same as
+  // announcing it, and the person can share it themselves if they want to.
+  await record({ name: "planned_event_added" });
+  revalidatePath("/record/planned");
+  redirect("/record/planned");
 }

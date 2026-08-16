@@ -5,6 +5,7 @@ import { getCurrentUser } from "@/lib/auth";
 import { formatDate, REGULATORS } from "@/lib/format";
 import { getGuestSlip } from "@/lib/guest-signature";
 import { ActionForm } from "@/components/action-form";
+import { ProfessionField } from "@/components/profession-field";
 
 export const metadata = { title: "Create account — CPD Register" };
 
@@ -96,15 +97,7 @@ export default async function SignupPage() {
             <div className="hint">At least 8 characters.</div>
           </div>
           <div className="field-row">
-            <div className="field">
-              <label htmlFor="profession">Profession</label>
-              <input
-                id="profession"
-                name="profession"
-                type="text"
-                placeholder="e.g. Physiotherapist"
-              />
-            </div>
+            <ProfessionField />
             <div className="field">
               <label htmlFor="regulator">Regulator</label>
               <select id="regulator" name="regulator" defaultValue={knownRegulator}>

@@ -1,3 +1,6 @@
+"use client";
+
+import { useState } from "react";
 import type { PlannedEvent } from "@/lib/db";
 
 /**
@@ -8,6 +11,10 @@ import type { PlannedEvent } from "@/lib/db";
  * event lands in a calendar on the wrong day.
  */
 export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
+  // Sharing a private event is not a thing that can be meant, so the second
+  // choice only appears once the first is made.
+  const [isPublic, setIsPublic] = useState(!!plan?.is_public);
+
   return (
     <>
           <div className="field">
@@ -116,6 +123,39 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
               What you want to get out of it. This carries over to your record if you attend.
             </div>
           </div>
+      <div className="field">
+        <label className="choice" htmlFor="is_public">
+          <input
+            id="is_public"
+            name="is_public"
+            type="checkbox"
+            defaultChecked={!!plan?.is_public}
+            onChange={(e) => setIsPublic(e.currentTarget.checked)}
+          />{" "}
+          Anyone can attend this
+        </label>
+        <div className="hint">
+          A conference, course or open study day — as opposed to a team meeting or something
+          only your workplace can attend.
+        </div>
+      </div>
+      {isPublic && (
+        <div className="field">
+          <label className="choice" htmlFor="shared">
+            <input
+              id="shared"
+              name="shared"
+              type="checkbox"
+              defaultChecked={!!plan?.shared}
+            />{" "}
+            Let others in my profession see it
+          </label>
+          <div className="hint">
+            They see the event, never your name — only that someone in the profession has it
+            planned. Untick at any time and it disappears from their list.
+          </div>
+        </div>
+      )}
     </>
   );
 }

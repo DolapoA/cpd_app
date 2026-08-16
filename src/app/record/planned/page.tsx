@@ -69,6 +69,9 @@ export default async function PlannedPage({
           </p>
         </div>
         <div className="actions-row">
+          <Link href="/record/discover" className="btn btn--secondary">
+            What others are going to
+          </Link>
           <Link href="/record" className="btn btn--quiet">
             Your record →
           </Link>

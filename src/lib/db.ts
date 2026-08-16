@@ -25,6 +25,9 @@ CREATE TABLE IF NOT EXISTS users (
      cookie, so the address itself is the credential — hence a random token
      that can be replaced without touching the password. */
   calendar_token TEXT UNIQUE,
+  /* Whether they see what others in their profession have shared. On by
+     default: an empty listing teaches nobody that the feature exists. */
+  discover_events INTEGER NOT NULL DEFAULT 1,
   created_at TEXT NOT NULL
 );
 
@@ -176,6 +179,12 @@ CREATE TABLE IF NOT EXISTS planned_events (
   /* Bumped on every edit. Subscribed calendars use it to notice a change:
      without it a moved conference silently keeps its old slot. */
   revision INTEGER NOT NULL DEFAULT 0,
+  /* Two separate questions. is_public is a fact about the event — anyone may
+     attend, as opposed to a team meeting. shared is the owner's choice to let
+     it be seen. Only a public event can be shared, but a public event does not
+     have to be. */
+  is_public INTEGER NOT NULL DEFAULT 0,
+  shared INTEGER NOT NULL DEFAULT 0,
   /* NULL while still ahead; 'recorded' or 'missed' once answered for. */
   outcome TEXT,
   cpd_entry_id INTEGER REFERENCES cpd_entries(id),
@@ -211,6 +220,15 @@ async function migrate(p: Pool): Promise<void> {
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT");
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token TEXT");
+  await p.query(
+    "ALTER TABLE users ADD COLUMN IF NOT EXISTS discover_events INTEGER NOT NULL DEFAULT 1"
+  );
+  await p.query(
+    "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS is_public INTEGER NOT NULL DEFAULT 0"
+  );
+  await p.query(
+    "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS shared INTEGER NOT NULL DEFAULT 0"
+  );
   await p.query(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token)"
   );
@@ -373,6 +391,7 @@ export type User = {
   /** Until this is set, the recovery address is a note to us, not a way in. */
   backup_email_verified_at: string | null;
   calendar_token: string | null;
+  discover_events: number;
   totp_secret: string | null;
   /** Set only when a first code has been verified — until then 2FA is not on. */
   totp_confirmed_at: string | null;
@@ -394,6 +413,8 @@ export type PlannedEvent = {
   expected_points: number | null;
   expected_hours: number | null;
   revision: number;
+  is_public: number;
+  shared: number;
   outcome: string | null;
   cpd_entry_id: number | null;
   created_at: string;

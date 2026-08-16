@@ -4,6 +4,7 @@ import { updateProfile } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
+import { ProfessionField } from "@/components/profession-field";
 
 export const metadata = { title: "Profile — CPD Register" };
 
@@ -41,15 +42,7 @@ export default async function ProfilePage() {
             </div>
           </div>
           <div className="field-row">
-            <div className="field">
-              <label htmlFor="profession">Profession</label>
-              <input
-                id="profession"
-                name="profession"
-                type="text"
-                defaultValue={user.profession ?? ""}
-              />
-            </div>
+            <ProfessionField defaultValue={user.profession} />
             <div className="field">
               <label htmlFor="role_grade">Role / grade</label>
               <input
@@ -110,6 +103,21 @@ export default async function ProfilePage() {
               defaultValue={user.annual_target_points}
             />
             <div className="hint">e.g. 50 credits a year for doctors.</div>
+          </div>
+          <div className="field">
+            <label className="choice" htmlFor="discover_events">
+              <input
+                id="discover_events"
+                name="discover_events"
+                type="checkbox"
+                defaultChecked={!!user.discover_events}
+              />{" "}
+              Show me events others in my profession have shared
+            </label>
+            <div className="hint">
+              Turning this off hides their events from you. It does not un-share yours, and it
+              never reveals who shared what either way.
+            </div>
           </div>
         </ActionForm>
       </div>
