@@ -32,8 +32,13 @@ export default async function ProfilePage() {
             />
           </div>
           <div className="field">
-            <label>Email</label>
-            <input type="email" value={user.email} disabled />
+            {/* A label with nothing to point at is invisible to a screen
+                reader, which then announces this as an unnamed field. */}
+            <label htmlFor="email">Email</label>
+            <input id="email" type="email" value={user.email} disabled readOnly />
+            <div className="hint">
+              You sign in with this address, and attendance slips are matched to it.
+            </div>
           </div>
           <div className="field-row">
             <div className="field">
@@ -108,9 +113,25 @@ export default async function ProfilePage() {
           </div>
         </ActionForm>
       </div>
-          <p className="muted small">
-        Sign-in, security and closing your account are on <Link href="/account">your account page</Link>.
-      </p>
+      {/* This was a grey footnote, which made it the only route to the
+          password, two-factor and account-closure controls — a link people
+          have to already know is there. Security settings nobody can find
+          are security settings nobody uses. */}
+      <div className="card">
+        <h2>Account and security</h2>
+        <p className="muted small">
+          Everything that isn&rsquo;t professional information lives on your account page:
+        </p>
+        <ul className="bullets small">
+          <li>Confirm your email address, or add a backup one</li>
+          <li>Change your password, or turn on two-factor authentication</li>
+          <li>See where you&rsquo;re signed in, and sign out everywhere else</li>
+          <li>Download everything you&rsquo;ve recorded, or close the account</li>
+        </ul>
+        <Link href="/account" className="btn btn--secondary">
+          Go to your account
+        </Link>
+      </div>
     </main>
   );
 }
