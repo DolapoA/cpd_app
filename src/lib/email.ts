@@ -24,8 +24,15 @@ async function send(
   attachments?: FeedbackAttachment[]
 ): Promise<void> {
   if (!emailConfigured()) {
+    // The HTML part is summarised rather than dumped: several thousand
+    // characters of table markup would bury the link, which is the thing
+    // anyone reading this log actually needs. But it is named, because a log
+    // showing only plain text reads as though no HTML was built.
     console.warn(
-      `[email] RESEND_API_KEY not set — not sending "${subject}" to ${to}.\n${text}`
+      `[email] RESEND_API_KEY not set — not sending "${subject}" to ${to}.` +
+        `${html ? ` (multipart: ${html.length} chars of HTML, plain text below)` : ""}` +
+        `${attachments?.length ? ` (${attachments.length} attachment(s))` : ""}` +
+        `\n${text}`
     );
     return;
   }
