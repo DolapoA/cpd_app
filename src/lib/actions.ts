@@ -1449,22 +1449,77 @@ function plannedFields(formData: FormData): { error: string } | Record<string, u
   // let it be seen. The second is meaningless without the first, so it is
   // dropped rather than trusted when the first is missing.
   const isPublic = formData.get("is_public") ? 1 : 0;
+  const shared = isPublic && formData.get("shared") ? 1 : 0;
+
+  const url = normaliseUrl(str(formData, "url"));
+  if (url === INVALID_URL)
+    return {
+      error:
+        "That link doesn’t look like a web address. Paste the page for the event, starting https://",
+    };
+
+  const location = str(formData, "location");
+  const provider = str(formData, "provider");
+
+  // A shared event is read by someone deciding whether to spend a day and a
+  // fee on it, and they cannot ask the sharer anything. Without the advert
+  // there is nothing to look into and no way to check the thing is real, so
+  // these are required to share rather than merely encouraged.
+  if (shared) {
+    const missing = [
+      url ? null : "a link to where it’s advertised",
+      provider ? null : "who’s running it",
+      location ? null : "where it is",
+    ].filter(Boolean);
+    if (missing.length > 0)
+      return {
+        error: `Before sharing, add ${listed(missing as string[])} — otherwise nobody can look it up or decide whether to go.`,
+      };
+  }
 
   return {
     isPublic,
-    shared: isPublic && formData.get("shared") ? 1 : 0,
+    shared,
     title,
     startsOn,
     endsOn: endsOn || null,
     startTime: startTime || null,
     endTime: endTime || null,
-    location: str(formData, "location") || null,
-    provider: str(formData, "provider") || null,
-    url: str(formData, "url") || null,
+    location: location || null,
+    provider: provider || null,
+    url: url || null,
     notes: str(formData, "notes") || null,
     points: num(formData, "expected_points"),
     hours: num(formData, "expected_hours"),
   };
+}
+
+/** Distinguishes "they gave nothing" from "they gave something unusable". */
+const INVALID_URL = Symbol("invalid url");
+
+/**
+ * A link is only useful if it opens. Missing schemes are added rather than
+ * rejected, because "csp.org.uk/conference" is what people paste; anything
+ * that is not http or https is refused, since this link is shown to other
+ * people and a javascript: URL is not a web address at all.
+ */
+function normaliseUrl(raw: string): string | null | typeof INVALID_URL {
+  if (!raw) return null;
+  const withScheme = /^[a-z][a-z0-9+.-]*:/i.test(raw) ? raw : `https://${raw}`;
+  try {
+    const parsed = new URL(withScheme);
+    if (parsed.protocol !== "http:" && parsed.protocol !== "https:") return INVALID_URL;
+    if (!parsed.hostname.includes(".")) return INVALID_URL;
+    return parsed.toString();
+  } catch {
+    return INVALID_URL;
+  }
+}
+
+/** "a, b and c" — an error should read like a sentence, not a list of keys. */
+function listed(items: string[]): string {
+  if (items.length === 1) return items[0];
+  return `${items.slice(0, -1).join(", ")} and ${items[items.length - 1]}`;
 }
 
 export async function addPlannedEvent(

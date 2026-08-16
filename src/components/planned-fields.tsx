@@ -14,6 +14,11 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
   // Sharing a private event is not a thing that can be meant, so the second
   // choice only appears once the first is made.
   const [isPublic, setIsPublic] = useState(!!plan?.is_public);
+  // Sharing turns three optional fields into required ones. Marking them while
+  // the box is ticked is the difference between the browser saying so at the
+  // field and the server saying so after a round trip.
+  const [shared, setShared] = useState(!!plan?.shared);
+  const needed = shared;
 
   return (
     <>
@@ -63,34 +68,47 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
           </div>
           <div className="field-row">
             <div className="field">
-              <label htmlFor="provider">Who&rsquo;s running it?</label>
+              <label htmlFor="provider">
+                Who&rsquo;s running it?{needed ? "" : " (optional)"}
+              </label>
               <input
                 id="provider"
                 name="provider"
                 type="text"
+                required={needed}
                 defaultValue={plan?.provider ?? ""}
               />
             </div>
             <div className="field">
-              <label htmlFor="location">Where?</label>
+              <label htmlFor="location">Where?{needed ? "" : " (optional)"}</label>
               <input
                 id="location"
                 name="location"
                 type="text"
+                required={needed}
                 placeholder="e.g. Manchester, or online"
                 defaultValue={plan?.location ?? ""}
               />
             </div>
           </div>
           <div className="field">
-            <label htmlFor="url">Link</label>
+            <label htmlFor="url">
+              Link{needed ? " to where it\u2019s advertised" : " (optional)"}
+            </label>
             <input
               id="url"
               name="url"
-              type="url"
+              type="text"
+              inputMode="url"
+              required={needed}
               placeholder="https://"
               defaultValue={plan?.url ?? ""}
             />
+            {needed && (
+              <div className="hint">
+                The page someone else can open to see the programme, the cost and how to book.
+              </div>
+            )}
           </div>
           <div className="field-row">
             <div className="field">
@@ -130,7 +148,10 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
             name="is_public"
             type="checkbox"
             defaultChecked={!!plan?.is_public}
-            onChange={(e) => setIsPublic(e.currentTarget.checked)}
+            onChange={(e) => {
+              setIsPublic(e.currentTarget.checked);
+              if (!e.currentTarget.checked) setShared(false);
+            }}
           />{" "}
           Anyone can attend this
         </label>
@@ -147,12 +168,14 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
               name="shared"
               type="checkbox"
               defaultChecked={!!plan?.shared}
+              onChange={(e) => setShared(e.currentTarget.checked)}
             />{" "}
             Let others in my profession see it
           </label>
           <div className="hint">
             They see the event, never your name — only that someone in the profession has it
-            planned. Untick at any time and it disappears from their list.
+            planned. Untick at any time and it disappears from their list. Sharing needs a link,
+            who&rsquo;s running it and where, so people can look it up.
           </div>
         </div>
       )}
