@@ -119,15 +119,6 @@ export default async function ProfilePage() {
           are security settings nobody uses. */}
       <div className="card">
         <h2>Account and security</h2>
-        <p className="muted small">
-          Everything that isn&rsquo;t professional information lives on your account page:
-        </p>
-        <ul className="bullets small">
-          <li>Confirm your email address, or add a backup one</li>
-          <li>Change your password, or turn on two-factor authentication</li>
-          <li>See where you&rsquo;re signed in, and sign out everywhere else</li>
-          <li>Download everything you&rsquo;ve recorded, or close the account</li>
-        </ul>
         <Link href="/account" className="btn btn--secondary">
           Go to your account
         </Link>
