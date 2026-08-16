@@ -1011,10 +1011,19 @@ export async function sendVerificationEmail(): Promise<void> {
   if (!user) redirect("/login");
   if (user.email_verified_at) return;
 
-  const token = await issueToken(user.id, user.email, "verify");
-  const base = await getBaseUrl();
-  await sendEmailConfirmation(user.email, user.full_name, `${base}/verify-email/${token}`);
+  // The outcome has to reach the page. A form action that returns silently
+  // leaves someone clicking a button that, for all they can tell, does
+  // nothing — and a provider rejecting the address would be invisible.
+  try {
+    const token = await issueToken(user.id, user.email, "verify");
+    const base = await getBaseUrl();
+    await sendEmailConfirmation(user.email, user.full_name, `${base}/verify-email/${token}`);
+  } catch (error) {
+    console.error("[account] verification email failed", error);
+    redirect("/account?sent=failed");
+  }
   revalidatePath("/account");
+  redirect("/account?sent=1");
 }
 
 // ---------------------------------------------------------------------------

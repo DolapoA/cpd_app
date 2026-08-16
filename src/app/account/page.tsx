@@ -17,9 +17,15 @@ import { ActionForm } from "@/components/action-form";
 
 export const metadata = { title: "Account — CPD Register" };
 
-export default async function AccountPage() {
+export default async function AccountPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ sent?: string }>;
+}) {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
+
+  const sent = (await searchParams).sent;
 
   const db = await getDb();
   const sessions = (
@@ -66,15 +72,29 @@ export default async function AccountPage() {
           )}
         </p>
         {!user.email_verified_at && (
-          <div className="notice notice--warn">
-            <p className="small">
-              Confirm this address so attendance you sign as a guest is matched to it
-              automatically. Until it is confirmed we only match slips signed while you were
-              logged in.
-            </p>
+          <div className={`notice notice--${sent === "1" ? "ok" : "warn"}`}>
+            {sent === "1" ? (
+              <p className="small">
+                <strong>Link sent to {user.email}.</strong> It works for 24 hours. If it
+                doesn&rsquo;t arrive, check your spam folder — and check the address above is
+                spelled correctly, because a link sent to an address that doesn&rsquo;t exist
+                simply vanishes.
+              </p>
+            ) : sent === "failed" ? (
+              <p className="small">
+                <strong>That didn&rsquo;t send.</strong> The address may be wrong, or our email
+                provider may be having trouble. Try again in a few minutes.
+              </p>
+            ) : (
+              <p className="small">
+                Confirm this address so attendance you sign as a guest is matched to it
+                automatically. Until it is confirmed we only match slips signed while you were
+                logged in.
+              </p>
+            )}
             <form action={sendVerificationEmail}>
               <button type="submit" className="btn btn--secondary btn--small">
-                Send me the link
+                {sent === "1" ? "Send it again" : "Send me the link"}
               </button>
             </form>
           </div>
