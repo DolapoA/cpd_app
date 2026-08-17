@@ -3,6 +3,8 @@ import { Analytics } from "@vercel/analytics/next";
 import "./globals.css";
 import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
+import { InstallPrompt } from "@/components/install-prompt";
+import { ServiceWorker } from "@/components/service-worker";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
 
@@ -17,6 +19,9 @@ export const metadata: Metadata = {
   description:
     "Attendance registers, verifiable attendance slips, and a regulator-ready CPD record for professionals with CPD obligations.",
   applicationName: "CPD Register",
+  manifest: "/manifest.webmanifest",
+  // iOS reads these rather than the manifest when adding to the home screen.
+  appleWebApp: { capable: true, title: "CPD Register", statusBarStyle: "default" },
   openGraph: {
     title: "CPD Register",
     description:
@@ -59,6 +64,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {children}
           <SiteFooter />
         </div>
+        <ServiceWorker />
+        <InstallPrompt />
         <Analytics />
       </body>
     </html>

@@ -1375,6 +1375,88 @@ textarea:focus {
   }
 }
 
+/* ---- Install prompt ---- */
+
+/* Sits above the phone tab bar rather than over it: covering the navigation
+   to ask for an install is how a nudge becomes an obstruction. */
+.install-prompt {
+  position: fixed;
+  left: 50%;
+  bottom: calc(var(--space-3) + env(safe-area-inset-bottom, 0px));
+  transform: translateX(-50%);
+  z-index: 40;
+  width: min(94vw, 26rem);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-35);
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elevation-2);
+  animation: installIn var(--duration-slow) var(--ease-emphasised);
+}
+
+@keyframes installIn {
+  from {
+    opacity: 0;
+    transform: translate(-50%, 120%);
+  }
+  to {
+    opacity: 1;
+    transform: translate(-50%, 0);
+  }
+}
+
+.install-prompt__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.install-prompt__title {
+  margin: 0;
+  font-weight: 600;
+  font-size: var(--text-s);
+}
+
+.install-prompt__sub {
+  margin: var(--space-05) 0 0;
+  font-size: var(--text-xs);
+  color: var(--ink-soft);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  flex-wrap: wrap;
+}
+
+.install-prompt__share {
+  display: inline-flex;
+  color: var(--brand);
+}
+
+.install-prompt__close {
+  flex: none;
+  align-self: flex-start;
+  border: none;
+  background: none;
+  color: var(--ink-soft);
+  font-size: var(--text-l);
+  line-height: 1;
+  padding: var(--space-1);
+  cursor: pointer;
+}
+
+.install-prompt__close:hover {
+  color: var(--ink);
+}
+
+/* The tab bar owns the bottom of a phone screen, so the prompt clears it. */
+@media (max-width: 700px) {
+  body:has(.site-header--rail) .install-prompt {
+    bottom: calc(4.5rem + var(--space-2) + env(safe-area-inset-bottom, 0px));
+  }
+}
+
 /* ---- Setting up (first-run checklist) ---- */
 
 .setup__meter {
