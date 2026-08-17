@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
 import { logout } from "@/lib/actions";
 import { NavLinks } from "./nav-links";
+import { RailCollapse, RailReveal } from "./rail-toggle";
 
 function initials(name: string): string {
   const parts = name.trim().split(/\s+/);
@@ -43,8 +44,13 @@ export async function SiteHeader() {
   // enough that it should not sit one mis-tap from the section you use most.
   return (
     <header className="site-header site-header--rail">
-      <div className="site-rail">
-        <div className="site-rail__brand">{brand}</div>
+      {/* Outside the rail, so it survives the rail sliding away. */}
+      <RailReveal />
+      <div className="site-rail" id="site-rail">
+        <div className="site-rail__brand">
+          {brand}
+          <RailCollapse />
+        </div>
         <nav className="site-nav" aria-label="Sections">
           <NavLinks variant="icon" />
         </nav>

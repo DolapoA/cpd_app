@@ -5,6 +5,7 @@ import { SiteHeader } from "@/components/site-header";
 import { SiteFooter } from "@/components/site-footer";
 import { InstallPrompt } from "@/components/install-prompt";
 import { ServiceWorker } from "@/components/service-worker";
+import { railInitScript } from "@/components/rail-toggle";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
 
@@ -60,6 +61,11 @@ export const viewport = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="en-GB">
+      <head>
+        {/* Before the first paint: a rail put away on the last visit must not
+            appear and then vanish. */}
+        <script dangerouslySetInnerHTML={{ __html: railInitScript }} />
+      </head>
       <body>
         <SiteHeader />
         {/* One column for the page and its footer, so the navigation rail sits

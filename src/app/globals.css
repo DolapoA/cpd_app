@@ -1383,6 +1383,113 @@ textarea:focus {
   }
 }
 
+/* ---- Hiding the rail (desktop) ---- */
+
+/* The rail slides out of the flow rather than fading, and the page takes the
+   space back as it goes — the same push the Yoruba drawer does, in reverse.
+   Animating the margin rather than a transform keeps the content reflowing
+   with it instead of sliding over a gap. */
+.site-header--rail {
+  transition: margin-left var(--duration-slow) var(--ease-emphasised);
+}
+
+html.rail-hidden .site-header--rail {
+  /* One rail width, so the whole thing including its border clears the edge. */
+  margin-left: calc(-1 * (13rem + var(--space-3) * 2 + 1px));
+}
+
+/* Both buttons are always rendered; which one is reachable is a CSS question,
+   so the rail can be brought back before React has hydrated. */
+.rail-toggle,
+.rail-reveal {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2rem;
+  height: 2rem;
+  flex: none;
+  padding: 0;
+  border: 1px solid transparent;
+  border-radius: var(--radius-md);
+  background: none;
+  color: var(--ink-soft);
+  cursor: pointer;
+  transition: background var(--duration-fast) var(--ease-standard),
+    color var(--duration-fast) var(--ease-standard);
+}
+
+.rail-toggle:hover,
+.rail-reveal:hover {
+  background: var(--surface-sunken);
+  color: var(--ink);
+}
+
+.rail-toggle:focus-visible,
+.rail-reveal:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+/* The way back in. Fixed to the top-left corner the rail vacated, and only
+   there once it has. */
+.rail-reveal {
+  position: fixed;
+  top: calc(var(--space-3) + env(safe-area-inset-top, 0px));
+  left: var(--space-3);
+  z-index: 35;
+  background: var(--surface);
+  border-color: var(--line);
+  box-shadow: var(--elevation-1);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-standard);
+}
+
+html.rail-hidden .rail-reveal {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+/* The brand and the collapse button share the rail's top line. */
+.site-rail__brand {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-2);
+}
+
+/* On a wide screen the centred column stops well short of the corner the
+   reveal button sits in. On a narrow window it does not, and the button lands
+   on the page heading — so the page is nudged clear, but only at the widths
+   where the two would actually meet. Above that, nothing moves. */
+@media (min-width: 701px) and (max-width: 1120px) {
+  html.rail-hidden .site-main {
+    /* The button is 2rem wide at 0.75rem from the edge; the rest is the gap
+       that keeps the heading from running into it. */
+    padding-left: 3.75rem;
+  }
+}
+
+/* A phone has a tab bar, not a rail: nothing here applies, and the reveal
+   button would be a control for something that cannot be hidden. */
+@media (max-width: 700px) {
+  .rail-toggle,
+  .rail-reveal {
+    display: none;
+  }
+
+  html.rail-hidden .site-header--rail {
+    margin-left: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .site-header--rail,
+  .rail-reveal {
+    transition: none;
+  }
+}
+
 /* ---- Install prompt ---- */
 
 /* Sits above the phone tab bar rather than over it: covering the navigation
