@@ -2,6 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { sendVerificationEmail } from "@/lib/actions";
+import { JunkMailHint } from "@/components/junk-mail-hint";
 
 export const metadata = { title: "Confirm your email — CPD Register" };
 
@@ -33,8 +34,7 @@ export default async function ConfirmEmailPage({
       <div className={`notice notice--${sent === "1" ? "ok" : "info"}`}>
         {sent === "1" ? (
           <p className="small">
-            <strong>Sent again to {user.email}.</strong> Give it a minute, and check your spam
-            folder.
+            <strong>Sent again to {user.email}.</strong> Give it a minute.
           </p>
         ) : (
           <p className="small">
@@ -43,6 +43,7 @@ export default async function ConfirmEmailPage({
             hold — which is why we ask before you start putting anything in.
           </p>
         )}
+        <JunkMailHint />
         <form action={sendVerificationEmail}>
           <input type="hidden" name="from" value="confirm" />
           <button type="submit" className="btn">

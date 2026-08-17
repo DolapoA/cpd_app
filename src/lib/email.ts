@@ -122,20 +122,35 @@ export async function sendFeedbackReport(report: FeedbackReport): Promise<void> 
     console.warn(`[feedback] FEEDBACK_TO is not set — report not delivered.\n${subject}\n${report.message}`);
     return;
   }
+  const facts = [
+    `Kind: ${report.kind}`,
+    `Page: ${report.page ?? "not given"}`,
+    `From: ${report.from ?? "not given"}`,
+    `Browser: ${report.userAgent ?? "not given"}`,
+    `Sent: ${new Date().toISOString()}`,
+    ...(report.attachment ? [`Attached: ${report.attachment.filename}`] : []),
+  ];
+
   await send(
     FEEDBACK_TO,
     subject,
     `${report.message}
 
 —
-Kind:    ${report.kind}
-Page:    ${report.page ?? "not given"}
-From:    ${report.from ?? "not given"}
-Browser: ${report.userAgent ?? "not given"}
-Sent:    ${new Date().toISOString()}${report.attachment ? `\nAttached: ${report.attachment.filename}` : ""}`,
+${facts.join("\n")}`,
     // So a reply goes to the person who reported it, not into the void.
     report.from ?? undefined,
-    undefined,
+    // Themed like everything else. The report is read on a phone as often as
+    // anywhere, and the person's own words want separating from the
+    // diagnostics rather than running into them as one block of plain text.
+    renderEmail({
+      title: report.kind,
+      preheader: report.message.slice(0, 120),
+      blocks: [
+        { kind: "text", content: report.message },
+        { kind: "list", heading: "Where it came from", items: facts },
+      ],
+    }),
     report.attachment ? [report.attachment] : undefined
   );
 }

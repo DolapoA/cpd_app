@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { JunkMailHint } from "@/components/junk-mail-hint";
 
 export const metadata = { title: "Check your email" };
 
@@ -12,6 +13,7 @@ export default function ResetSentPage() {
           If that address has an account, a link to set a new password is on its way. It works for
           one hour.
         </p>
+        <JunkMailHint />
         <p className="hint">
           We say &ldquo;if&rdquo; deliberately — confirming whether an address is registered here
           would tell a stranger something about you.

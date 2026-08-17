@@ -15,6 +15,7 @@ import {
   setBackupEmail,
 } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
+import { JunkMailHint } from "@/components/junk-mail-hint";
 
 export const metadata = { title: "Account — CPD Register" };
 
@@ -76,10 +77,7 @@ export default async function AccountPage({
           <div className={`notice notice--${sent === "1" ? "ok" : "warn"}`}>
             {sent === "1" ? (
               <p className="small">
-                <strong>Link sent to {user.email}.</strong> It works for 24 hours. If it
-                doesn&rsquo;t arrive, check your spam folder — and check the address above is
-                spelled correctly, because a link sent to an address that doesn&rsquo;t exist
-                simply vanishes.
+                <strong>Link sent to {user.email}.</strong> It works for 24 hours.
               </p>
             ) : sent === "failed" ? (
               <p className="small">
@@ -92,6 +90,12 @@ export default async function AccountPage({
                 automatically. Until it is confirmed we only match slips signed while you were
                 logged in.
               </p>
+            )}
+            {sent === "1" && (
+              <JunkMailHint>
+                Worth checking the address above is spelled correctly too — a link sent to an
+                address that doesn&rsquo;t exist simply vanishes.
+              </JunkMailHint>
             )}
             <form action={sendVerificationEmail}>
               <button type="submit" className="btn btn--secondary btn--small">
@@ -111,6 +115,7 @@ export default async function AccountPage({
               change takes effect. Until then you carry on signing in with{" "}
               <strong>{user.email}</strong> — so a typo costs you nothing but another go.
             </p>
+            <JunkMailHint />
           </div>
         ) : change === "failed" ? (
           <div className="notice notice--warn">
@@ -164,6 +169,7 @@ export default async function AccountPage({
               <strong>Confirmation link sent.</strong> Open it from that address to finish. Until
               you do, it can&rsquo;t be used to reset your password.
             </p>
+            <JunkMailHint />
           </div>
         ) : recovery === "failed" ? (
           <div className="notice notice--warn">
