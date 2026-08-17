@@ -122,6 +122,21 @@ function renderEvent(event: CalendarEvent, now: string): string[] {
   if (event.location) lines.push(`LOCATION:${escape(event.location)}`);
   if (event.description) lines.push(`DESCRIPTION:${escape(event.description)}`);
   if (event.url) lines.push(`URL:${escape(event.url)}`);
+
+  // A day's notice.
+  //
+  // An all-day entry starts at midnight, so a flat -P1D would fire at midnight
+  // the night before — a notification nobody sees, or worse, one that wakes
+  // them. Fifteen hours earlier than midnight is 09:00 the previous day, which
+  // is when someone can still do something about it.
+  lines.push(
+    "BEGIN:VALARM",
+    "ACTION:DISPLAY",
+    `TRIGGER:${event.startTime ? "-P1D" : "-PT15H"}`,
+    `DESCRIPTION:${escape(`Tomorrow: ${event.title}`)}`,
+    "END:VALARM"
+  );
+
   lines.push("END:VEVENT");
   return lines;
 }
