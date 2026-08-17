@@ -1,20 +1,13 @@
 import Link from "next/link";
 import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type PlannedEvent } from "@/lib/db";
-import { getBaseUrl } from "@/lib/base-url";
 import { formatDate } from "@/lib/format";
 import { googleCalendarUrl } from "@/lib/planned";
 import {
-  addPlannedEvent,
   deletePlannedEvent,
   dismissPlannedEvent,
-  ensureCalendarToken,
   recordPlannedEvent,
-  regenerateCalendarToken,
 } from "@/lib/actions";
-import { ActionForm } from "@/components/action-form";
-import { CopyField } from "@/components/copy-field";
-import { PlannedFields } from "@/components/planned-fields";
 
 export const metadata = { title: "Planned CPD — CPD Register" };
 
@@ -32,14 +25,9 @@ function whenText(plan: PlannedEvent): string {
   return `${days}, ${plan.start_time}${plan.end_time ? `–${plan.end_time}` : ""}`;
 }
 
-export default async function PlannedPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ feed?: string }>;
-}) {
+export default async function PlannedPage() {
   const user = await requireConfirmedUser();
 
-  const { feed } = await searchParams;
   const today = new Date().toISOString().slice(0, 10);
 
   const plans = (await (await getDb())
@@ -50,11 +38,6 @@ export default async function PlannedPage({
 
   const ahead = plans.filter((p) => isAhead(p, today));
   const past = plans.filter((p) => !isAhead(p, today));
-
-  const token = await ensureCalendarToken(user.id);
-  const feedUrl = `${await getBaseUrl()}/calendar/${token}/cpd.ics`;
-  // webcal: is what makes a click subscribe rather than download a dead copy.
-  const subscribeUrl = feedUrl.replace(/^https?:/, "webcal:");
 
   return (
     <main className="container stack">
@@ -67,8 +50,14 @@ export default async function PlannedPage({
           </p>
         </div>
         <div className="actions-row">
+          <Link href="/record/planned/new" className="btn">
+            Add something
+          </Link>
           <Link href="/record/discover" className="btn btn--secondary">
             What others are going to
+          </Link>
+          <Link href="/record/planned/calendar" className="btn btn--quiet">
+            Your calendar
           </Link>
           <Link href="/record" className="btn btn--quiet">
             Your record →
@@ -85,15 +74,15 @@ export default async function PlannedPage({
             Did you go? Say so and it joins your record, filled in from what you planned.
           </p>
           <div className="table-wrap">
-            <table className="table table--stacks">
+            <table className="table table--stack">
               <tbody>
                 {past.map((plan) => (
                   <tr key={plan.id}>
-                    <td>
+                    <td data-label=".">
                       <strong>{plan.title}</strong>
                       <div className="muted small">{whenText(plan)}</div>
                     </td>
-                    <td className="col--actions">
+                    <td className="col--actions" data-label=".">
                       <div className="actions-row actions-row--table">
                         <form action={recordPlannedEvent}>
                           <input type="hidden" name="id" value={plan.id} />
@@ -129,15 +118,20 @@ export default async function PlannedPage({
               into your own calendar, and when the date passes we&rsquo;ll ask whether to add it
               to your record.
             </p>
+            <div className="actions-row">
+              <Link href="/record/planned/new" className="btn btn--secondary">
+                Add something you&rsquo;re going to
+              </Link>
+            </div>
           </div>
         ) : (
           <div className="table-wrap">
-            <table className="table table--stacks">
+            <table className="table table--stack">
               <tbody>
                 {ahead.map((plan) => (
                   <tr key={plan.id}>
-                    <td className="col--date">{whenText(plan)}</td>
-                    <td>
+                    <td className="col--date" data-label="When">{whenText(plan)}</td>
+                    <td data-label=".">
                       <strong>
                         {plan.url ? (
                           <a href={plan.url} target="_blank" rel="noopener noreferrer">
@@ -152,12 +146,12 @@ export default async function PlannedPage({
                       </div>
                       {plan.notes && <div className="small prewrap">{plan.notes}</div>}
                     </td>
-                    <td className="small col--figures">
+                    <td className="small col--figures" data-label="Expected">
                       {plan.expected_points != null ? `${plan.expected_points} pts` : ""}
                       {plan.expected_points != null && plan.expected_hours != null ? " · " : ""}
                       {plan.expected_hours != null ? `${plan.expected_hours} h` : ""}
                     </td>
-                    <td className="col--actions">
+                    <td className="col--actions" data-label=".">
                       <div className="actions-row actions-row--table">
                         <Link
                           href={`/record/planned/${plan.id}/edit`}
@@ -197,70 +191,6 @@ export default async function PlannedPage({
         )}
       </div>
 
-      <div className="card">
-        <h2>Add something you&rsquo;re going to</h2>
-        <ActionForm action={addPlannedEvent} submitLabel="Add to my plan">
-          <PlannedFields />
-        </ActionForm>
-      </div>
-
-      <div className="card">
-        <h2>Your calendar</h2>
-        {feed === "new" && (
-          <div className="notice notice--ok">
-            <p className="small">
-              <strong>New address created.</strong> The old one has stopped working — re-subscribe
-              anywhere you were using it.
-            </p>
-          </div>
-        )}
-        <p className="muted small">
-          Subscribe once and everything above appears in Google Calendar, Apple Calendar or
-          Outlook, and keeps itself up to date when you change a date. It is read-only: nothing
-          you do in your calendar comes back here.
-        </p>
-        <CopyField label="Your private calendar address" value={feedUrl} />
-        <div className="actions-row">
-          <a href={subscribeUrl} className="btn btn--secondary">
-            Subscribe on this device
-          </a>
-          <a
-            href={`https://calendar.google.com/calendar/r?cid=${encodeURIComponent(feedUrl)}`}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="btn btn--quiet"
-          >
-            Add to Google Calendar
-          </a>
-        </div>
-        <details>
-          <summary className="small">How to add it by hand</summary>
-          <ul className="bullets small">
-            <li>
-              <strong>Google Calendar:</strong> Other calendars → From URL → paste the address.
-              Google decides how often to check, which can be several hours — that is Google, not
-              your calendar being stale.
-            </li>
-            <li>
-              <strong>Apple (iPhone or Mac):</strong> Calendar → File → New Calendar Subscription,
-              or Settings → Calendar → Accounts → Add → Other → Add Subscribed Calendar. You can
-              set it to refresh every hour.
-            </li>
-            <li>
-              <strong>Outlook:</strong> Add calendar → Subscribe from web → paste the address.
-            </li>
-          </ul>
-        </details>
-        <p className="hint">
-          Treat this address like a password: anyone who has it can see what you have planned.
-          It carries no other detail about your account, and you can replace it at any time.
-        </p>
-        <form action={regenerateCalendarToken}>
-          <button type="submit" className="btn btn--quiet btn--small">
-            Replace this address
-          </button>
-        </form>
-      </div>
     </main>
   );
 }

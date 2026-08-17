@@ -1705,8 +1705,8 @@ export async function regenerateCalendarToken(): Promise<void> {
   await (await getDb())
     .prepare("UPDATE users SET calendar_token = ? WHERE id = ?")
     .run(crypto.randomBytes(24).toString("base64url"), user.id);
-  revalidatePath("/record/planned");
-  redirect("/record/planned?feed=new");
+  revalidatePath("/record/planned/calendar");
+  redirect("/record/planned/calendar?feed=new");
 }
 
 /**

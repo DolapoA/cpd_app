@@ -123,7 +123,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
               gain&rdquo; is what attendees felt they gained — a self-report, not a measurement.
             </p>
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table--stack">
                 <thead>
                   <tr>
                     <th>Question</th>
@@ -134,11 +134,11 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
                 <tbody>
                   {summary.map(({ question, mean, distribution }) => (
                     <tr key={question.key}>
-                      <td>
+                      <td data-label=".">
                         <strong>{question.short}</strong>
                         <div className="muted small">{question.text}</div>
                       </td>
-                      <td>
+                      <td data-label="Average">
                         <div className="fb-bar">
                           <span className="fb-bar__track">
                             <span
@@ -153,7 +153,7 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
                           <strong>{mean.toFixed(1)}</strong>
                         </div>
                       </td>
-                      <td className="small muted">{distribution.join(" · ")}</td>
+                      <td className="small muted" data-label="Spread">{distribution.join(" · ")}</td>
                     </tr>
                   ))}
                 </tbody>

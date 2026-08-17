@@ -157,16 +157,16 @@ export default async function ActivityTypesPage({
             </p>
           ) : (
             <div className="table-wrap">
-              <table className="table">
+              <table className="table table--stack">
                 <tbody>
                   {activities.map((e) => (
                     <tr key={e.id}>
-                      <td className="col--date">{formatDate(e.activity_date)}</td>
-                      <td>
+                      <td className="col--date" data-label="When">{formatDate(e.activity_date)}</td>
+                      <td data-label=".">
                         <strong>{e.title}</strong>
                         {e.provider && <div className="muted small">{e.provider}</div>}
                       </td>
-                      <td className="small col--type">
+                      <td className="small col--type" data-label="CPD">
                         {e.points != null ? `${e.points} pts` : ""}
                         {e.points != null && e.hours != null ? " · " : ""}
                         {e.hours != null ? `${e.hours} h` : ""}

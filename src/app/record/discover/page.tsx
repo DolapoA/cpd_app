@@ -64,11 +64,11 @@ export default async function DiscoverPage() {
       ) : (
         <div className="card">
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack">
               <tbody>
                 {events.map((event) => (
                   <tr key={event.key}>
-                    <td className="col--date">
+                    <td className="col--date" data-label="When">
                       {event.ends_on && event.ends_on !== event.starts_on
                         ? `${formatDate(event.starts_on)} – ${formatDate(event.ends_on)}`
                         : formatDate(event.starts_on)}
@@ -76,7 +76,7 @@ export default async function DiscoverPage() {
                         <div className="muted small">{event.start_time}</div>
                       ) : null}
                     </td>
-                    <td>
+                    <td data-label=".">
                       <strong>
                         {event.url ? (
                           <a href={event.url} target="_blank" rel="noopener noreferrer">
@@ -90,12 +90,12 @@ export default async function DiscoverPage() {
                         {[event.provider, event.location].filter(Boolean).join(" · ")}
                       </div>
                     </td>
-                    <td className="small">
+                    <td className="small" data-label="Interest">
                       {event.interested === 1
                         ? `1 ${user.profession?.toLowerCase() ?? "person"} planning to go`
                         : `${event.interested} ${peers} planning to go`}
                     </td>
-                    <td>
+                    <td data-label=".">
                       {event.mine ? (
                         <span className="badge badge--verified">On your plan</span>
                       ) : (

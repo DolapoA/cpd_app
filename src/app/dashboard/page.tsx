@@ -222,18 +222,18 @@ export default async function DashboardPage() {
             </Link>
           </div>
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack">
               <tbody>
                 {upcoming.map((p) => (
                   <tr key={p.id}>
-                    <td className="col--date">{formatDate(p.starts_on)}</td>
-                    <td>
+                    <td className="col--date" data-label="When">{formatDate(p.starts_on)}</td>
+                    <td data-label=".">
                       <strong>{p.title}</strong>
                       <div className="muted small">
                         {[p.provider, p.location].filter(Boolean).join(" · ")}
                       </div>
                     </td>
-                    <td className="small">
+                    <td className="small" data-label="Expected">
                       {p.expected_points != null ? `${p.expected_points} pts expected` : ""}
                     </td>
                   </tr>
@@ -269,23 +269,23 @@ export default async function DashboardPage() {
           </div>
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack">
               <tbody>
                 {entries.slice(0, 6).map((e) => (
                   <tr key={e.id}>
-                    <td>{formatDate(e.activity_date)}</td>
-                    <td>
+                    <td className="col--date" data-label="When">{formatDate(e.activity_date)}</td>
+                    <td data-label=".">
                       <strong>{e.title}</strong>
                       <div className="muted small">{e.activity_type}</div>
                     </td>
-                    <td>
+                    <td data-label="Evidence">
                       {e.verified ? (
                         <span className="badge badge--verified">Platform-verified</span>
                       ) : (
                         <span className="badge badge--self">Self-reported</span>
                       )}
                     </td>
-                    <td className="small">
+                    <td className="small" data-label="CPD">
                       {e.points != null ? `${e.points} pts` : ""}
                       {e.points != null && e.hours != null ? " · " : ""}
                       {e.hours != null ? `${e.hours} h` : ""}
