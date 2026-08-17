@@ -74,10 +74,10 @@ export function SetupChecklist({
       <TaskGroup steps={state.profile} />
 
       {showSuggestions && (
-        <>
-          <h3>Now get the most out of it</h3>
+        <details>
+          <summary className="small">Now get the most out of it</summary>
           <TaskGroup steps={state.suggestions} />
-        </>
+        </details>
       )}
     </>
   );

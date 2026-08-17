@@ -5,7 +5,7 @@ export function SiteFooter() {
   return (
     <footer className="site-footer no-print">
       <div className="site-footer__inner">
-        <span className="muted small">CPD Register — in testing</span>
+        <span className="muted small">CPD Register</span>
         <nav className="site-footer__links">
           <Link href="/cpd">CPD requirements</Link>
           <Link href="/feedback">Report a problem</Link>

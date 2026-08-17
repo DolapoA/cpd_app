@@ -426,10 +426,18 @@ h3 {
 }
 
 @media (max-width: 700px) {
-  .grid-2,
-  .grid-4 {
+  .grid-2 {
     grid-template-columns: 1fr;
   }
+
+  /* Four full-width cards means scrolling through a screen and a half to read
+     four numbers. Two across puts the whole summary in one glance, which is
+     the only thing a summary is for. */
+  .grid-4 {
+    grid-template-columns: 1fr 1fr;
+    gap: var(--space-3);
+  }
+
 }
 
 .stat {
@@ -472,6 +480,31 @@ h3 {
   display: block;
   color: var(--brand);
   white-space: nowrap;
+}
+
+/* The phone treatment for the block above. It has to come after those rules
+   rather than beside the grid change: every selector here has the same
+   specificity as the one it overrides, so source order is the whole
+   argument — and a media query does not add any. */
+@media (max-width: 700px) {
+  .stat {
+    padding: var(--space-35);
+  }
+
+  .stat__value {
+    font-size: var(--text-2xl);
+  }
+
+  .stat__label {
+    font-size: var(--text-xs);
+    line-height: var(--leading-snug);
+  }
+
+  /* The drill-in hint costs two lines at half width. The card is the target,
+     and the label already says what it leads to. */
+  .stat__more {
+    display: none;
+  }
 }
 
 /* ---- Forms ---- */
@@ -1943,6 +1976,21 @@ body:has(.site-header--rail) {
 
   .account__name {
     display: none;
+  }
+
+  /* A phone has no room for desktop page furniture: the top margin, the
+     heading size and the gap under it were all set for a 1440px column. */
+  .container {
+    padding-top: var(--space-4);
+  }
+
+  h1 {
+    font-size: var(--text-2xl);
+  }
+
+  .page-head {
+    margin-bottom: var(--space-4);
+    gap: var(--space-3);
   }
 
   /* The rail becomes a bottom tab bar, where a thumb can reach it. */
