@@ -3,6 +3,11 @@ import type { User } from "./db";
 /**
  * What a new account still has to do, and how far along it is.
  *
+ * The annual target is not here either. Plenty of regulators set no number —
+ * the HCPC asks for a mixture of learning rather than an amount — so a list
+ * that asks everyone for one would be asking most people to invent a figure
+ * in order to clear an item.
+ *
  * Confirming the email address is not here: nothing can be reached without it,
  * so it is a gate rather than a step, and listing something already enforced
  * would put an item on the list that can never be outstanding while the list
@@ -63,14 +68,6 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
       label: "Add your registration number and date",
       href: "/profile",
       done: !!user.registration_number && !!user.registration_date,
-    },
-    {
-      key: "target",
-      label: "Set your annual target",
-      href: "/profile",
-      // Everyone starts on the default 50, so this is only "done" once it has
-      // been considered — which a changed value is the only evidence of.
-      done: user.annual_target_points !== 50,
     },
   ];
 

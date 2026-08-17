@@ -227,7 +227,14 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
   const regulator = str(formData, "regulator");
   if (regulator && !(REGULATORS as readonly string[]).includes(regulator))
     return { error: "Choose a valid regulator." };
-  const target = num(formData, "annual_target_points");
+  // Zero is a real answer, not a missing one: several regulators — the HCPC
+  // among them — set no points target at all, and someone who has none should
+  // not be made to invent one. Unticking the question stores zero rather than
+  // leaving the last number they typed behind. Negative is not an answer.
+  const wantsTarget = !!formData.get("has_target");
+  const target = wantsTarget ? num(formData, "annual_target_points") : 0;
+  if (target !== null && target < 0)
+    return { error: "A target can be zero, but not less than zero." };
 
   const registrationDate = str(formData, "registration_date");
   if (registrationDate) {
@@ -249,7 +256,7 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
       str(formData, "registration_number") || null,
       str(formData, "role_grade") || null,
       registrationDate || null,
-      target ?? 50,
+      target ?? 0,
       // An unticked checkbox sends nothing at all, so absence is the "off".
       formData.get("discover_events") ? 1 : 0,
       user.id

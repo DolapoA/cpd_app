@@ -46,8 +46,11 @@ export default async function DashboardPage() {
   const hours = lastYear.reduce((sum, e) => sum + (e.hours ?? 0), 0);
   const verified = lastYear.filter((e) => e.verified).length;
   const typesCovered = new Set(lastYear.map((e) => e.activity_type));
+  // A target of zero means "my regulator doesn't set one", so the tile counts
+  // what has been done rather than reporting 0% of nothing.
   const target = user.annual_target_points;
-  const pct = target > 0 ? Math.min(100, Math.round((points / target) * 100)) : 0;
+  const hasTarget = target > 0;
+  const pct = hasTarget ? Math.min(100, Math.round((points / target) * 100)) : 0;
 
   const framework = frameworkFor(user.regulator);
   const incomplete = countable.filter((e) => gapsFor(e, framework).length > 0).length;
@@ -114,12 +117,16 @@ export default async function DashboardPage() {
         <div className="stat">
           <div className="stat__value">
             {points}
-            <span className="stat__unit">
-              {" "}
-              / {target}
-            </span>
+            {hasTarget && (
+              <span className="stat__unit">
+                {" "}
+                / {target}
+              </span>
+            )}
           </div>
-          <div className="stat__label">CPD points vs annual target ({pct}%)</div>
+          <div className="stat__label">
+            {hasTarget ? `CPD points vs annual target (${pct}%)` : "CPD points recorded"}
+          </div>
         </div>
         <div className="stat">
           <div className="stat__value">{hours}</div>

@@ -11,7 +11,9 @@ CREATE TABLE IF NOT EXISTS users (
   registration_number TEXT,
   role_grade TEXT,
   registration_date TEXT,
-  annual_target_points DOUBLE PRECISION NOT NULL DEFAULT 50,
+  /* Zero means "no target", which is the honest default: most regulators set
+     no number, and a figure nobody chose is not a target. */
+  annual_target_points DOUBLE PRECISION NOT NULL DEFAULT 0,
   backup_email TEXT,
   /* A recovery address can receive password-reset links, which makes it a way
      into the account — so it counts for nothing until its owner proves it. */
@@ -227,6 +229,8 @@ async function migrate(p: Pool): Promise<void> {
     "ALTER TABLE users ADD COLUMN IF NOT EXISTS discover_events INTEGER NOT NULL DEFAULT 1"
   );
   await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_hidden_at TEXT");
+  // Existing rows keep whatever they hold; only new accounts start at zero.
+  await p.query("ALTER TABLE users ALTER COLUMN annual_target_points SET DEFAULT 0");
   await p.query(
     "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS is_public INTEGER NOT NULL DEFAULT 0"
   );

@@ -4,6 +4,7 @@ import { requireConfirmedUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
 import { ProfessionField } from "@/components/profession-field";
+import { TargetField } from "@/components/target-field";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { getDb } from "@/lib/db";
 import { setupState } from "@/lib/setup";
@@ -122,18 +123,7 @@ export default async function ProfilePage() {
               Optional. CPD before this date won&rsquo;t count towards your registration.
             </div>
           </div>
-          <div className="field">
-            <label htmlFor="annual_target_points">Annual CPD target (points/credits)</label>
-            <input
-              id="annual_target_points"
-              name="annual_target_points"
-              type="number"
-              min={0}
-              step="0.5"
-              defaultValue={user.annual_target_points}
-            />
-            <div className="hint">e.g. 50 credits a year for doctors.</div>
-          </div>
+          <TargetField value={user.annual_target_points} />
           <div className="field">
             <label className="choice" htmlFor="discover_events">
               <input
