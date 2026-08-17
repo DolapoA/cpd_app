@@ -21,8 +21,8 @@ import type { User } from "./db";
 export type SetupStep = {
   key: string;
   label: string;
-  /** Why it is worth doing, in the user's terms rather than the schema's. */
-  detail: string;
+  /** Why it is worth doing, where that is not obvious from the label. */
+  detail?: string;
   href: string;
   done: boolean;
 };
@@ -70,7 +70,6 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
     {
       key: "target",
       label: "Set your annual target",
-      detail: "So the dashboard can tell you whether you are on course, not just what you've done.",
       href: "/profile",
       // Everyone starts on the default 50, so this is only "done" once it has
       // been considered — which a changed value is the only evidence of.
@@ -82,8 +81,7 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
     {
       key: "record",
       label: "Bring your existing CPD across",
-      detail:
-        "Import the spreadsheet you already keep, or log an activity by hand. Your history moves in one go.",
+      detail: "Import the spreadsheet you already keep, or log an activity by hand.",
       href: "/record/import",
       done: counts.entries > 0,
     },
@@ -113,7 +111,6 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
     {
       key: "2fa",
       label: "Turn on two-factor authentication",
-      detail: "Your CPD record is evidence for your regulator. A password alone is thin protection.",
       href: "/account/two-factor",
       done: !!user.totp_confirmed_at,
     },

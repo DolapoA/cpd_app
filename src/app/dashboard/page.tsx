@@ -110,10 +110,6 @@ export default async function DashboardPage() {
               </button>
             </form>
           </div>
-          <p className="muted small">
-            A few details decide what the app can do for you — which audit pack it can produce,
-            and which of your activity counts.
-          </p>
           <SetupChecklist state={setup} />
         </div>
       )}

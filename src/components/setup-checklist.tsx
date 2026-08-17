@@ -11,7 +11,7 @@ function Task({ step }: { step: SetupStep }) {
         <span className="task__label">
           {step.done ? step.label : <Link href={step.href}>{step.label}</Link>}
         </span>
-        {!step.done && <span className="task__detail"> — {step.detail}</span>}
+        {!step.done && step.detail && <span className="task__detail"> — {step.detail}</span>}
       </span>
     </li>
   );
