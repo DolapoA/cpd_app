@@ -210,6 +210,10 @@ h3 {
 }
 
 .container {
+  /* Explicit, because auto margins on a flex item switch off stretching and
+     leave it sized to its content — which let one wide table drag the whole
+     page sideways rather than scrolling inside its own box. */
+  width: 100%;
   max-width: var(--container-max);
   margin: 0 auto;
   padding: var(--space-6) var(--space-4) var(--space-16);
@@ -1949,6 +1953,41 @@ main {
   justify-content: center;
 }
 
+/* Row actions in a table.
+   Four small controls in the last column wrapped wherever they happened to
+   run out of room, which left one stranded on a line of its own at almost
+   every window width. Right-aligned and wrapping as a block keeps them
+   reading as one group, and equal-width items mean a wrap produces a tidy
+   pair rather than a ragged edge. */
+.actions-row--table {
+  justify-content: flex-end;
+  gap: var(--space-1) var(--space-2);
+  /* One line, so the column asks the table for the width it needs and the
+     title column gives it up. Wrapping inside a shrink-to-fit cell put every
+     control on a line of its own, which is tidier than ragged and worse than
+     either. */
+  flex-wrap: nowrap;
+}
+
+.actions-row--table > * {
+  flex: 0 0 auto;
+  white-space: nowrap;
+}
+
+/* "0 pts · 3 h" is one figure, not three words to break between. */
+.col--figures {
+  white-space: nowrap;
+  width: 1%;
+}
+
+/* The cell hugs its buttons so the width goes to the title instead. */
+.col--actions {
+  width: 1%;
+  white-space: nowrap;
+  text-align: right;
+  vertical-align: top;
+}
+
 .table-wrap--scroll {
   max-height: 24rem;
   overflow-y: auto;
@@ -2470,6 +2509,20 @@ body:has(.guest-shell) .site-rail__foot {
 
 .site-main > main {
   flex: 1;
+  /* A flex item is allowed to grow past its container to fit its content,
+     which is how one wide table dragged the whole page sideways instead of
+     scrolling inside its own box. Nothing here should ever be wider than the
+     column it sits in. */
+  min-width: 0;
+}
+
+.site-main > * {
+  min-width: 0;
+}
+
+/* The scroller has to be able to be narrower than what it scrolls. */
+.table-wrap {
+  max-width: 100%;
 }
 
 /* ---- Entry notes ----

@@ -93,8 +93,8 @@ export default async function PlannedPage({
                       <strong>{plan.title}</strong>
                       <div className="muted small">{whenText(plan)}</div>
                     </td>
-                    <td>
-                      <div className="actions-row">
+                    <td className="col--actions">
+                      <div className="actions-row actions-row--table">
                         <form action={recordPlannedEvent}>
                           <input type="hidden" name="id" value={plan.id} />
                           <button type="submit" className="btn btn--small">
@@ -152,13 +152,13 @@ export default async function PlannedPage({
                       </div>
                       {plan.notes && <div className="small prewrap">{plan.notes}</div>}
                     </td>
-                    <td className="small">
+                    <td className="small col--figures">
                       {plan.expected_points != null ? `${plan.expected_points} pts` : ""}
                       {plan.expected_points != null && plan.expected_hours != null ? " · " : ""}
                       {plan.expected_hours != null ? `${plan.expected_hours} h` : ""}
                     </td>
-                    <td>
-                      <div className="actions-row">
+                    <td className="col--actions">
+                      <div className="actions-row actions-row--table">
                         <Link
                           href={`/record/planned/${plan.id}/edit`}
                           className="btn btn--quiet btn--small"
