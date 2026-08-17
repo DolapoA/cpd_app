@@ -1,9 +1,23 @@
 "use client";
 
 import Link from "next/link";
+import { useLinkStatus } from "next/link";
 import { usePathname } from "next/navigation";
 import { SECTIONS } from "@/lib/sections";
 import { NavIcon } from "./nav-icons";
+
+/**
+ * A link that has been clicked but not yet arrived.
+ *
+ * Rendered inside the Link, which is the only place useLinkStatus can read a
+ * navigation's state. It answers the "did that click do anything?" question in
+ * the ~200ms before the next page paints, on the exact thing that was clicked
+ * rather than in a bar somewhere else on the screen.
+ */
+function LinkPending() {
+  const { pending } = useLinkStatus();
+  return pending ? <span className="nav-link__pending" aria-hidden="true" /> : null;
+}
 
 /**
  * Section links that know which one you are on. Client-side only because the
@@ -40,6 +54,7 @@ export function NavLinks({ variant = "full" }: { variant?: "full" | "short" | "i
             ) : (
               <span className="nav-link__text">{variant === "short" ? s.short : s.label}</span>
             )}
+            <LinkPending />
           </Link>
         );
       })}

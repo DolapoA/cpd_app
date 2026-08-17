@@ -1490,6 +1490,120 @@ html.rail-hidden .rail-reveal {
   }
 }
 
+/* A clicked link, before its page arrives. Deliberately small: it says the
+   click registered, and then gets out of the way of the skeleton. */
+.nav-link__pending {
+  width: 0.55rem;
+  height: 0.55rem;
+  margin-left: auto;
+  flex: none;
+  border-radius: var(--radius-pill);
+  background: var(--brand);
+  animation: navPending 0.9s var(--ease-standard) infinite;
+}
+
+@keyframes navPending {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: scale(0.8);
+  }
+  50% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .nav-link__pending {
+    animation: none;
+    opacity: 1;
+  }
+}
+
+/* A page arriving. React mounts a new <main> for each route, so the animation
+   replays on every navigation without anything keying or wrapping it.
+   180ms and two pixels: enough that the page reads as having arrived rather
+   than having been swapped, and short enough never to be in the way.
+
+   Deliberately not React's ViewTransition, which needs a canary build of
+   React — a dependency this app should not take for a cross-fade. */
+main {
+  animation: pageIn 0.18s var(--ease-emphasised);
+}
+
+@keyframes pageIn {
+  from {
+    opacity: 0;
+    transform: translateY(2px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  main {
+    animation: none;
+  }
+}
+
+/* ---- Loading skeletons ---- */
+
+.skeleton {
+  display: block;
+  height: 0.85em;
+  border-radius: var(--radius-sm);
+  background: var(--surface-muted);
+  /* A slow sweep rather than a pulse: it reads as work in progress without
+     drawing the eye away from wherever the content is about to appear. */
+  background-image: linear-gradient(
+    90deg,
+    var(--surface-muted) 0%,
+    var(--surface-sunken) 50%,
+    var(--surface-muted) 100%
+  );
+  background-size: 200% 100%;
+  animation: skeletonSweep 1.4s var(--ease-standard) infinite;
+}
+
+.skeleton--tall {
+  height: 1.5em;
+}
+
+@keyframes skeletonSweep {
+  from {
+    background-position: 200% 0;
+  }
+  to {
+    background-position: -200% 0;
+  }
+}
+
+.skeleton-stack {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: 100%;
+}
+
+.skeleton-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+}
+
+.skeleton-row > :nth-child(2) {
+  flex: 1;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .skeleton {
+    animation: none;
+  }
+}
+
 /* ---- Install prompt ---- */
 
 /* Sits above the phone tab bar rather than over it: covering the navigation

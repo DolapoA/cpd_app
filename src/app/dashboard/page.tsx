@@ -25,9 +25,19 @@ export default async function DashboardPage() {
   const db = await getDb();
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  const entries = await db
-    .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC")
-    .all(user.id) as CpdEntry[];
+  // Four independent questions, asked at once. Sequentially they were four
+  // round trips to a database in another building; none of them needs an
+  // answer from any of the others.
+  const [entries, plans, registerRow, goals] = (await Promise.all([
+    db
+      .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC")
+      .all(user.id),
+    db
+      .prepare("SELECT * FROM planned_events WHERE user_id = ? AND outcome IS NULL ORDER BY starts_on")
+      .all(user.id),
+    db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id),
+    db.prepare("SELECT * FROM activity_type_goals WHERE user_id = ?").all(user.id),
+  ])) as [CpdEntry[], PlannedEvent[], { c: number }, ActivityTypeGoal[]];
   // Only activity that can count toward the registration is totalled.
   const countable = entries.filter((e) => countsTowardCpd(e.activity_date, user.registration_date));
   const lastYear = countable.filter((e) => e.activity_date >= yearAgo);
@@ -48,24 +58,13 @@ export default async function DashboardPage() {
   // What they have planned, and anything whose date has passed without an
   // answer — the moment a plan either becomes evidence or is forgotten.
   const today = new Date().toISOString().slice(0, 10);
-  const plans = (await db
-    .prepare(
-      "SELECT * FROM planned_events WHERE user_id = ? AND outcome IS NULL ORDER BY starts_on"
-    )
-    .all(user.id)) as PlannedEvent[];
   const upcoming = plans.filter((p) => (p.ends_on ?? p.starts_on) >= today).slice(0, 3);
   const unanswered = plans.filter((p) => (p.ends_on ?? p.starts_on) < today);
 
   // The setup prompt is shown until the profile is complete, or until it is
   // put away. Suggestions do not hold it open: someone who has told us
   // everything we need should stop being asked for anything.
-  const registerCount = Number(
-    (
-      (await db
-        .prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?")
-        .get(user.id)) as { c: number }
-    ).c
-  );
+  const registerCount = Number(registerRow.c);
   const setup = setupState(user, {
     entries: entries.length,
     plans: plans.length,
@@ -73,9 +72,6 @@ export default async function DashboardPage() {
   });
   const showSetup = !setup.complete && !user.setup_hidden_at;
 
-  const goals = await db
-    .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
-    .all(user.id) as ActivityTypeGoal[];
   const dueGoals = goals
     .filter((g) => !typesCovered.has(g.activity_type))
     .map((g) => ({ ...g, days: daysUntil(g.target_date) }))
