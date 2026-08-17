@@ -25,6 +25,15 @@ export const metadata: Metadata = {
     locale: "en_GB",
     type: "website",
   },
+  // Without this a shared link falls back to a small square thumbnail on X,
+  // which is the difference between a link that gets clicked and one that
+  // does not. The image itself is opengraph-image.tsx.
+  twitter: {
+    card: "summary_large_image",
+    title: "CPD Register",
+    description:
+      "CPD evidence that captures itself — attendance registers, verifiable slips, and a record ready for audit or appraisal.",
+  },
   // Private by default, opted out page by page. Attendee names appear on slips
   // and verification pages reachable by code, and a record page is somebody's
   // professional history — so a new page is excluded from search unless it

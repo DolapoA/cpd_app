@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
 import { RollingProfessions } from "@/components/rolling-professions";
 import { Reveal } from "@/components/reveal";
+import { GUIDES } from "@/lib/guides";
 
 export const metadata = {
   // The one page meant to be found. The title carries the job people search
@@ -21,12 +22,52 @@ export const metadata = {
   },
 };
 
+
+const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
+
+/**
+ * Structured data for the home page.
+ *
+ * Two things only, both true and both checkable on the page itself: what the
+ * site is, and that it is free to create an account. Marking up claims a
+ * visitor cannot verify is how sites lose rich results altogether.
+ */
+const STRUCTURED_DATA = {
+  "@context": "https://schema.org",
+  "@graph": [
+    {
+      "@type": "WebSite",
+      "@id": `${SITE}#website`,
+      url: SITE,
+      name: "CPD Register",
+      inLanguage: "en-GB",
+      description:
+        "Attendance registers, verifiable attendance slips, and a regulator-ready CPD record for UK professionals with CPD obligations.",
+    },
+    {
+      "@type": "SoftwareApplication",
+      "@id": `${SITE}#app`,
+      name: "CPD Register",
+      applicationCategory: "BusinessApplication",
+      operatingSystem: "Web",
+      url: SITE,
+      description:
+        "Run an attendance register at your event, let attendees sign with a QR code, and keep a dated CPD record you can export for audit or appraisal.",
+      offers: { "@type": "Offer", price: "0", priceCurrency: "GBP" },
+    },
+  ],
+};
+
 export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
 
   return (
     <main>
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(STRUCTURED_DATA) }}
+      />
       <section className="hero">
         <h1>CPD evidence that captures itself</h1>
         <RollingProfessions />
@@ -78,6 +119,27 @@ export default async function LandingPage() {
             Upload a CSV or Excel file, check the preview, and your CPD record moves across in
             one go.
           </p>
+        </Reveal>
+
+        {/* The guides are the only substantial public content, so the home
+            page links to them by name rather than leaving them reachable only
+            from a sitemap — a page nothing links to is a page nobody finds. */}
+        <Reveal className="card">
+          <h3>What does your regulator actually ask for?</h3>
+          <p className="muted">
+            Short guides to what each body expects you to keep, and what has to be recorded
+            against every activity.
+          </p>
+          <ul className="bullets small">
+            {GUIDES.slice(0, 5).map((guide) => (
+              <li key={guide.slug}>
+                <Link href={`/cpd/${guide.slug}`}>{guide.title}</Link>
+              </li>
+            ))}
+            <li>
+              <Link href="/cpd">All professions and regulators →</Link>
+            </li>
+          </ul>
         </Reveal>
       </div>
     </main>

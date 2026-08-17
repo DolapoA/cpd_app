@@ -1,4 +1,5 @@
 import type { MetadataRoute } from "next";
+import { GUIDES } from "@/lib/guides";
 
 const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
 
@@ -11,6 +12,13 @@ export default function sitemap(): MetadataRoute.Sitemap {
   const now = new Date();
   return [
     { url: SITE, lastModified: now, changeFrequency: "weekly", priority: 1 },
+    { url: `${SITE}/cpd`, lastModified: now, changeFrequency: "monthly", priority: 0.8 },
+    ...GUIDES.map((guide) => ({
+      url: `${SITE}/cpd/${guide.slug}`,
+      lastModified: now,
+      changeFrequency: "monthly" as const,
+      priority: 0.7,
+    })),
     { url: `${SITE}/privacy`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/terms`, lastModified: now, changeFrequency: "yearly", priority: 0.3 },
   ];
