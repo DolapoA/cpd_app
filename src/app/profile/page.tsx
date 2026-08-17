@@ -45,25 +45,21 @@ export default async function ProfilePage({
         </div>
       )}
 
-      {/* Kept here even once it is complete, and even when the dashboard
-          prompt has been hidden: this is the page the answer lives on, so it
-          is where someone comes to check what they have told us. */}
-      <div className={`notice notice--${setup.complete ? "ok" : "info"}`}>
-        <h3 className="notice__title">
-          {setup.complete ? "Your profile is complete" : "Finish your profile"}
-        </h3>
-        {setup.complete ? (
-          <p className="small">
-            Everything the app needs is here. Change any of it below whenever it changes.
-          </p>
-        ) : (
+      {/* Only while there is something left to do. A panel congratulating
+          someone on a finished list is a permanent fixture on a page they
+          came to edit — the fields below are the profile, and once nothing is
+          outstanding they should be the whole page. */}
+      {!setup.complete && (
+        <div className="notice notice--info">
+          <h3 className="notice__title">Finish your profile</h3>
           <p className="small">
             Each of these decides something: which audit pack we can produce, which activity
             counts, and who you share events with.
           </p>
-        )}
-        <SetupChecklist state={setup} showSuggestions={!setup.complete} />
-      </div>
+          <SetupChecklist state={setup} />
+        </div>
+      )}
+
       <div className="card">
         <ActionForm action={updateProfile} submitLabel="Save changes">
           <div className="field">
