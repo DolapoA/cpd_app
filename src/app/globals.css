@@ -1553,6 +1553,101 @@ main {
   }
 }
 
+/* ---- A small menu of related actions ---- */
+
+.mini-menu {
+  display: inline-block;
+}
+
+.mini-menu > summary {
+  list-style: none;
+  cursor: pointer;
+}
+
+.mini-menu > summary::-webkit-details-marker {
+  display: none;
+}
+
+.mini-menu > summary::after {
+  content: " ▾";
+  font-size: var(--text-2xs);
+}
+
+.mini-menu[open] > summary::after {
+  content: " ▴";
+}
+
+/* Opens in place rather than floating: a popover inside a table cell has to
+   escape overflow and clip its way out, and this list is two items long. */
+.mini-menu__body {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding-top: var(--space-1);
+}
+
+/* ---- Tables that become a list of cards on a phone ---- */
+
+/*
+  Four columns and four controls do not fit 390px, and a table that scrolls
+  sideways hides the controls at the end of every row — which is where the
+  actions were. On a phone each row becomes a block: when, what, how much,
+  and what you can do about it, in that order down the screen.
+*/
+@media (max-width: 700px) {
+  .table--stacks,
+  .table--stacks tbody,
+  .table--stacks tr,
+  .table--stacks td {
+    display: block;
+    width: auto;
+  }
+
+  .table--stacks tr {
+    padding: var(--space-3) 0;
+  }
+
+  .table--stacks tr + tr {
+    border-top: 1px solid var(--line);
+  }
+
+  .table--stacks td {
+    padding: 0;
+    border: none;
+  }
+
+  .table--stacks td + td {
+    margin-top: var(--space-1);
+  }
+
+  /* The date leads, so it reads as a heading for the block rather than a
+     column that happens to come first. */
+  .table--stacks .col--date {
+    font-size: var(--text-xs);
+    color: var(--ink-soft);
+    width: auto;
+    white-space: normal;
+  }
+
+  /* Empty cells would otherwise leave a gap in the middle of the block. */
+  .table--stacks td:empty {
+    display: none;
+  }
+
+  .table--stacks .col--actions {
+    width: auto;
+    text-align: left;
+    white-space: normal;
+    margin-top: var(--space-2);
+  }
+
+  .table--stacks .actions-row--table {
+    justify-content: flex-start;
+    flex-wrap: wrap;
+  }
+}
+
 /* ---- Folded-away explanations ---- */
 
 .info {

@@ -359,7 +359,16 @@ function pool(): Pool {
 
 export async function getDb(): Promise<Db> {
   const p = pool();
-  if (!globalForDb.__cpdReady) globalForDb.__cpdReady = initialise(p);
+  // Memoised so schema work happens once per process — but a *failed* attempt
+  // must not be memoised too. Caching a rejected promise here would take one
+  // bad moment (a dropped connection during boot, a lock held elsewhere) and
+  // turn it into every request from that instance failing until it is recycled.
+  if (!globalForDb.__cpdReady) {
+    globalForDb.__cpdReady = initialise(p).catch((error) => {
+      globalForDb.__cpdReady = undefined;
+      throw error;
+    });
+  }
   await globalForDb.__cpdReady;
 
   const runOnPool: Runner = (sql, args) => p.query(sql, args);

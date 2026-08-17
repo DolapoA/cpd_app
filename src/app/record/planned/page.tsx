@@ -85,7 +85,7 @@ export default async function PlannedPage({
             Did you go? Say so and it joins your record, filled in from what you planned.
           </p>
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stacks">
               <tbody>
                 {past.map((plan) => (
                   <tr key={plan.id}>
@@ -132,7 +132,7 @@ export default async function PlannedPage({
           </div>
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stacks">
               <tbody>
                 {ahead.map((plan) => (
                   <tr key={plan.id}>
@@ -165,17 +165,22 @@ export default async function PlannedPage({
                         >
                           Edit
                         </Link>
-                        <a href={`/record/planned/${plan.id}/ics`} className="btn btn--quiet btn--small">
-                          .ics
-                        </a>
-                        <a
-                          href={googleCalendarUrl(plan)}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="btn btn--quiet btn--small"
-                        >
-                          Google
-                        </a>
+                        <details className="mini-menu">
+                          <summary className="btn btn--quiet btn--small">Calendar</summary>
+                          <div className="mini-menu__body">
+                            <a href={`/record/planned/${plan.id}/ics`} className="btn btn--quiet btn--small">
+                              Download .ics
+                            </a>
+                            <a
+                              href={googleCalendarUrl(plan)}
+                              target="_blank"
+                              rel="noopener noreferrer"
+                              className="btn btn--quiet btn--small"
+                            >
+                              Add to Google
+                            </a>
+                          </div>
+                        </details>
                         <form action={deletePlannedEvent}>
                           <input type="hidden" name="id" value={plan.id} />
                           <button type="submit" className="btn btn--quiet btn--small">

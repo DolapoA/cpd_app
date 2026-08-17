@@ -21,6 +21,12 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
   const [shared, setShared] = useState(!!plan?.shared);
   const needed = shared;
 
+  // Most events last a day, so the end date follows the start until someone
+  // says otherwise. "Otherwise" means an end that no longer matches the start:
+  // once it has been moved deliberately, changing the start stops dragging it.
+  const [startsOn, setStartsOn] = useState(plan?.starts_on ?? "");
+  const [endsOn, setEndsOn] = useState(plan?.ends_on ?? plan?.starts_on ?? "");
+
   return (
     <>
           <div className="field">
@@ -42,13 +48,25 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
                 name="starts_on"
                 type="date"
                 required
-                defaultValue={plan?.starts_on ?? ""}
+                value={startsOn}
+                onChange={(e) => {
+                  const next = e.currentTarget.value;
+                  if (!endsOn || endsOn === startsOn) setEndsOn(next);
+                  setStartsOn(next);
+                }}
               />
             </div>
             <div className="field">
               <label htmlFor="ends_on">Ends</label>
-              <input id="ends_on" name="ends_on" type="date" defaultValue={plan?.ends_on ?? ""} />
-              <div className="hint">Only if it runs over more than one day.</div>
+              <input
+                id="ends_on"
+                name="ends_on"
+                type="date"
+                min={startsOn || undefined}
+                value={endsOn}
+                onChange={(e) => setEndsOn(e.currentTarget.value)}
+              />
+              <div className="hint">Change it only if it runs over more than one day.</div>
             </div>
           </div>
           <div className="field-row">
