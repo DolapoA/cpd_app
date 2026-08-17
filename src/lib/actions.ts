@@ -262,7 +262,16 @@ export async function updateProfile(_prev: ActionState, formData: FormData): Pro
       user.id
     );
   revalidatePath("/", "layout");
-  return null;
+  // Redirect rather than return.
+  //
+  // React resets a form once its action completes, and an uncontrolled field
+  // resets to the default it was first rendered with — so both selects here
+  // snapped back to "Choose…" the moment a save succeeded, while the value
+  // sat correctly in the database. Text inputs hid it by resetting to defaults
+  // that now matched. Landing on a freshly rendered page makes the defaults
+  // the saved values, which is the only version of this that stays true as
+  // fields are added.
+  redirect("/profile?saved=1");
 }
 
 // ---------------------------------------------------------------------------

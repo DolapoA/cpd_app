@@ -11,7 +11,12 @@ import { setupState } from "@/lib/setup";
 
 export const metadata = { title: "Profile — CPD Register" };
 
-export default async function ProfilePage() {
+export default async function ProfilePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ saved?: string }>;
+}) {
+  const saved = (await searchParams).saved === "1";
   const user = await requireConfirmedUser();
 
   const db = await getDb();
@@ -31,6 +36,14 @@ export default async function ProfilePage() {
           <p>These pre-fill any register you sign.</p>
         </div>
       </div>
+
+      {saved && (
+        <div className="notice notice--ok">
+          <p className="small">
+            <strong>Saved.</strong> Your details are as shown below.
+          </p>
+        </div>
+      )}
 
       {/* Kept here even once it is complete, and even when the dashboard
           prompt has been hidden: this is the page the answer lives on, so it
