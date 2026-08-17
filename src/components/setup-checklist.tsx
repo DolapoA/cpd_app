@@ -75,7 +75,7 @@ export function SetupChecklist({
 
       {showSuggestions && (
         <>
-          <h3>Then, to get the most out of it</h3>
+          <h3>Now get the most out of it</h3>
           <TaskGroup steps={state.suggestions} />
         </>
       )}
