@@ -51,6 +51,10 @@ export const viewport = {
   width: "device-width",
   initialScale: 1,
   themeColor: "#0e6e6b",
+  // Required before env(safe-area-inset-*) reports anything but zero. Installed
+  // on an iPhone, the app owns the whole screen including the strip the home
+  // indicator sits in, so the layout has to know where that strip is.
+  viewportFit: "cover" as const,
 };
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

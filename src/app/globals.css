@@ -171,6 +171,10 @@ html,
 body {
   margin: 0;
   padding: 0;
+  /* viewport-fit=cover hands us the whole screen, status bar included, so the
+     page has to keep its own content out from under the clock. Zero on every
+     device without a notch, which is most of them. */
+  padding-top: env(safe-area-inset-top, 0px);
 }
 
 body {
@@ -209,6 +213,10 @@ h3 {
   max-width: var(--container-max);
   margin: 0 auto;
   padding: var(--space-6) var(--space-4) var(--space-16);
+  /* Landscape on a notched phone puts the notch beside the page, not above
+     it, so the gutters have to clear it as well. */
+  padding-left: calc(var(--space-4) + env(safe-area-inset-left, 0px));
+  padding-right: calc(var(--space-4) + env(safe-area-inset-right, 0px));
 }
 
 .container--narrow {
@@ -1811,6 +1819,8 @@ body:has(.guest-shell) .logo {
 @media (max-width: 700px) {
   .container {
     padding: var(--space-4) var(--space-3) var(--space-12);
+    padding-left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
+    padding-right: calc(var(--space-3) + env(safe-area-inset-right, 0px));
   }
 
   /* Paired fields stop being pairs when there is no room for two. */
@@ -2060,12 +2070,9 @@ body:has(.site-header--rail) {
     display: none;
   }
 
-  /* A phone has no room for desktop page furniture: the top margin, the
-     heading size and the gap under it were all set for a 1440px column. */
-  .container {
-    padding-top: var(--space-4);
-  }
-
+  /* A phone has no room for desktop page furniture: the heading size and the
+     gap under it were both set for a 1440px column. (The top margin is already
+     reduced by the .container rule above.) */
   h1 {
     font-size: var(--text-2xl);
   }
@@ -2078,7 +2085,7 @@ body:has(.site-header--rail) {
   /* The rail becomes a bottom tab bar, where a thumb can reach it. */
   body:has(.site-header--rail) {
     display: block;
-    padding-bottom: 4.5rem;
+    padding-bottom: calc(4.5rem + env(safe-area-inset-bottom, 0px));
   }
 
   .site-header--rail {
@@ -2097,7 +2104,10 @@ body:has(.site-header--rail) {
     width: auto;
     height: auto;
     overflow: visible;
-    padding: var(--space-1) var(--space-2);
+    /* The extra bottom padding is the home indicator's strip: without it the
+       tab labels sit underneath it, which is what made the bottom of the app
+       look wrong on an iPhone. */
+    padding: var(--space-1) var(--space-2) calc(var(--space-1) + env(safe-area-inset-bottom, 0px));
   }
 
   /* A tab bar holds tabs. The brand, the switcher and the log-out form are
