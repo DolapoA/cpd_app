@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getDb, registerStatus, type Register } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "My registers — CPD Register" };
@@ -10,8 +9,7 @@ const STATUS_LABEL = { open: "Open", closed: "Closed", "not-open": "Not open yet
 const STATUS_CLASS = { open: "badge--open", closed: "badge--closed", "not-open": "badge--pending" } as const;
 
 export default async function RegistersPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const db = await getDb();
   const registers = await db

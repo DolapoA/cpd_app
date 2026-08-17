@@ -1,14 +1,13 @@
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { getDb, type Register } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { getShareBase } from "@/lib/base-url";
 
 export const metadata = { title: "Projector mode — CPD Register" };
 
 export default async function ProjectorPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const { id } = await params;
   const reg = await (await getDb())

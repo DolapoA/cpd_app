@@ -69,7 +69,7 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
           <div className="field-row">
             <div className="field">
               <label htmlFor="provider">
-                Who&rsquo;s running it?{needed ? "" : " (optional)"}
+                Who&rsquo;s running it?
               </label>
               <input
                 id="provider"
@@ -80,7 +80,7 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
               />
             </div>
             <div className="field">
-              <label htmlFor="location">Where?{needed ? "" : " (optional)"}</label>
+              <label htmlFor="location">Where?</label>
               <input
                 id="location"
                 name="location"
@@ -93,7 +93,7 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
           </div>
           <div className="field">
             <label htmlFor="url">
-              Link{needed ? " to where it\u2019s advertised" : " (optional)"}
+              Link{needed ? " to where it\u2019s advertised" : ""}
             </label>
             <input
               id="url"

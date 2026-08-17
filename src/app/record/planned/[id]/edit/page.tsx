@@ -1,6 +1,6 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type PlannedEvent } from "@/lib/db";
 import { updatePlannedEvent } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
@@ -9,8 +9,7 @@ import { PlannedFields } from "@/components/planned-fields";
 export const metadata = { title: "Edit planned CPD — CPD Register" };
 
 export default async function EditPlannedPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const { id } = await params;
   const plan = (await (await getDb())

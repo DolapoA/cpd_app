@@ -1,6 +1,5 @@
-import { redirect } from "next/navigation";
 import { addManualEntry } from "@/lib/actions";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { ACTIVITY_TYPES } from "@/lib/format";
 import { frameworkFor } from "@/lib/standards";
 import { ActionForm } from "@/components/action-form";
@@ -9,8 +8,7 @@ import { StandardsPicker } from "@/components/standards-picker";
 export const metadata = { title: "Log activity — CPD Register" };
 
 export default async function NewEntryPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
   const framework = frameworkFor(user.regulator);
 
   return (

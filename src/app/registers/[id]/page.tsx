@@ -1,8 +1,8 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { getDb, registerStatus, type Register, type Signature } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { getShareBase } from "@/lib/base-url";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { setFeedbackEnabled, setRegisterClosed, voidSignature } from "@/lib/actions";
@@ -14,8 +14,7 @@ export default async function RegisterDetailPage({
 }: {
   params: Promise<{ id: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const { id } = await params;
   const db = await getDb();

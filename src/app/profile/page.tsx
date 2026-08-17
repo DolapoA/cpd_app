@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { updateProfile } from "@/lib/actions";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
 import { ProfessionField } from "@/components/profession-field";
@@ -12,8 +11,7 @@ import { setupState } from "@/lib/setup";
 export const metadata = { title: "Profile — CPD Register" };
 
 export default async function ProfilePage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const db = await getDb();
   const count = async (sql: string) =>

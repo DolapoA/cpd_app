@@ -6,6 +6,10 @@ import { toCsv } from "@/lib/format";
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
   if (!user) return new NextResponse("Unauthorised", { status: 401 });
+  // A data endpoint answers rather than redirects: a browser download that
+  // silently returned an HTML page would look like a corrupt file.
+  if (!user.email_verified_at)
+    return new NextResponse("Confirm your email address before exporting.", { status: 403 });
 
   const { id } = await ctx.params;
   const db = await getDb();

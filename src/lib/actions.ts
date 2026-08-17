@@ -1171,7 +1171,7 @@ export async function resetPassword(_prev: ActionState, formData: FormData): Pro
 }
 
 /** Sends (or resends) the confirmation link for the signed-in user's address. */
-export async function sendVerificationEmail(): Promise<void> {
+export async function sendVerificationEmail(formData?: FormData): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
   if (user.email_verified_at) return;
@@ -1185,10 +1185,15 @@ export async function sendVerificationEmail(): Promise<void> {
     await sendEmailConfirmation(user.email, user.full_name, `${base}/verify-email/${token}`);
   } catch (error) {
     console.error("[account] verification email failed", error);
-    redirect("/account?sent=failed");
+    redirect(formData?.get("from") === "confirm" ? "/confirm-email" : "/account?sent=failed");
   }
+  // Back to wherever it was asked from. The same button appears on the page
+  // that blocks an unconfirmed account, and bouncing someone to /account from
+  // there would read as being thrown out. The flag cannot be derived from the
+  // user, who is unconfirmed either way — that is the only state this runs in.
+  const from = formData?.get("from");
   revalidatePath("/account");
-  redirect("/account?sent=1");
+  redirect(from === "confirm" ? "/confirm-email?sent=1" : "/account?sent=1");
 }
 
 // ---------------------------------------------------------------------------

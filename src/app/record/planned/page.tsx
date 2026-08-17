@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type PlannedEvent } from "@/lib/db";
 import { getBaseUrl } from "@/lib/base-url";
 import { formatDate } from "@/lib/format";
@@ -38,8 +37,7 @@ export default async function PlannedPage({
 }: {
   searchParams: Promise<{ feed?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const { feed } = await searchParams;
   const today = new Date().toISOString().slice(0, 10);

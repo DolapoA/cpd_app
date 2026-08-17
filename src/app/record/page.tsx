@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { EntryNotes } from "@/components/entry-notes";
-import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import {
   ACTIVITY_TYPES,
   formatDate,
@@ -26,8 +25,7 @@ export default async function RecordPage({
 }: {
   searchParams: Promise<{ imported?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
   const { imported } = await searchParams;
   const importedCount = imported && /^\d+$/.test(imported) ? Number(imported) : 0;
 

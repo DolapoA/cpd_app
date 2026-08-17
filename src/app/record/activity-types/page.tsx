@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import {
   ACTIVITY_TYPES,
   ACTIVITY_TYPE_EXAMPLES,
@@ -20,8 +19,7 @@ export default async function ActivityTypesPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const sp = await searchParams;
   const to = sp.to ?? new Date().toISOString().slice(0, 10);

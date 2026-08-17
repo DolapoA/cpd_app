@@ -1,14 +1,12 @@
-import { redirect } from "next/navigation";
 import { createRegister } from "@/lib/actions";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { EVENT_TYPES } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
 
 export const metadata = { title: "New register — CPD Register" };
 
 export default async function NewRegisterPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   return (
     <main className="container container--narrow stack">

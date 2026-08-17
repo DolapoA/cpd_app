@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { ImportForm } from "@/components/import-form";
 import { TEMPLATE_COLUMNS, TEMPLATE_ROWS } from "@/lib/import-template";
 import { frameworkFor } from "@/lib/standards";
@@ -8,8 +7,7 @@ import { frameworkFor } from "@/lib/standards";
 export const metadata = { title: "Import CPD record — CPD Register" };
 
 export default async function ImportPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
   const framework = frameworkFor(user.regulator);
 
   return (

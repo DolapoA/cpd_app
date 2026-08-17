@@ -1,6 +1,5 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { pluralProfession } from "@/lib/professions";
 import { addSharedEventToPlan, discoverEvents } from "@/lib/actions";
@@ -8,8 +7,7 @@ import { addSharedEventToPlan, discoverEvents } from "@/lib/actions";
 export const metadata = { title: "Events in your profession — CPD Register" };
 
 export default async function DiscoverPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const events = user.discover_events ? await discoverEvents(user) : [];
   const peers = user.profession ? pluralProfession(user.profession) : "professionals";

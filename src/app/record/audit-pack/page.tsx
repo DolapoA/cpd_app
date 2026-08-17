@@ -1,7 +1,6 @@
-import { redirect } from "next/navigation";
 import { EntryNotes } from "@/components/entry-notes";
 import { getDb, type CpdEntry } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { record } from "@/lib/analytics";
 import { ACTIVITY_TYPES, formatDate, HCPC_AUDIT_PACK_REGULATOR } from "@/lib/format";
 import { frameworkFor, parseStandards } from "@/lib/standards";
@@ -18,8 +17,7 @@ export default async function AuditPackPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; cols?: string | string[] }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
   await record({ name: "compliance_pack_generated", kind: "hcpc" });
 
   const sp = await searchParams;

@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { notFound, redirect } from "next/navigation";
+import { notFound } from "next/navigation";
 import { getDb, type FeedbackResponse, type Register } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { FEEDBACK_QUESTIONS, SCALE_POINTS, SMALL_SAMPLE_CAUTION } from "@/lib/feedback";
 
 export const metadata = { title: "Event feedback — CPD Register" };
 
 export default async function FeedbackPage({ params }: { params: Promise<{ id: string }> }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const { id } = await params;
   const db = await getDb();

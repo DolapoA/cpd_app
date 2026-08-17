@@ -1,7 +1,6 @@
 import Link from "next/link";
-import { redirect } from "next/navigation";
 import { getDb, type ActivityTypeGoal, type CpdEntry, type PlannedEvent } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import {
   ACTIVITY_TYPES,
   formatDate,
@@ -21,8 +20,7 @@ import { SetupChecklist } from "@/components/setup-checklist";
 export const metadata = { title: "Dashboard — CPD Register" };
 
 export default async function DashboardPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const db = await getDb();
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);

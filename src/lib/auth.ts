@@ -1,5 +1,6 @@
 import "server-only";
 import { cookies } from "next/headers";
+import { redirect } from "next/navigation";
 import { getDb, type User } from "./db";
 import { newSessionToken } from "./ids";
 
@@ -47,4 +48,24 @@ export async function getCurrentUser(): Promise<User | null> {
     )
     .get(token, new Date().toISOString()) as User | undefined;
   return row ?? null;
+}
+
+/**
+ * The user, for a page that needs them signed in *and* reachable by email.
+ *
+ * An unconfirmed address is not a small gap. Attendance is matched by email,
+ * so an account on an address nobody has proved they own could collect
+ * somebody else's slips; and a CPD record whose owner cannot be emailed cannot
+ * be recovered, which is the one thing a multi-year evidence store must
+ * survive. So confirmation is a gate rather than a suggestion.
+ *
+ * Deliberately not applied to /account, where the address can be corrected and
+ * a new link sent — a typo would otherwise lock someone out of the only page
+ * that could fix it.
+ */
+export async function requireConfirmedUser(): Promise<User> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!user.email_verified_at) redirect("/confirm-email");
+  return user;
 }

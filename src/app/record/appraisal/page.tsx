@@ -1,8 +1,7 @@
-import { redirect } from "next/navigation";
 import { frameworkFor, parseStandards } from "@/lib/standards";
 import { EntryNotes } from "@/components/entry-notes";
 import { getDb, type CpdEntry } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { record } from "@/lib/analytics";
 import { formatDate, GMC_APPRAISAL_REGULATOR } from "@/lib/format";
 import { clampToRegistration } from "@/lib/registration";
@@ -18,8 +17,7 @@ export default async function AppraisalPage({
 }: {
   searchParams: Promise<{ from?: string; to?: string; cols?: string | string[] }>;
 }) {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
   await record({ name: "compliance_pack_generated", kind: "gmc" });
 
   const sp = await searchParams;

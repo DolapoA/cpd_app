@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { EntryNotes } from "@/components/entry-notes";
-import { redirect } from "next/navigation";
 import { getDb, type CpdEntry } from "@/lib/db";
-import { getCurrentUser } from "@/lib/auth";
+import { requireConfirmedUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { frameworkFor } from "@/lib/standards";
 import { gapsFor } from "@/lib/completeness";
@@ -12,8 +11,7 @@ import { GapForm } from "@/components/gap-form";
 export const metadata = { title: "Finish your record — CPD Register" };
 
 export default async function CompleteRecordPage() {
-  const user = await getCurrentUser();
-  if (!user) redirect("/login");
+  const user = await requireConfirmedUser();
 
   const framework = frameworkFor(user.regulator);
   const entries = await (await getDb())

@@ -3,6 +3,11 @@ import type { User } from "./db";
 /**
  * What a new account still has to do, and how far along it is.
  *
+ * Confirming the email address is not here: nothing can be reached without it,
+ * so it is a gate rather than a step, and listing something already enforced
+ * would put an item on the list that can never be outstanding while the list
+ * is visible.
+ *
  * Two kinds of step, deliberately not mixed in the score. Profile steps are
  * things the app cannot work properly without knowing — without a regulator it
  * cannot offer the right audit pack, and without a registration date it cannot
@@ -40,14 +45,6 @@ export type SetupCounts = {
 
 export function setupState(user: User, counts: SetupCounts): SetupState {
   const profile: SetupStep[] = [
-    {
-      key: "email",
-      label: "Confirm your email address",
-      detail:
-        "Until it is confirmed, attendance you sign as a guest can't be matched to your account.",
-      href: "/account",
-      done: !!user.email_verified_at,
-    },
     {
       key: "profession",
       label: "Add your profession",
