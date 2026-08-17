@@ -14,9 +14,12 @@ import type { User } from "./db";
  * tell which activity counts. Those are what the percentage measures, so
  * finishing them reaches 100% and the prompt goes away for good.
  *
- * The rest are suggestions. Counting two-factor authentication or a subscribed
- * calendar toward completeness would leave most people permanently at 80% and
- * permanently nagged, which teaches them to ignore the thing entirely.
+ * The rest are suggestions, and deliberately outside the score. Counting a
+ * subscribed calendar toward completeness would leave most people permanently
+ * short of it and permanently nagged, which teaches them to ignore the thing
+ * entirely. Security settings are not listed at all: the account page is where
+ * they belong, and a checklist that asks for them turns a considered decision
+ * into a chore to clear.
  */
 export type SetupStep = {
   key: string;
@@ -89,18 +92,6 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
       label: "Put your plans in your own calendar",
       href: "/record/planned",
       done: !!user.calendar_token && counts.plans > 0,
-    },
-    {
-      key: "recovery",
-      label: "Add a recovery email",
-      href: "/account",
-      done: !!user.backup_email_verified_at,
-    },
-    {
-      key: "2fa",
-      label: "Turn on two-factor authentication",
-      href: "/account/two-factor",
-      done: !!user.totp_confirmed_at,
     },
   ];
 
