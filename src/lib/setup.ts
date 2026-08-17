@@ -21,8 +21,6 @@ import type { User } from "./db";
 export type SetupStep = {
   key: string;
   label: string;
-  /** Why it is worth doing, where that is not obvious from the label. */
-  detail?: string;
   href: string;
   done: boolean;
 };
@@ -48,22 +46,18 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
     {
       key: "profession",
       label: "Add your profession",
-      detail: "It decides the guidance you see, and who you share events with.",
       href: "/profile",
       done: !!user.profession,
     },
     {
       key: "regulator",
       label: "Add your regulator",
-      detail: "This is what lets us produce the right audit or appraisal pack for you.",
       href: "/profile",
       done: !!user.regulator,
     },
     {
       key: "registration",
       label: "Add your registration number and date",
-      detail:
-        "The number appears on your audit pack. The date tells us which activity can count toward this registration.",
       href: "/profile",
       done: !!user.registration_number && !!user.registration_date,
     },
@@ -81,30 +75,24 @@ export function setupState(user: User, counts: SetupCounts): SetupState {
     {
       key: "record",
       label: "Bring your existing CPD across",
-      detail: "Import the spreadsheet you already keep, or log an activity by hand.",
       href: "/record/import",
       done: counts.entries > 0,
     },
     {
       key: "planned",
       label: "Add something you're going to",
-      detail:
-        "A conference or study day you already know about. When the date passes we'll ask whether to add it to your record.",
       href: "/record/planned",
       done: counts.plans > 0,
     },
     {
       key: "calendar",
       label: "Put your plans in your own calendar",
-      detail: "Subscribe once and they appear in Google, Apple or Outlook, and stay in step.",
       href: "/record/planned",
       done: !!user.calendar_token && counts.plans > 0,
     },
     {
       key: "recovery",
       label: "Add a recovery email",
-      detail:
-        "A second address to reset your password from — worth having if you signed up with a work one you might leave.",
       href: "/account",
       done: !!user.backup_email_verified_at,
     },

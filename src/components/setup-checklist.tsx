@@ -7,23 +7,50 @@ function Task({ step }: { step: SetupStep }) {
       <span className="task__mark" aria-hidden="true">
         {step.done ? "✓" : ""}
       </span>
-      <span>
-        <span className="task__label">
-          {step.done ? step.label : <Link href={step.href}>{step.label}</Link>}
-        </span>
-        {!step.done && step.detail && <span className="task__detail"> — {step.detail}</span>}
+      <span className="task__label">
+        {step.done ? step.label : <Link href={step.href}>{step.label}</Link>}
       </span>
     </li>
   );
 }
 
 /**
- * How far setting up has got, and what is left.
+ * One group of steps: what is left, then what has been done, folded away.
  *
- * Done items stay on the list rather than disappearing. A list that only ever
- * shows what is outstanding never looks like progress, however much of it
- * there has been.
+ * Done items are hidden rather than deleted. A list that discards finished
+ * work leaves no evidence of progress, and someone who wants to check whether
+ * they really did set a target has nowhere to look; a disclosure keeps both
+ * without letting the finished half crowd out the unfinished one.
  */
+function TaskGroup({ steps }: { steps: SetupStep[] }) {
+  const outstanding = steps.filter((s) => !s.done);
+  const done = steps.filter((s) => s.done);
+
+  return (
+    <>
+      {outstanding.length > 0 && (
+        <ul className="task-list">
+          {outstanding.map((step) => (
+            <Task key={step.key} step={step} />
+          ))}
+        </ul>
+      )}
+      {done.length > 0 && (
+        <details>
+          <summary className="small">
+            {done.length} done
+          </summary>
+          <ul className="task-list">
+            {done.map((step) => (
+              <Task key={step.key} step={step} />
+            ))}
+          </ul>
+        </details>
+      )}
+    </>
+  );
+}
+
 export function SetupChecklist({
   state,
   showSuggestions = true,
@@ -44,20 +71,12 @@ export function SetupChecklist({
         </span>
       </div>
 
-      <ul className="task-list">
-        {state.profile.map((step) => (
-          <Task key={step.key} step={step} />
-        ))}
-      </ul>
+      <TaskGroup steps={state.profile} />
 
       {showSuggestions && (
         <>
           <h3>Then, to get the most out of it</h3>
-          <ul className="task-list">
-            {state.suggestions.map((step) => (
-              <Task key={step.key} step={step} />
-            ))}
-          </ul>
+          <TaskGroup steps={state.suggestions} />
         </>
       )}
     </>
