@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import type { PlannedEvent } from "@/lib/db";
+import { InfoHint } from "./info-hint";
 
 /**
  * The fields of a planned event, shared by adding and editing.
@@ -154,11 +155,11 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
             }}
           />{" "}
           Anyone can attend this
+          <InfoHint>
+            A conference, course or open study day — as opposed to a team meeting or something
+            only your workplace can attend.
+          </InfoHint>
         </label>
-        <div className="hint">
-          A conference, course or open study day — as opposed to a team meeting or something
-          only your workplace can attend.
-        </div>
       </div>
       {isPublic && (
         <div className="field">
@@ -171,12 +172,12 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
               onChange={(e) => setShared(e.currentTarget.checked)}
             />{" "}
             Let others in my profession see it
+            <InfoHint>
+              They see the event, never your name — only that someone in the profession has it
+              planned. Untick at any time and it disappears from their list. Sharing needs a
+              link, who&rsquo;s running it and where, so people can look it up.
+            </InfoHint>
           </label>
-          <div className="hint">
-            They see the event, never your name — only that someone in the profession has it
-            planned. Untick at any time and it disappears from their list. Sharing needs a link,
-            who&rsquo;s running it and where, so people can look it up.
-          </div>
         </div>
       )}
     </>

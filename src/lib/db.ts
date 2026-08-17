@@ -190,6 +190,9 @@ CREATE TABLE IF NOT EXISTS planned_events (
      have to be. */
   is_public INTEGER NOT NULL DEFAULT 0,
   shared INTEGER NOT NULL DEFAULT 0,
+  /* Set when the day-before email went out, so a retry or a second cron run
+     in the same day cannot send it twice. */
+  reminded_at TEXT,
   /* NULL while still ahead; 'recorded' or 'missed' once answered for. */
   outcome TEXT,
   cpd_entry_id INTEGER REFERENCES cpd_entries(id),
@@ -237,6 +240,7 @@ async function migrate(p: Pool): Promise<void> {
   await p.query(
     "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS shared INTEGER NOT NULL DEFAULT 0"
   );
+  await p.query("ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS reminded_at TEXT");
   await p.query(
     "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token)"
   );
@@ -424,6 +428,7 @@ export type PlannedEvent = {
   revision: number;
   is_public: number;
   shared: number;
+  reminded_at: string | null;
   outcome: string | null;
   cpd_entry_id: number | null;
   created_at: string;

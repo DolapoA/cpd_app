@@ -1553,6 +1553,55 @@ main {
   }
 }
 
+/* ---- Folded-away explanations ---- */
+
+.info {
+  display: inline;
+}
+
+/* The circled "i". A summary is a list-item by default, which would put a
+   marker triangle beside it. */
+.info__mark {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.05rem;
+  height: 1.05rem;
+  margin-left: var(--space-1);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  color: var(--ink-soft);
+  font-size: var(--text-3xs);
+  font-style: italic;
+  font-weight: 700;
+  line-height: 1;
+  cursor: pointer;
+  vertical-align: middle;
+  list-style: none;
+  user-select: none;
+}
+
+.info__mark::-webkit-details-marker {
+  display: none;
+}
+
+.info__mark:hover,
+.info[open] .info__mark {
+  border-color: var(--brand);
+  color: var(--brand);
+}
+
+.info__mark:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+/* Back on its own line once opened, where a sentence belongs. */
+.info__body {
+  display: block;
+  margin-top: var(--space-1);
+}
+
 /* ---- Loading skeletons ---- */
 
 .skeleton {

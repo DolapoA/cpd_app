@@ -348,3 +348,70 @@ CPD Register`;
     })
   );
 }
+
+export type PlanReminder = {
+  title: string;
+  when: string;
+  location: string | null;
+  provider: string | null;
+  url: string | null;
+};
+
+/**
+ * The day before.
+ *
+ * Sent because a calendar cannot be relied on to do it: an alarm inside a
+ * subscribed feed is a suggestion, and Google ignores it outright. This is the
+ * one channel that reaches everybody, whatever they subscribed with.
+ */
+export async function sendPlanReminder(
+  to: string,
+  name: string,
+  events: PlanReminder[]
+): Promise<void> {
+  const one = events.length === 1;
+  const subject = one ? `Tomorrow: ${events[0].title}` : `${events.length} things tomorrow`;
+
+  const line = (e: PlanReminder) =>
+    [e.title, e.when, [e.provider, e.location].filter(Boolean).join(" · ")]
+      .filter(Boolean)
+      .join(" — ");
+
+  const text = `Hello ${name},
+
+${one ? "This is on your plan for tomorrow:" : "These are on your plan for tomorrow:"}
+
+${events.map((e) => `  - ${line(e)}${e.url ? `\n    ${e.url}` : ""}`).join("\n\n")}
+
+After it happens we'll ask whether you attended, and add it to your CPD record
+if you did.
+
+CPD Register`;
+
+  await send(
+    to,
+    subject,
+    text,
+    undefined,
+    renderEmail({
+      title: one ? "Tomorrow" : "Tomorrow on your plan",
+      preheader: one ? line(events[0]) : `${events.length} planned events tomorrow.`,
+      blocks: [
+        { kind: "text", content: `Hello ${name},` },
+        {
+          kind: "list",
+          heading: one ? "On your plan for tomorrow" : "On your plan for tomorrow",
+          items: events.map((e) => line(e)),
+        },
+        ...(one && events[0].url
+          ? ([{ kind: "button", label: "Event details", url: events[0].url }] as EmailBlock[])
+          : []),
+        {
+          kind: "note",
+          content:
+            "Once it has been and gone we'll ask whether you attended, and add it to your CPD record if you did. You can change or remove anything on your plan at any time.",
+        },
+      ],
+    })
+  );
+}
