@@ -32,10 +32,7 @@ export default async function CalendarPage({
       <div className="page-head">
         <div>
           <h1>Your calendar</h1>
-          <p>
-            Subscribe once and everything on your plan appears in Google Calendar, Apple Calendar
-            or Outlook, and keeps itself up to date when you change a date.
-          </p>
+          <p>Subscribe once and everything on your plan appears in your personal calendar.</p>
         </div>
       </div>
 
@@ -50,11 +47,7 @@ export default async function CalendarPage({
 
       <div className="card">
         <h2>Subscribe</h2>
-        <p className="muted small">
-          It is read-only: nothing you do in your calendar comes back here. Each event carries a
-          reminder a day ahead, which Apple honours and Google ignores — so we email you the
-          morning before as well.
-        </p>
+        <p className="muted small">Each event carries a reminder a day ahead of the event.</p>
         <CopyField label="Your private calendar address" value={feedUrl} />
         <div className="actions-row">
           <a href={subscribeUrl} className="btn btn--secondary">
@@ -92,8 +85,7 @@ export default async function CalendarPage({
       <div className="card">
         <h2>Replace the address</h2>
         <p className="muted small">
-          Treat it like a password: anyone who has it can see what you have planned. It carries no
-          other detail about your account, and replacing it stops the old one working immediately.
+          Treat it like a password: anyone who has it can see what you have planned.
         </p>
         <form action={regenerateCalendarToken}>
           <button type="submit" className="btn btn--quiet btn--small">

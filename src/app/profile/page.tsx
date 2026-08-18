@@ -4,6 +4,7 @@ import { requireConfirmedUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
 import { ProfessionField } from "@/components/profession-field";
+import { InfoHint } from "@/components/info-hint";
 import { TargetField } from "@/components/target-field";
 import { SetupChecklist } from "@/components/setup-checklist";
 import { getDb } from "@/lib/db";
@@ -155,11 +156,11 @@ export default async function ProfilePage({
                 defaultChecked={!!user.discover_events}
               />{" "}
               Show me events others in my profession have shared
+              <InfoHint label="What turning this off does">
+                Turning this off hides their events from you. It does not un-share yours, and it
+                never reveals who shared what either way.
+              </InfoHint>
             </label>
-            <div className="hint">
-              Turning this off hides their events from you. It does not un-share yours, and it
-              never reveals who shared what either way.
-            </div>
           </div>
         </ActionForm>
       </div>

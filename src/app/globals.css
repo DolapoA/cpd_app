@@ -1587,6 +1587,65 @@ main {
   padding-top: var(--space-1);
 }
 
+/* ---- A month of the record, folded ---- */
+
+/* The summary is the whole bar, so the target is the width of the card rather
+   than the few characters of the month's name. */
+.month__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4);
+  cursor: pointer;
+  list-style: none;
+  border-bottom: 1px solid transparent;
+}
+
+.month__head::-webkit-details-marker {
+  display: none;
+}
+
+.month[open] .month__head {
+  border-bottom-color: var(--line);
+}
+
+.month__head:hover {
+  background: var(--surface-sunken);
+}
+
+.month__head:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: calc(var(--focus-offset) * -1);
+}
+
+.month__label {
+  font-weight: 600;
+  font-size: var(--text-s);
+}
+
+/* Which way it will go, said before it goes. */
+.month__label::before {
+  content: "▸";
+  display: inline-block;
+  width: 1em;
+  color: var(--ink-soft);
+  font-size: var(--text-2xs);
+}
+
+.month[open] .month__label::before {
+  content: "▾";
+}
+
+/* ---- Confirming something destructive ---- */
+
+.confirm {
+  gap: var(--space-2);
+  max-width: 15rem;
+  text-align: left;
+  white-space: normal;
+}
+
 /* ---- Folded-away explanations ---- */
 
 .info {

@@ -29,11 +29,6 @@ export function TargetField({ value }: { value: number }) {
           />{" "}
           I have an annual CPD target to work towards
         </label>
-        <div className="hint">
-          Some regulators set a number — 50 credits a year is common for doctors, 35 hours for
-          financial advisers. Many set none at all, in which case leave this unticked and your
-          dashboard will count what you have done rather than measure it against a figure.
-        </div>
       </div>
       {hasTarget && (
         <div className="field">
