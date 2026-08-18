@@ -30,25 +30,32 @@ export default async function AccountPage({
   const { sent, change, recovery } = await searchParams;
 
   const db = await getDb();
-  const sessions = (
-    await db.prepare("SELECT COUNT(*) AS c FROM sessions WHERE user_id = ?").get(user.id) as { c: number }
-  ).c;
-  const entries = (
-    await db.prepare("SELECT COUNT(*) AS c FROM cpd_entries WHERE user_id = ?").get(user.id) as {
-      c: number;
-    }
-  ).c;
-  const signatures = (
-    await db.prepare("SELECT COUNT(*) AS c FROM signatures WHERE user_id = ?").get(user.id) as {
-      c: number;
-    }
-  ).c;
-  const recoveryCodes = user.totp_confirmed_at ? await unusedRecoveryCount(user.id) : 0;
-  const registers = (
-    await db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id) as {
-      c: number;
-    }
-  ).c;
+  // Four tallies of the same person, asked for at once. As four statements
+  // they were four network round trips one after another, each waiting on the
+  // last for no reason — none of them needs any of the others' answers.
+  const [counts, recoveryCodes] = await Promise.all([
+    db
+      .prepare(
+        `SELECT
+           (SELECT COUNT(*) FROM sessions    WHERE user_id = ?)      AS sessions,
+           (SELECT COUNT(*) FROM cpd_entries WHERE user_id = ?)      AS entries,
+           (SELECT COUNT(*) FROM signatures  WHERE user_id = ?)      AS signatures,
+           (SELECT COUNT(*) FROM registers   WHERE organiser_id = ?) AS registers`
+      )
+      .get(user.id, user.id, user.id, user.id) as Promise<{
+      sessions: string;
+      entries: string;
+      signatures: string;
+      registers: string;
+    }>,
+    user.totp_confirmed_at ? unusedRecoveryCount(user.id) : Promise.resolve(0),
+  ]);
+  // COUNT() is bigint, which node-postgres hands back as a string rather than
+  // silently losing precision.
+  const sessions = Number(counts.sessions);
+  const entries = Number(counts.entries);
+  const signatures = Number(counts.signatures);
+  const registers = Number(counts.registers);
 
   return (
     <main className="container container--narrow stack">

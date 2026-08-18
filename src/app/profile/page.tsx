@@ -20,12 +20,25 @@ export default async function ProfilePage({
   const user = await requireConfirmedUser();
 
   const db = await getDb();
-  const count = async (sql: string) =>
-    Number(((await db.prepare(sql).get(user.id)) as { c: number }).c);
+  // One statement rather than three: the checklist needs all three tallies
+  // before it can say anything, and asking separately made the page wait for
+  // the network three times over.
+  const counts = (await db
+    .prepare(
+      `SELECT
+         (SELECT COUNT(*) FROM cpd_entries     WHERE user_id = ?)      AS entries,
+         (SELECT COUNT(*) FROM planned_events  WHERE user_id = ?)      AS plans,
+         (SELECT COUNT(*) FROM registers       WHERE organiser_id = ?) AS registers`
+    )
+    .get(user.id, user.id, user.id)) as {
+    entries: string;
+    plans: string;
+    registers: string;
+  };
   const setup = setupState(user, {
-    entries: await count("SELECT COUNT(*) AS c FROM cpd_entries WHERE user_id = ?"),
-    plans: await count("SELECT COUNT(*) AS c FROM planned_events WHERE user_id = ?"),
-    registers: await count("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?"),
+    entries: Number(counts.entries),
+    plans: Number(counts.plans),
+    registers: Number(counts.registers),
   });
 
   return (

@@ -210,47 +210,51 @@ CREATE TABLE IF NOT EXISTS activity_type_goals (
 );
 `;
 
-/** Schema and migrations run once per process, not once per request. */
+/*
+  Idempotent schema updates for databases created before a column existed.
+
+  Postgres can add a column conditionally, so there is no need to inspect the
+  catalogue first the way SQLite required.
+*/
+const MIGRATIONS = `
+ALTER TABLE registers ADD COLUMN IF NOT EXISTS feedback_enabled INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE signatures ADD COLUMN IF NOT EXISTS feedback_given INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email_verified_at TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS discover_events INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_hidden_at TEXT;
+/* Existing rows keep whatever they hold; only new accounts start at zero. */
+ALTER TABLE users ALTER COLUMN annual_target_points SET DEFAULT 0;
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS is_public INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS shared INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS reminded_at TEXT;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token);
+ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT;
+ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT;
+/* A register is other attendees' evidence, so it survives its organiser
+   closing their account. On Postgres this is a plain constraint drop rather
+   than the table rebuild SQLite needed. */
+ALTER TABLE registers ALTER COLUMN organiser_id DROP NOT NULL;
+`;
+
+/**
+ * Schema and migrations, once per process — and in one round trip.
+ *
+ * These used to be twenty-one separate awaited queries. That is nothing when
+ * the database is on the same machine, and it is most of a second when it is
+ * not: a serverless instance starts cold, and the first person to arrive paid
+ * twenty-one network round trips before their first page could begin.
+ *
+ * Sent as one string, node-postgres uses the simple query protocol: one trip,
+ * and Postgres wraps the lot in an implicit transaction, so a database is
+ * never left half-migrated by a connection dropping partway through.
+ */
 async function initialise(p: Pool): Promise<void> {
-  await p.query(SCHEMA);
-  await migrate(p);
-}
-
-/** Idempotent schema updates for databases created before a column existed. */
-async function migrate(p: Pool): Promise<void> {
-  // Postgres can add a column conditionally, so there is no need to inspect
-  // the catalogue first the way SQLite required.
-  await p.query("ALTER TABLE registers ADD COLUMN IF NOT EXISTS feedback_enabled INTEGER NOT NULL DEFAULT 0");
-  await p.query("ALTER TABLE signatures ADD COLUMN IF NOT EXISTS feedback_given INTEGER NOT NULL DEFAULT 0");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email TEXT");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS email_verified_at TEXT");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS backup_email_verified_at TEXT");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_secret TEXT");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS totp_confirmed_at TEXT");
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS calendar_token TEXT");
-  await p.query(
-    "ALTER TABLE users ADD COLUMN IF NOT EXISTS discover_events INTEGER NOT NULL DEFAULT 1"
-  );
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS setup_hidden_at TEXT");
-  // Existing rows keep whatever they hold; only new accounts start at zero.
-  await p.query("ALTER TABLE users ALTER COLUMN annual_target_points SET DEFAULT 0");
-  await p.query(
-    "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS is_public INTEGER NOT NULL DEFAULT 0"
-  );
-  await p.query(
-    "ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS shared INTEGER NOT NULL DEFAULT 0"
-  );
-  await p.query("ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS reminded_at TEXT");
-  await p.query(
-    "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_calendar_token ON users(calendar_token)"
-  );
-  await p.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS registration_date TEXT");
-  await p.query("ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT");
-
-  // A register is other attendees' evidence, so it survives its organiser
-  // closing their account. On Postgres this is a plain constraint drop rather
-  // than the table rebuild SQLite needed.
-  await p.query("ALTER TABLE registers ALTER COLUMN organiser_id DROP NOT NULL");
+  await p.query(SCHEMA + MIGRATIONS);
 }
 
 /* ---------------------------------------------------------------------------
@@ -344,9 +348,11 @@ function pool(): Pool {
     const url = connectionString();
     globalForDb.__cpdPool = new Pool({
       connectionString: url,
-      // A serverless instance handles one request at a time, so a large pool
-      // just holds connections the database could give to another instance.
-      max: Number(process.env.PGPOOL_MAX ?? 3),
+      // Sized to the widest fan-out a single page makes — the dashboard asks
+      // four questions at once — and no wider. A pool smaller than that turns
+      // a parallel page back into a serial one; a pool larger holds
+      // connections the database could be giving to another instance.
+      max: Number(process.env.PGPOOL_MAX ?? 5),
       idleTimeoutMillis: 10_000,
       connectionTimeoutMillis: 10_000,
       // Supabase terminates TLS with its own chain; verification is off for the
