@@ -35,8 +35,16 @@ function whenText(plan: PlannedEvent): string {
   return `${days}, ${plan.start_time}${plan.end_time ? `–${plan.end_time}` : ""}`;
 }
 
-export default async function PlannedPage() {
+export default async function PlannedPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ added?: string }>;
+}) {
   const user = await requireConfirmedUser();
+  const { added } = await searchParams;
+  // A calendar token exists from the first visit to the calendar page, so its
+  // absence is the closest thing we have to "has never seen this offer".
+  const offerCalendar = added === "1" && !user.calendar_token;
 
   const today = new Date().toISOString().slice(0, 10);
 
@@ -68,6 +76,27 @@ export default async function PlannedPage() {
           </Link>
         </div>
       </div>
+
+      {added === "1" && (
+        <div className={offerCalendar ? "notice notice--info" : "notice notice--ok"}>
+          {offerCalendar ? (
+            <>
+              <h3 className="notice__title">Added. Want it in your own calendar?</h3>
+              <p className="small">
+                Subscribe once and everything on your plan &mdash; this and everything you add
+                later &mdash; appears in the calendar you already use, work or personal.
+              </p>
+              <div className="actions-row">
+                <Link href="/record/planned/calendar" className="btn btn--secondary">
+                  Set up your calendar
+                </Link>
+              </div>
+            </>
+          ) : (
+            <p className="small">Added to your plan, and to your calendar feed.</p>
+          )}
+        </div>
+      )}
 
       {past.length > 0 && (
         <div className="notice notice--info">
@@ -115,7 +144,10 @@ export default async function PlannedPage() {
             among the page's actions — it is done once and then never again. */}
         <div className="page-head page-head--tight">
           <h2>Coming up</h2>
-          <Link href="/record/planned/calendar" className="btn btn--quiet btn--small">
+          <Link
+            href="/record/planned/calendar"
+            className={`btn btn--quiet btn--small${offerCalendar ? " glow" : ""}`}
+          >
             Your calendar
           </Link>
         </div>

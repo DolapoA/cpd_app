@@ -202,6 +202,29 @@ CREATE TABLE IF NOT EXISTS planned_events (
 CREATE INDEX IF NOT EXISTS idx_planned_user ON planned_events(user_id, starts_on);
 
 /*
+  Where somebody has worked, and when.
+
+  Kept apart from the profile's single "role / grade" field, which is only ever
+  the current one: an appraisal or an audit covers a period, and a period can
+  span two employers. Months rather than days, because that is the precision
+  anybody actually remembers and the precision every CV uses.
+
+  ended_on NULL means "still there", which is a state rather than a date and
+  cannot be faked with a far-future one without lying in the data.
+*/
+CREATE TABLE IF NOT EXISTS employments (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  employer TEXT NOT NULL,
+  job_title TEXT,
+  /* YYYY-MM, which sorts correctly as a string. */
+  started_on TEXT NOT NULL,
+  ended_on TEXT,
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_employments_user ON employments(user_id, started_on);
+
+/*
   A browser's permission to send this person a notification.
 
   One row per device, not per person: someone signs in on a phone and a laptop
@@ -479,6 +502,18 @@ export type User = {
   totp_secret: string | null;
   /** Set only when a first code has been verified — until then 2FA is not on. */
   totp_confirmed_at: string | null;
+  created_at: string;
+};
+
+export type Employment = {
+  id: number;
+  user_id: number;
+  employer: string;
+  job_title: string | null;
+  /** YYYY-MM. */
+  started_on: string;
+  /** YYYY-MM, or null while it is still current. */
+  ended_on: string | null;
   created_at: string;
 };
 

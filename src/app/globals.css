@@ -1587,6 +1587,42 @@ main {
   padding-top: var(--space-1);
 }
 
+/* ---- Drawing the eye to one control ---- */
+
+/*
+   A ring that breathes, used once and briefly: the moment after somebody adds
+   something to their plan is the only moment the calendar offer is relevant,
+   and a button that glows permanently is just a button.
+
+   Colour and a halo rather than movement alone, so it still reads for anyone
+   who cannot see the animation — and it stops after a few passes rather than
+   pulsing at somebody for as long as the page is open.
+*/
+.glow {
+  position: relative;
+  color: var(--brand-dark);
+  background: var(--brand-soft);
+  border-radius: var(--radius-md);
+  animation: glow 2s var(--ease-emphasised) 3;
+}
+
+@keyframes glow {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+  50% {
+    box-shadow: 0 0 0 4px var(--brand-soft);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow {
+    animation: none;
+    box-shadow: 0 0 0 2px var(--brand-soft);
+  }
+}
+
 /* ---- A month of the record, folded ---- */
 
 /* The summary is the whole bar, so the target is the width of the card rather

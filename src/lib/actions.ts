@@ -1570,7 +1570,10 @@ export async function addPlannedEvent(
 
   await record({ name: "planned_event_added" });
   revalidatePath("/record/planned");
-  redirect("/record/planned");
+  // Flagged so the plan page can point out, once, that this can go straight
+  // into the calendar they already use. The best moment to say it is the one
+  // right after somebody has committed to going somewhere.
+  redirect("/record/planned?added=1");
 }
 
 export async function updatePlannedEvent(
@@ -1951,4 +1954,66 @@ export async function sendTestNotification(): Promise<void> {
   // any key, so it is safe to show the person looking at the page.
   if (result.detail) query.set("why", result.detail.slice(0, 160));
   redirect(`/account/notifications?${query}`);
+}
+
+/* ---------------------------------------------------------------------------
+   Where someone has worked
+--------------------------------------------------------------------------- */
+
+/** "2023-07" from a month and a year select, or null if either is missing. */
+function monthValue(formData: FormData, prefix: string): string | null {
+  const month = str(formData, `${prefix}_month`);
+  const year = str(formData, `${prefix}_year`);
+  if (!month || !year) return null;
+  if (!/^\d{4}$/.test(year) || !/^\d{1,2}$/.test(month)) return null;
+  const m = Number(month);
+  if (m < 1 || m > 12) return null;
+  return `${year}-${String(m).padStart(2, "0")}`;
+}
+
+export async function addEmployment(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const employer = str(formData, "employer");
+  if (!employer) return { error: "Who was the employer?" };
+
+  const started = monthValue(formData, "started");
+  if (!started) return { error: "When did you start?" };
+
+  // "Still here" is the absence of an end, not a date far in the future.
+  const current = !!formData.get("current");
+  const ended = current ? null : monthValue(formData, "ended");
+  if (!current && !ended) return { error: "When did you leave? Or tick that you are still there." };
+  if (ended && ended < started) return { error: "The end is before the start." };
+
+  const thisMonth = new Date().toISOString().slice(0, 7);
+  if (started > thisMonth) return { error: "That start month is in the future." };
+  if (ended && ended > thisMonth) return { error: "That end month is in the future." };
+
+  await (await getDb())
+    .prepare(
+      `INSERT INTO employments (user_id, employer, job_title, started_on, ended_on, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
+    )
+    .run(user.id, employer, str(formData, "job_title") || null, started, ended, new Date().toISOString());
+
+  redirect("/profile/employment?saved=1");
+}
+
+export async function deleteEmployment(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  const id = num(formData, "id");
+  if (id === null) redirect("/profile/employment");
+
+  // Scoped to the owner, so knowing an id is not enough to delete somebody
+  // else's history.
+  await (await getDb())
+    .prepare("DELETE FROM employments WHERE id = ? AND user_id = ?")
+    .run(id, user.id);
+  redirect("/profile/employment");
 }

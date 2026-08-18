@@ -29,13 +29,16 @@ export default async function ProfilePage({
       `SELECT
          (SELECT COUNT(*) FROM cpd_entries     WHERE user_id = ?)      AS entries,
          (SELECT COUNT(*) FROM planned_events  WHERE user_id = ?)      AS plans,
-         (SELECT COUNT(*) FROM registers       WHERE organiser_id = ?) AS registers`
+         (SELECT COUNT(*) FROM registers       WHERE organiser_id = ?) AS registers,
+         (SELECT COUNT(*) FROM employments     WHERE user_id = ?)      AS jobs`
     )
-    .get(user.id, user.id, user.id)) as {
+    .get(user.id, user.id, user.id, user.id)) as {
     entries: string;
     plans: string;
     registers: string;
+    jobs: string;
   };
+  const jobCount = Number(counts.jobs);
   const setup = setupState(user, {
     entries: Number(counts.entries),
     plans: Number(counts.plans),
@@ -168,6 +171,20 @@ export default async function ProfilePage({
           password, two-factor and account-closure controls — a link people
           have to already know is there. Security settings nobody can find
           are security settings nobody uses. */}
+      <div className="card">
+        <div className="page-head page-head--tight">
+          <h2>Where you have worked</h2>
+          <Link href="/profile/employment" className="btn btn--quiet btn--small">
+            {jobCount === 0 ? "Add an employer" : "Edit"}
+          </Link>
+        </div>
+        <p className="muted small">
+          {jobCount === 0
+            ? "Not recorded yet."
+            : `${jobCount} ${jobCount === 1 ? "job" : "jobs"} recorded.`}
+        </p>
+      </div>
+
       <div className="card">
         <h2>Account and security</h2>
         <Link href="/account" className="btn btn--secondary">
