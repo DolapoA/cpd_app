@@ -2194,9 +2194,19 @@ body:has(.guest-shell) .logo {
     width: auto;
   }
 
+  /* The row takes its side gutter from whatever box it is in — a card already
+     pads its contents, and adding a second gutter costs a phone the width it
+     has least of. */
   .table--stack tr {
-    padding: var(--space-3) var(--space-4);
+    padding: var(--space-3) 0;
     border-bottom: 1px solid var(--line);
+  }
+
+  /* Except where the box deliberately has no padding, so the rows can run to
+     its edges: there the gutter has to come from the row itself. */
+  .card--flush .table--stack tr {
+    padding-left: var(--space-4);
+    padding-right: var(--space-4);
   }
 
   .table--stack td {
