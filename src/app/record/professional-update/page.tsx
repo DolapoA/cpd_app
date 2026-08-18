@@ -121,7 +121,7 @@ export default async function ProfessionalUpdatePage({
           {entries.length} activities · {totalHours} learning hours · {withReflection} carrying a
           written reflection. Range of learning across the period:
         </p>
-        <table className="table">
+        <table className="table table--stack">
           <tbody>
             {byType.map((row) => (
               <tr key={row.type}>
@@ -142,7 +142,7 @@ export default async function ProfessionalUpdatePage({
           <p className="muted">No activities recorded in this period.</p>
         ) : (
           <div className="table-wrap">
-            <table className="table">
+            <table className="table table--stack">
               <thead>
                 <tr>
                   {show("date") && <th>Date</th>}
@@ -158,25 +158,21 @@ export default async function ProfessionalUpdatePage({
               <tbody>
                 {entries.map((e) => (
                   <tr key={e.id}>
-                    {show("date") && <td>{formatDate(e.activity_date)}</td>}
-                    {show("activity") && (
-                      <td>
+                    {show("date") && <td data-label="Date">{formatDate(e.activity_date)}</td>}
+                    {show("activity") && (<td data-label=".">
                         <strong>{e.title}</strong>
                       </td>
                     )}
-                    {show("provider") && <td className="small">{e.provider ?? "—"}</td>}
-                    {show("type") && <td className="small">{e.activity_type}</td>}
+                    {show("provider") && <td className="small" data-label="Provider">{e.provider ?? "—"}</td>}
+                    {show("type") && <td className="small" data-label="Type">{e.activity_type}</td>}
                     {show("standards") && framework && (
-                      <td className="small">{parseStandards(e.standards).join(", ") || "—"}</td>
+                      <td className="small" data-label={framework.columnHeader}>{parseStandards(e.standards).join(", ") || "—"}</td>
                     )}
-                    {show("reflection") && (
-                      <td className="small">{e.notes ? <EntryNotes notes={e.notes} /> : "—"}</td>
+                    {show("reflection") && (<td className="small" data-label="Reflection">{e.notes ? <EntryNotes notes={e.notes} /> : "—"}</td>
                     )}
-                    {show("cpd") && (
-                      <td className="small">{e.hours != null ? `${e.hours} h` : "—"}</td>
+                    {show("cpd") && (<td className="small" data-label="CPD">{e.hours != null ? `${e.hours} h` : "—"}</td>
                     )}
-                    {show("evidence") && (
-                      <td className="small">
+                    {show("evidence") && (<td className="small" data-label="Evidence">
                         {e.verified ? "Platform-verified attendance" : "Self-reported"}
                         {e.verification_code && (
                           <div className="mono">

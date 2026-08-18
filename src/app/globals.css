@@ -2159,7 +2159,9 @@ body:has(.guest-shell) .logo {
   pointer-events: none;
 }
 
-@media (max-width: 700px) {
+/* `screen` matters: a printed pack is a formal document and its table must
+   stay a table, whatever width the paper is reported as. */
+@media screen and (max-width: 700px) {
   .container {
     padding: var(--space-4) var(--space-3) var(--space-12);
     padding-left: calc(var(--space-3) + env(safe-area-inset-left, 0px));
