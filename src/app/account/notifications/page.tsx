@@ -18,10 +18,10 @@ function hourLabel(h: number): string {
 export default async function NotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; test?: string; status?: string }>;
+  searchParams: Promise<{ saved?: string; test?: string; status?: string; why?: string }>;
 }) {
   const user = await requireConfirmedUser();
-  const { saved, test, status } = await searchParams;
+  const { saved, test, status, why } = await searchParams;
   const devices = await deviceCount(user.id);
 
   return (
@@ -55,12 +55,11 @@ export default async function NotificationsPage({
       )}
       {test === "not-configured" && (
         <div className="notice notice--warn">
-          <h3 className="notice__title">The server has no signing key</h3>
+          <h3 className="notice__title">The server cannot sign notifications</h3>
           <p className="small">
-            Your device is set up correctly &mdash; this end is not. Notifications need both
-            <code> VAPID_PUBLIC_KEY</code> and <code> VAPID_PRIVATE_KEY</code> set in the
-            deployment, and only the public one is present. Adding the private key and
-            redeploying is all that is missing.
+            Your device is set up correctly &mdash; this end is not.{" "}
+            {why ? <strong>{why}</strong> : "The signing keys are missing."} Setting it in the
+            deployment and redeploying is all that is missing.
           </p>
         </div>
       )}

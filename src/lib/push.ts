@@ -35,36 +35,60 @@ export type StoredSubscription = {
   auth: string;
 };
 
-let configured: boolean | null = null;
+type VapidState = { ok: true } | { ok: false; reason: string };
+
+/** Only success is remembered: a failure re-checks, so fixing the environment
+ *  does not also require restarting to be believed. */
+let vapidOk = false;
 
 /**
- * Push is off until the keys are set, and says so once rather than on every
- * send — a log line per notification would bury everything else.
+ * Configure the signing keys, and survive them being wrong.
+ *
+ * web-push validates the pair and *throws* on a bad one — a key that decodes
+ * to the wrong length, a subject that is not a URL. Left uncaught that turns a
+ * mistyped environment variable into a 500 on the settings page and a dead
+ * cron run, which is the least helpful way to report a typo ever devised. The
+ * validation message is kept and shown instead; it names the problem exactly
+ * and contains no part of the key.
  */
-export function pushConfigured(): boolean {
-  const pub = process.env.VAPID_PUBLIC_KEY;
-  const priv = process.env.VAPID_PRIVATE_KEY;
+function vapid(): VapidState {
+  if (vapidOk) return { ok: true };
+
+  // Trimmed because these are pasted into a dashboard by hand, and a trailing
+  // newline is the single most common way to arrive at "should be 32 bytes".
+  const pub = process.env.VAPID_PUBLIC_KEY?.trim();
+  const priv = process.env.VAPID_PRIVATE_KEY?.trim();
+  const subject = process.env.VAPID_SUBJECT?.trim() || "mailto:info@cpdregister.app";
+
   if (!pub || !priv) {
-    if (configured === null) {
-      console.warn("[push] VAPID keys not set — notifications will not be sent.");
-      configured = false;
-    }
-    return false;
+    const reason = !pub && !priv
+      ? "Neither VAPID_PUBLIC_KEY nor VAPID_PRIVATE_KEY is set."
+      : !priv
+        ? "VAPID_PRIVATE_KEY is not set."
+        : "VAPID_PUBLIC_KEY is not set.";
+    console.warn(`[push] ${reason} Notifications will not be sent.`);
+    return { ok: false, reason };
   }
-  if (configured !== true) {
-    webpush.setVapidDetails(
-      process.env.VAPID_SUBJECT ?? "mailto:info@cpdregister.app",
-      pub,
-      priv
-    );
-    configured = true;
+
+  try {
+    webpush.setVapidDetails(subject, pub, priv);
+    vapidOk = true;
+    return { ok: true };
+  } catch (error) {
+    const reason = (error as Error).message || "The VAPID keys were rejected.";
+    console.error("[push] VAPID keys rejected:", reason);
+    return { ok: false, reason };
   }
-  return true;
+}
+
+/** Whether anything can be sent at all. */
+export function pushConfigured(): boolean {
+  return vapid().ok;
 }
 
 /** The key the browser needs in order to subscribe. Public by design. */
 export function publicKey(): string | null {
-  return process.env.VAPID_PUBLIC_KEY ?? null;
+  return process.env.VAPID_PUBLIC_KEY?.trim() || null;
 }
 
 /**
@@ -95,8 +119,9 @@ export type PushResult = {
  * having a bad minute is not a reason to stop being able to reach somebody.
  */
 export async function pushToUser(userId: number, payload: PushPayload): Promise<PushResult> {
-  if (!pushConfigured()) {
-    return { delivered: 0, devices: 0, problem: "not-configured" };
+  const keys = vapid();
+  if (!keys.ok) {
+    return { delivered: 0, devices: 0, problem: "not-configured", detail: keys.reason };
   }
 
   const db = await getDb();

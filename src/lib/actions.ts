@@ -1935,5 +1935,8 @@ export async function sendTestNotification(): Promise<void> {
   // different things done about them, and only one of them is the person's.
   const query = new URLSearchParams({ test: result.problem ?? "none" });
   if (result.status) query.set("status", String(result.status));
+  // The validation message names the problem exactly and contains no part of
+  // any key, so it is safe to show the person looking at the page.
+  if (result.detail) query.set("why", result.detail.slice(0, 160));
   redirect(`/account/notifications?${query}`);
 }
