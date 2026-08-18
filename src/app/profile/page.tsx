@@ -50,7 +50,10 @@ export default async function ProfilePage({
       <div className="page-head">
         <div>
           <h1>Your profile</h1>
-          <p>These pre-fill any register you sign.</p>
+          <p>
+            These pre-fill any register you sign.{" "}
+            <Link href="/faq">Questions and answers</Link>
+          </p>
         </div>
       </div>
 
@@ -123,7 +126,7 @@ export default async function ProfilePage({
                 ))}
               </select>
               <div className="hint">
-                Not listed? Choose &ldquo;Other&rdquo;. This sets which compliance packs you get.
+                Not listed? Choose &ldquo;Other&rdquo;.
               </div>
             </div>
             <div className="field">
@@ -146,7 +149,7 @@ export default async function ProfilePage({
               defaultValue={user.registration_date ?? ""}
             />
             <div className="hint">
-              Optional. CPD before this date won&rsquo;t count towards your registration.
+              Optional.
             </div>
           </div>
           <TargetField value={user.annual_target_points} />

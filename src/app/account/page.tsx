@@ -64,7 +64,8 @@ export default async function AccountPage({
           <h1>Account</h1>
           <p>
             Sign-in, security and your data. Your professional details are on{" "}
-            <Link href="/profile">your profile</Link>.
+            <Link href="/profile">your profile</Link>, and the longer explanations are in{" "}
+            <Link href="/faq">questions and answers</Link>.
           </p>
         </div>
       </div>
@@ -133,8 +134,7 @@ export default async function AccountPage({
           </div>
         ) : (
           <p className="muted small">
-            Useful if you signed up with a work address you might one day leave. Your CPD record,
-            your registers and everything you have signed come with you.
+            You sign in with this address, and reset links go to it.
           </p>
         )}
         <ActionForm action={requestEmailChange} submitLabel="Send confirmation link">
@@ -195,8 +195,7 @@ export default async function AccountPage({
           </div>
         ) : (
           <p className="muted small">
-            A second address you can reset your password from if you ever lose access to the one
-            you sign in with — a personal address, if you sign in with a work one.
+            A second address you can reset your password from.
           </p>
         )}
         <ActionForm action={setBackupEmail} submitLabel="Save recovery email">
@@ -255,8 +254,7 @@ export default async function AccountPage({
           </div>
         </ActionForm>
         <p className="hint">
-          Changing it signs you out everywhere else, which is the point of changing it if someone
-          else has been signed in.
+          Changing it signs you out everywhere else.
         </p>
       </div>
 
@@ -297,8 +295,7 @@ export default async function AccountPage({
         ) : (
           <>
             <p className="muted small">
-              Add a six-digit code from your phone to your password. Your CPD record is evidence
-              for your regulator, so it is worth protecting properly.
+              A six-digit code from your phone, on top of your password.
             </p>
             <form action={beginTwoFactor}>
               <button type="submit" className="btn btn--secondary">
@@ -317,8 +314,7 @@ export default async function AccountPage({
           </Link>
         </div>
         <p className="muted small">
-          Reminders on your phone for events you have planned, your annual target, and events
-          others in your profession are going to. Needs the app installed.
+          Reminders on your phone. Needs the app installed.
         </p>
       </div>
 

@@ -163,8 +163,7 @@ export default async function NotificationsPage({
             ))}
           </select>
           <div className="hint">
-            UK time, and the same time for all three &mdash; one moment in the day when the app is
-            allowed to interrupt you, rather than three.
+            UK time, and the same time for all three.
           </div>
         </div>
 

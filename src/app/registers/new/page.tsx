@@ -147,8 +147,7 @@ export default async function NewRegisterPage() {
               attendees for feedback after they sign
             </label>
             <div className="hint">
-              Five ratings and an optional comment, asked after sign-in so it never blocks it.
-              Answers reach you without names attached.
+              Five ratings and an optional comment, asked after sign-in.
             </div>
           </div>
         </ActionForm>
