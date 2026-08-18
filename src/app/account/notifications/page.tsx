@@ -2,6 +2,7 @@ import Link from "next/link";
 import { requireConfirmedUser } from "@/lib/auth";
 import { publicKey } from "@/lib/push";
 import { deviceCount } from "@/lib/push";
+import { InfoHint } from "@/components/info-hint";
 import { PushToggle } from "@/components/push-toggle";
 import { sendTestNotification, updateNotificationSettings } from "@/lib/actions";
 
@@ -61,6 +62,9 @@ export default async function NotificationsPage({
       <form action={updateNotificationSettings} className="card stack">
         <h2>What to send</h2>
 
+        {/* The explanation of each one is longer than the choice itself, and
+            three of them stacked pushed the hour and the save button off the
+            screen entirely. Folded away, the list reads as a list. */}
         <div>
           <label className="choice" htmlFor="notify_events">
             <input
@@ -69,12 +73,12 @@ export default async function NotificationsPage({
               type="checkbox"
               defaultChecked={!!user.notify_events}
             />{" "}
-            Something on my plan is happening today
+            Happening today
+            <InfoHint label="What is sent, and when">
+              One notification on the morning of anything on your plan. This is separate from the
+              email you already get the day before, which carries on either way.
+            </InfoHint>
           </label>
-          <div className="hint">
-            One notification on the morning of the event. This is separate from the email you
-            already get the day before, which carries on either way.
-          </div>
         </div>
 
         <div>
@@ -85,12 +89,12 @@ export default async function NotificationsPage({
               type="checkbox"
               defaultChecked={!!user.notify_target}
             />{" "}
-            How I&rsquo;m doing against my annual target
+            Annual Target
+            <InfoHint label="How often the target is mentioned">
+              Once a month, and only when there is something to say &mdash; how far short you are,
+              or that you have got there. Nothing at all if you have no target set.
+            </InfoHint>
           </label>
-          <div className="hint">
-            Once a month, and only when there is something to say &mdash; how far short you are, or
-            that you have got there. Nothing at all if you have no target set.
-          </div>
         </div>
 
         <div>
@@ -101,13 +105,14 @@ export default async function NotificationsPage({
               type="checkbox"
               defaultChecked={!!user.notify_shared}
             />{" "}
-            An event two or more {user.profession ? "colleagues" : "people in my profession"} are
-            going to
+            CPD Events
+            <InfoHint label="Which events, and what others can see">
+              An event two or more{" "}
+              {user.profession ? "colleagues" : "people in your profession"} have said they are
+              going to. Told once per event, and only for events people have chosen to share
+              publicly. You never see who is going, and they never see that you were told.
+            </InfoHint>
           </label>
-          <div className="hint">
-            Told once per event, and only for events people have chosen to share publicly. You
-            never see who is going, and they never see that you were told.
-          </div>
         </div>
 
         <div className="field">
