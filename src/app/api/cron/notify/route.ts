@@ -113,7 +113,7 @@ async function notifyTodaysEvents(user: User, date: string): Promise<number> {
   await db
     .prepare("UPDATE planned_events SET notified_at = ? WHERE id = ANY(?)")
     .run(new Date().toISOString(), plans.map((p) => p.id));
-  return delivered > 0 ? 1 : 0;
+  return delivered.delivered > 0 ? 1 : 0;
 }
 
 /**
@@ -159,7 +159,7 @@ async function notifyTarget(user: User, month: string): Promise<number> {
   await db
     .prepare("UPDATE users SET notified_target_month = ? WHERE id = ?")
     .run(month, user.id);
-  return delivered > 0 ? 1 : 0;
+  return delivered.delivered > 0 ? 1 : 0;
 }
 
 /**
@@ -205,5 +205,5 @@ async function notifyShared(user: User): Promise<number> {
     )
     .run(user.id, now, fresh.map((e) => e.key));
 
-  return delivered > 0 ? 1 : 0;
+  return delivered.delivered > 0 ? 1 : 0;
 }

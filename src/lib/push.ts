@@ -68,28 +68,48 @@ export function publicKey(): string | null {
 }
 
 /**
+ * Why nothing arrived, when nothing arrived.
+ *
+ * "Nought delivered" has four completely different causes and only one of them
+ * is the person's own doing. Collapsing them into a number meant the settings
+ * page told somebody their device was not set up when the truth was that the
+ * server had no signing key — a wrong answer that sends them looking in the
+ * wrong place.
+ */
+export type PushResult = {
+  delivered: number;
+  devices: number;
+  /** Set when the failure is ours rather than theirs. */
+  problem?: "not-configured" | "no-devices" | "rejected";
+  /** The HTTP status a push service gave, when it gave one. */
+  status?: number;
+  detail?: string;
+};
+
+/**
  * Send to every device a person has registered.
  *
  * A subscription that comes back 404 or 410 is gone for good — the browser was
  * uninstalled, the permission revoked, the device wiped — so it is deleted
  * rather than retried forever. Any other failure is left alone: a push service
  * having a bad minute is not a reason to stop being able to reach somebody.
- *
- * Returns how many devices actually took it, so a caller can tell the
- * difference between "sent" and "nobody was listening".
  */
-export async function pushToUser(userId: number, payload: PushPayload): Promise<number> {
-  if (!pushConfigured()) return 0;
+export async function pushToUser(userId: number, payload: PushPayload): Promise<PushResult> {
+  if (!pushConfigured()) {
+    return { delivered: 0, devices: 0, problem: "not-configured" };
+  }
 
   const db = await getDb();
   const subs = (await db
     .prepare("SELECT id, endpoint, p256dh, auth FROM push_subscriptions WHERE user_id = ?")
     .all(userId)) as StoredSubscription[];
-  if (subs.length === 0) return 0;
+  if (subs.length === 0) return { delivered: 0, devices: 0, problem: "no-devices" };
 
   const body = JSON.stringify(payload);
   let delivered = 0;
   const dead: number[] = [];
+  let status: number | undefined;
+  let detail: string | undefined;
 
   await Promise.all(
     subs.map(async (sub) => {
@@ -101,9 +121,20 @@ export async function pushToUser(userId: number, payload: PushPayload): Promise<
         );
         delivered += 1;
       } catch (error) {
-        const status = (error as { statusCode?: number }).statusCode;
-        if (status === 404 || status === 410) dead.push(sub.id);
-        else console.error("[push] send failed", status ?? error);
+        const e = error as { statusCode?: number; body?: string; message?: string };
+        if (e.statusCode === 404 || e.statusCode === 410) {
+          dead.push(sub.id);
+          return;
+        }
+        // Kept for the caller, and logged with the push service's own words —
+        // "410" alone has never told anybody what to do next.
+        status = e.statusCode;
+        detail = (e.body || e.message || "").slice(0, 200);
+        console.error(
+          `[push] ${new URL(sub.endpoint).host} refused it:`,
+          e.statusCode ?? "no status",
+          detail
+        );
       }
     })
   );
@@ -116,7 +147,12 @@ export async function pushToUser(userId: number, payload: PushPayload): Promise<
       .prepare("UPDATE push_subscriptions SET last_used_at = ? WHERE user_id = ?")
       .run(new Date().toISOString(), userId);
   }
-  return delivered;
+
+  if (delivered > 0) return { delivered, devices: subs.length };
+  // Every device having just been deleted is a different story from a push
+  // service refusing a live one, and the person needs to be told the right one.
+  const problem: PushResult["problem"] = dead.length === subs.length ? "no-devices" : "rejected";
+  return { delivered, devices: subs.length, problem, status, detail };
 }
 
 /** How many devices this person could be reached on. */

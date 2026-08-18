@@ -1923,11 +1923,17 @@ export async function sendTestNotification(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const delivered = await pushToUser(user.id, {
+  const result = await pushToUser(user.id, {
     title: "Notifications are on",
     body: "This is what a reminder from CPD Register looks like.",
     url: "/account/notifications",
     tag: "cpd-test",
   });
-  redirect(`/account/notifications?test=${delivered > 0 ? "sent" : "none"}`);
+
+  if (result.delivered > 0) redirect("/account/notifications?test=sent");
+  // The status is carried through because the three ways this fails need three
+  // different things done about them, and only one of them is the person's.
+  const query = new URLSearchParams({ test: result.problem ?? "none" });
+  if (result.status) query.set("status", String(result.status));
+  redirect(`/account/notifications?${query}`);
 }

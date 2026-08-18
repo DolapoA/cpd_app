@@ -18,10 +18,10 @@ function hourLabel(h: number): string {
 export default async function NotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ saved?: string; test?: string }>;
+  searchParams: Promise<{ saved?: string; test?: string; status?: string }>;
 }) {
   const user = await requireConfirmedUser();
-  const { saved, test } = await searchParams;
+  const { saved, test, status } = await searchParams;
   const devices = await deviceCount(user.id);
 
   return (
@@ -46,11 +46,41 @@ export default async function NotificationsPage({
           <p className="small">Sent — it should appear on your device in a moment.</p>
         </div>
       )}
-      {test === "none" && (
+      {test === "no-devices" && (
         <div className="notice notice--warn">
           <p className="small">
             Nothing was sent, because no device is set up to receive them yet.
           </p>
+        </div>
+      )}
+      {test === "not-configured" && (
+        <div className="notice notice--warn">
+          <h3 className="notice__title">The server has no signing key</h3>
+          <p className="small">
+            Your device is set up correctly &mdash; this end is not. Notifications need both
+            <code> VAPID_PUBLIC_KEY</code> and <code> VAPID_PRIVATE_KEY</code> set in the
+            deployment, and only the public one is present. Adding the private key and
+            redeploying is all that is missing.
+          </p>
+        </div>
+      )}
+      {test === "rejected" && (
+        <div className="notice notice--warn">
+          <h3 className="notice__title">The push service refused it</h3>
+          <p className="small">
+            Your device is registered, but{" "}
+            {status === "403"
+              ? "the signing key does not match the one this device subscribed with. Turning notifications off and on again on this device re-subscribes it against the current key."
+              : status === "401"
+                ? "the signing key was rejected. Check VAPID_SUBJECT is a mailto: or https: address."
+                : "the delivery attempt failed."}{" "}
+            {status && <>The service answered {status}.</>}
+          </p>
+        </div>
+      )}
+      {test === "none" && (
+        <div className="notice notice--warn">
+          <p className="small">Nothing was sent.</p>
         </div>
       )}
 
@@ -139,11 +169,9 @@ export default async function NotificationsPage({
 
       {devices > 0 && (
         <form action={sendTestNotification} className="card stack">
-          <h2>Check it works</h2>
+          <h2>Notification Check</h2>
           <p className="small">
-            Sends one to your {devices === 1 ? "device" : `${devices} devices`} now. Worth doing
-            once, rather than finding out at {hourLabel(user.notify_hour)} tomorrow that the
-            permission never took.
+            Sends one to your {devices === 1 ? "device" : `${devices} devices`} now.
           </p>
           <div className="actions-row">
             <button type="submit" className="btn btn--secondary">
