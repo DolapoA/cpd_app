@@ -16,11 +16,8 @@ export default async function DiscoverPage() {
     <main className="container stack">
       <div className="page-head">
         <div>
-          <h1>What other {peers} are going to</h1>
-          <p>
-            Public events that people in your profession have chosen to share. You see the event,
-            never who added it.
-          </p>
+          <h1>What other {peers} are attending</h1>
+          <p>Public events that people in your profession have chosen to share.</p>
         </div>
         <div className="actions-row">
           <Link href="/record/planned" className="btn btn--quiet">
@@ -114,12 +111,6 @@ export default async function DiscoverPage() {
           </div>
         </div>
       )}
-
-      <p className="hint">
-        Counts are of people, not of names — nobody can see who else is going, including us in the
-        page you are reading. Something here that shouldn&rsquo;t be?{" "}
-        <Link href="/feedback">Tell us</Link>.
-      </p>
     </main>
   );
 }
