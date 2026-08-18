@@ -25,6 +25,7 @@ import {
   sendPasswordReset,
   sendRecoveryConfirmation,
 } from "./email";
+import { pushToUser } from "./push";
 import { claimToken, issueToken } from "./tokens";
 import {
   consumeRecoveryCode,
@@ -1827,4 +1828,106 @@ export async function hideSetupPrompt(): Promise<void> {
     .run(new Date().toISOString(), user.id);
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+/* ---------------------------------------------------------------------------
+   Notifications
+--------------------------------------------------------------------------- */
+
+/**
+ * Remember a device's permission to be notified.
+ *
+ * Called from the browser with what `PushManager.subscribe` handed back. The
+ * endpoint is unique per device per site, so re-running this on a device that
+ * is already subscribed updates its keys rather than adding a second row —
+ * which matters because a browser is free to rotate them without telling
+ * anybody, and a stale row would then be a notification that silently fails.
+ */
+export async function savePushSubscription(subscription: {
+  endpoint: string;
+  p256dh: string;
+  auth: string;
+  label?: string;
+}): Promise<{ ok: true } | { error: string }> {
+  const user = await getCurrentUser();
+  if (!user) return { error: "Sign in first." };
+
+  const { endpoint, p256dh, auth, label } = subscription;
+  if (!endpoint || !p256dh || !auth) return { error: "That subscription is incomplete." };
+
+  await (await getDb())
+    .prepare(
+      `INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth, label, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)
+       ON CONFLICT (endpoint) DO UPDATE
+          SET user_id = EXCLUDED.user_id,
+              p256dh  = EXCLUDED.p256dh,
+              auth    = EXCLUDED.auth,
+              label   = COALESCE(EXCLUDED.label, push_subscriptions.label)`
+    )
+    .run(user.id, endpoint, p256dh, auth, label ?? null, new Date().toISOString());
+
+  revalidatePath("/account/notifications");
+  return { ok: true };
+}
+
+/**
+ * Forget one device, or all of them.
+ *
+ * The endpoint is checked against this user's own rows, so knowing somebody
+ * else's endpoint is not enough to switch their notifications off.
+ */
+export async function removePushSubscription(endpoint?: string): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const db = await getDb();
+  if (endpoint) {
+    await db
+      .prepare("DELETE FROM push_subscriptions WHERE user_id = ? AND endpoint = ?")
+      .run(user.id, endpoint);
+  } else {
+    await db.prepare("DELETE FROM push_subscriptions WHERE user_id = ?").run(user.id);
+  }
+  revalidatePath("/account/notifications");
+}
+
+/** Which notifications to send, and when in the day to send them. */
+export async function updateNotificationSettings(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const on = (name: string) => (formData.get(name) ? 1 : 0);
+  // An hour outside the day is not a preference, it is a broken form. Falling
+  // back to eight is kinder than refusing to save the switches beside it.
+  const raw = Number(formData.get("notify_hour"));
+  const hour = Number.isInteger(raw) && raw >= 0 && raw <= 23 ? raw : 8;
+
+  await (await getDb())
+    .prepare(
+      `UPDATE users SET notify_events = ?, notify_target = ?, notify_shared = ?, notify_hour = ?
+        WHERE id = ?`
+    )
+    .run(on("notify_events"), on("notify_target"), on("notify_shared"), hour, user.id);
+
+  revalidatePath("/account/notifications");
+  redirect("/account/notifications?saved=1");
+}
+
+/**
+ * A notification to yourself, right now, so somebody can see what they have
+ * just switched on actually arrives — the alternative is finding out at eight
+ * tomorrow morning that the permission never took.
+ */
+export async function sendTestNotification(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const delivered = await pushToUser(user.id, {
+    title: "Notifications are on",
+    body: "This is what a reminder from CPD Register looks like.",
+    url: "/account/notifications",
+    tag: "cpd-test",
+  });
+  redirect(`/account/notifications?test=${delivered > 0 ? "sent" : "none"}`);
 }

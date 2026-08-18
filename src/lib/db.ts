@@ -201,6 +201,43 @@ CREATE TABLE IF NOT EXISTS planned_events (
 );
 CREATE INDEX IF NOT EXISTS idx_planned_user ON planned_events(user_id, starts_on);
 
+/*
+  A browser's permission to send this person a notification.
+
+  One row per device, not per person: someone signs in on a phone and a laptop
+  and only the phone is worth interrupting. The endpoint is the address the
+  push service gave us and is unique by definition, so re-subscribing the same
+  device updates rather than duplicates.
+
+  Keys are the device's, not ours — a payload is encrypted to them, so a
+  leaked database yields no readable notifications, only the ability to send.
+*/
+CREATE TABLE IF NOT EXISTS push_subscriptions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  endpoint TEXT NOT NULL UNIQUE,
+  p256dh TEXT NOT NULL,
+  auth TEXT NOT NULL,
+  /* What the person would call this device, so a list of them is legible. */
+  label TEXT,
+  created_at TEXT NOT NULL,
+  last_used_at TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_push_user ON push_subscriptions(user_id);
+
+/*
+  Which shared events a person has already been told about.
+
+  Keyed by the same group key the discover list uses, so "two colleagues are
+  going to this" is said once and not again every hour until they answer.
+*/
+CREATE TABLE IF NOT EXISTS notified_events (
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  event_key TEXT NOT NULL,
+  notified_at TEXT NOT NULL,
+  PRIMARY KEY (user_id, event_key)
+);
+
 CREATE TABLE IF NOT EXISTS activity_type_goals (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
@@ -239,6 +276,20 @@ ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS standards TEXT;
    closing their account. On Postgres this is a plain constraint drop rather
    than the table rebuild SQLite needed. */
 ALTER TABLE registers ALTER COLUMN organiser_id DROP NOT NULL;
+/* Notifications. All three default on, because someone who has gone as far as
+   granting the permission has already said what they want; the switches exist
+   to turn things off, not to make them ask twice. The hour is UK local and is
+   when everything for that person is delivered — one time of day the app is
+   allowed to speak, rather than three. */
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_events INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_target INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_shared INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notify_hour INTEGER NOT NULL DEFAULT 8;
+/* The month a target notification last went out, so it stays monthly. */
+ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
+/* Separate from reminded_at, which is the day-before email: the two channels
+   are answered separately and one failing must not silence the other. */
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
 `;
 
 /**
@@ -412,6 +463,11 @@ export type User = {
    *  this date cannot count toward their registration. */
   registration_date: string | null;
   annual_target_points: number;
+  notify_events: number;
+  notify_target: number;
+  notify_shared: number;
+  notify_hour: number;
+  notified_target_month: string | null;
   backup_email: string | null;
   /** Set once the address has been confirmed by following an emailed link. */
   email_verified_at: string | null;
@@ -444,6 +500,7 @@ export type PlannedEvent = {
   is_public: number;
   shared: number;
   reminded_at: string | null;
+  notified_at: string | null;
   outcome: string | null;
   cpd_entry_id: number | null;
   created_at: string;

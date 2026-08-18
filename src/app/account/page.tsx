@@ -310,6 +310,19 @@ export default async function AccountPage({
       </div>
 
       <div className="card">
+        <div className="page-head page-head--tight">
+          <h2>Notifications</h2>
+          <Link href="/account/notifications" className="btn btn--quiet btn--small">
+            Set them up
+          </Link>
+        </div>
+        <p className="muted small">
+          Reminders on your phone for events you have planned, your annual target, and events
+          others in your profession are going to. Needs the app installed.
+        </p>
+      </div>
+
+      <div className="card">
         <h2>Where you&rsquo;re signed in</h2>
         <p className="muted small">
           {sessions === 1
