@@ -26,7 +26,7 @@ export const metadata: Metadata = {
   openGraph: {
     title: "CPD Register",
     description:
-      "CPD evidence that captures itself — attendance registers, verifiable slips, and a record ready for audit or appraisal.",
+      "Sign the register at your event and it lands on your CPD record, dated and verified. Free, and ready to export for audit or appraisal.",
     siteName: "CPD Register",
     locale: "en_GB",
     type: "website",
@@ -38,7 +38,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "CPD Register",
     description:
-      "CPD evidence that captures itself — attendance registers, verifiable slips, and a record ready for audit or appraisal.",
+      "Sign the register at your event and it lands on your CPD record, dated and verified. Free, and ready to export for audit or appraisal.",
   },
   // Private by default, opted out page by page. Attendee names appear on slips
   // and verification pages reachable by code, and a record page is somebody's

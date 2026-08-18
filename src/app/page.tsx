@@ -13,12 +13,23 @@ export const metadata = {
     "Run an attendance register at your event, let people sign with a QR code, and keep a dated CPD record you can export for audit or appraisal. Built for HCPC, GMC, NMC, GDC, GPhC, RICS and other UK regulated professions.",
   alternates: { canonical: "/" },
   robots: { index: true, follow: true },
+  // The image already carries the promise and the regulators, so the words
+  // beneath it carry what a picture cannot: that it is free, and that the
+  // record comes back out again in a form a regulator will take.
   openGraph: {
     title: "CPD evidence that captures itself",
     description:
-      "Attendance registers, verifiable slips, and a CPD record ready for audit or appraisal.",
+      "Sign the register at your event and it lands on your CPD record, dated and verified. Free, and ready to export for audit or appraisal.",
     url: "/",
     type: "website",
+  },
+  // Stated again rather than left to fall back on the site-wide defaults in
+  // the root layout, which describe the app rather than this page.
+  twitter: {
+    card: "summary_large_image",
+    title: "CPD evidence that captures itself",
+    description:
+      "Sign the register at your event and it lands on your CPD record, dated and verified. Free, and ready to export for audit or appraisal.",
   },
 };
 
