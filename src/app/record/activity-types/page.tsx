@@ -143,7 +143,7 @@ export default async function ActivityTypesPage({
                 {ACTIVITY_TYPE_EXAMPLES[type]}
               </p>
             </div>
-            <span className={`badge ${activities.length ? "badge--verified" : "badge--pending"}`}>
+            <span className={`badge ${activities.length ? "badge--verified" : "badge--neutral"}`}>
               {activities.length
                 ? `${activities.length} ${activities.length === 1 ? "activity" : "activities"}`
                 : "None yet"}
@@ -189,7 +189,7 @@ export default async function ActivityTypesPage({
                     {met ? (
                       <span className="badge badge--verified">✓ Met before {formatDate(target)}</span>
                     ) : (
-                      <span className="badge badge--pending">
+                      <span className="badge badge--neutral">
                         Target {formatDate(target)}
                         {days !== null &&
                           (days < 0

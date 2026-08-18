@@ -186,7 +186,7 @@ export default async function RecordPage({
             const has = typesCovered.has(type);
             return (
               <span
-                className={`badge ${has ? "badge--official" : "badge--pending"}`}
+                className={`badge ${has ? "badge--verified" : "badge--neutral"}`}
                 key={type}
               >
                 {has ? "✓" : "—"} {type}

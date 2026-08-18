@@ -49,7 +49,7 @@ export function StandardsBadges({
   codes: string[];
 }) {
   if (codes.length === 0) {
-    return <span className="badge badge--pending">Not yet tagged</span>;
+    return <span className="badge badge--neutral">Not yet tagged</span>;
   }
   return (
     <span className="std-badges">

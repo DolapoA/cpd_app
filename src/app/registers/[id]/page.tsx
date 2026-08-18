@@ -52,7 +52,7 @@ export default async function RegisterDetailPage({
         </div>
         <span
           className={`badge ${
-            status === "open" ? "badge--open" : status === "closed" ? "badge--closed" : "badge--pending"
+            status === "open" ? "badge--open" : status === "closed" ? "badge--closed" : "badge--neutral"
           }`}
         >
           {status === "open" ? "Open for signatures" : status === "closed" ? "Closed" : "Not open yet"}

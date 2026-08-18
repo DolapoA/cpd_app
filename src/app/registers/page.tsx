@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/format";
 export const metadata = { title: "My registers — CPD Register" };
 
 const STATUS_LABEL = { open: "Open", closed: "Closed", "not-open": "Not open yet" } as const;
-const STATUS_CLASS = { open: "badge--open", closed: "badge--closed", "not-open": "badge--pending" } as const;
+const STATUS_CLASS = { open: "badge--open", closed: "badge--closed", "not-open": "badge--neutral" } as const;
 
 export default async function RegistersPage() {
   const user = await requireConfirmedUser();

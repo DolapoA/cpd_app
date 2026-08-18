@@ -726,25 +726,46 @@ textarea:focus {
   white-space: nowrap;
 }
 
+/*
+   What a colour means, once, so that it means the same thing everywhere.
+
+     brand teal   a label the app applies, carrying no judgement: an
+                  accreditation, a standard's code, something on your plan.
+     green (ok)   confirmed, and good: signed live on a register, a register
+                  open now, a type of activity your record covers.
+     amber (warn) waiting on you: an address not confirmed, an entry with
+                  something missing. Amber is a request, not a description.
+     red (danger) closed, void, or about to destroy something.
+     neutral      a perfectly valid state with nothing to say about it:
+                  self-reported, unofficial, not open yet, not tagged yet.
+
+   The distinction that matters most is the last two. Amber was doing both
+   jobs — "self-reported" and "not yet covered" were painted the same colour
+   as "not confirmed", which told people their own honest record was a problem
+   and made the colour mean nothing by meaning everything.
+*/
+
 .badge--official {
   background: var(--brand-soft);
   color: var(--brand-dark);
 }
 
-.badge--nonofficial {
+/* A state with no valence. Named for the meaning rather than for one of the
+   places it appears, so the next such state has somewhere to go. */
+.badge--neutral,
+.badge--nonofficial,
+.badge--self {
   background: var(--surface-muted);
   color: var(--ink-soft);
 }
 
-/* verified/open and self/pending are the same treatment for different
-   meanings, so they share a rule rather than drifting apart. */
 .badge--verified,
 .badge--open {
   background: var(--ok-soft);
   color: var(--ok);
 }
 
-.badge--self,
+/* Reserved for the things somebody has to act on. */
 .badge--pending {
   background: var(--warn-soft);
   color: var(--warn);
