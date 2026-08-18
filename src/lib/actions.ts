@@ -25,7 +25,7 @@ import {
   sendPasswordReset,
   sendRecoveryConfirmation,
 } from "./email";
-import { pushToUser } from "./push";
+import { pushToUser, type PushResult } from "./push";
 import { claimToken, issueToken } from "./tokens";
 import {
   consumeRecoveryCode,
@@ -1923,12 +1923,24 @@ export async function sendTestNotification(): Promise<void> {
   const user = await getCurrentUser();
   if (!user) redirect("/login");
 
-  const result = await pushToUser(user.id, {
-    title: "Notifications are on",
-    body: "This is what a reminder from CPD Register looks like.",
-    url: "/account/notifications",
-    tag: "cpd-test",
-  });
+  // This button exists to diagnose, so it must not itself become the thing
+  // that needs diagnosing. Anything unexpected is turned into a message on the
+  // page rather than the error boundary, which is deliberately vague and would
+  // leave somebody with nothing to act on and nothing to report.
+  let result: PushResult;
+  try {
+    result = await pushToUser(user.id, {
+      title: "Notifications are on",
+      body: "This is what a reminder from CPD Register looks like.",
+      url: "/account/notifications",
+      tag: "cpd-test",
+    });
+  } catch (error) {
+    const why = (error as Error)?.message || "No message was given.";
+    console.error("[push] the test notification threw", error);
+    const q = new URLSearchParams({ test: "crashed", why: why.slice(0, 200) });
+    redirect(`/account/notifications?${q}`);
+  }
 
   if (result.delivered > 0) redirect("/account/notifications?test=sent");
   // The status is carried through because the three ways this fails need three

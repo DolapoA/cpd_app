@@ -77,6 +77,15 @@ export default async function NotificationsPage({
           </p>
         </div>
       )}
+      {test === "crashed" && (
+        <div className="notice notice--warn">
+          <h3 className="notice__title">Sending it failed outright</h3>
+          <p className="small">
+            Not the device, and not the settings &mdash; something threw on the way.{" "}
+            {why && <strong>{why}</strong>}
+          </p>
+        </div>
+      )}
       {test === "none" && (
         <div className="notice notice--warn">
           <p className="small">Nothing was sent.</p>

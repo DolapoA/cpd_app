@@ -155,11 +155,16 @@ export async function pushToUser(userId: number, payload: PushPayload): Promise<
         // "410" alone has never told anybody what to do next.
         status = e.statusCode;
         detail = (e.body || e.message || "").slice(0, 200);
-        console.error(
-          `[push] ${new URL(sub.endpoint).host} refused it:`,
-          e.statusCode ?? "no status",
-          detail
-        );
+        // The host is only for the log line, so a malformed endpoint must not
+        // become a second exception thrown from inside the handler for the
+        // first — which would escape this catch entirely.
+        let host = "a push service";
+        try {
+          host = new URL(sub.endpoint).host;
+        } catch {
+          host = "an unreadable endpoint";
+        }
+        console.error(`[push] ${host} refused it:`, e.statusCode ?? "no status", detail);
       }
     })
   );
