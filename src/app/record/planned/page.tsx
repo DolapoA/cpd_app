@@ -16,6 +16,16 @@ function isAhead(plan: PlannedEvent, today: string): boolean {
   return (plan.ends_on ?? plan.starts_on) >= today;
 }
 
+/** "6 pts · 7 h", or nothing at all if neither was given. */
+function figures(plan: PlannedEvent): string {
+  return [
+    plan.expected_points != null ? `${plan.expected_points} pts` : null,
+    plan.expected_hours != null ? `${plan.expected_hours} h` : null,
+  ]
+    .filter(Boolean)
+    .join(" · ");
+}
+
 function whenText(plan: PlannedEvent): string {
   const days =
     plan.ends_on && plan.ends_on !== plan.starts_on
@@ -54,13 +64,7 @@ export default async function PlannedPage() {
             Add something
           </Link>
           <Link href="/record/discover" className="btn btn--secondary">
-            What others are going to
-          </Link>
-          <Link href="/record/planned/calendar" className="btn btn--quiet">
-            Your calendar
-          </Link>
-          <Link href="/record" className="btn btn--quiet">
-            Your record →
+            Public events
           </Link>
         </div>
       </div>
@@ -107,8 +111,13 @@ export default async function PlannedPage() {
       )}
 
       <div className="card">
-        <div className="page-head">
+        {/* Subscribing acts on this list, so it belongs beside it rather than
+            among the page's actions — it is done once and then never again. */}
+        <div className="page-head page-head--tight">
           <h2>Coming up</h2>
+          <Link href="/record/planned/calendar" className="btn btn--quiet btn--small">
+            Your calendar
+          </Link>
         </div>
         {ahead.length === 0 ? (
           <div className="empty">
@@ -146,10 +155,14 @@ export default async function PlannedPage() {
                       </div>
                       {plan.notes && <div className="small prewrap">{plan.notes}</div>}
                     </td>
-                    <td className="small col--figures" data-label="Expected">
-                      {plan.expected_points != null ? `${plan.expected_points} pts` : ""}
-                      {plan.expected_points != null && plan.expected_hours != null ? " · " : ""}
-                      {plan.expected_hours != null ? `${plan.expected_hours} h` : ""}
+                    {/* Stacked on a phone the cell prints its own label, so an
+                        empty one would read "Expected:" and stop. No figures,
+                        no label. */}
+                    <td
+                      className="small col--figures"
+                      data-label={figures(plan) ? "Expected" : undefined}
+                    >
+                      {figures(plan)}
                     </td>
                     <td className="col--actions" data-label=".">
                       <div className="actions-row actions-row--table">
