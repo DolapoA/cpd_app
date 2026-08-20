@@ -62,6 +62,11 @@
   .followup select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
   .scn textarea{width:100%;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;
     resize:vertical;min-height:38px;font-family:inherit}
+  .rating{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:10px 0}
+  .rating label{display:flex;align-items:center;gap:4px;font-weight:600}
+  #review{width:100%;box-sizing:border-box}
+  .attrib{display:none;gap:10px;align-items:center;flex-wrap:wrap}
+  .attrib.show{display:flex}
   .qa-only{display:none}
   body.show-qa .qa-only{display:block}
   .qa-tag{display:inline-block;background:#efe7f6;color:#5b3d86;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px}
@@ -128,6 +133,28 @@
   </div>
 
   <div id="form"></div>
+
+  <div class="panel">
+    <h2>What did you make of it?</h2>
+    <p class="note">Separate from the scenarios above, and entirely optional. This is about the app as a whole rather than any one case.</p>
+    <div class="rating" id="ratingRow">
+      <span class="note">Out of 5</span>
+      <label><input type="radio" name="rating" value="1"> 1</label>
+      <label><input type="radio" name="rating" value="2"> 2</label>
+      <label><input type="radio" name="rating" value="3"> 3</label>
+      <label><input type="radio" name="rating" value="4"> 4</label>
+      <label><input type="radio" name="rating" value="5"> 5</label>
+      <span class="note" id="ratingWord"></span>
+    </div>
+    <textarea id="review" maxlength="400" rows="3"
+      placeholder="A line or two — what it does well, what would put you off recommending it."></textarea>
+    <p class="note"><span id="reviewCount">0</span>/400</p>
+    <p class="role-note"><label><input type="checkbox" id="reviewConsent"> You may quote this on the CPD Register website</label></p>
+    <div id="attribRow" class="attrib">
+      <label>Shown as<input id="reviewAttrib" maxlength="80" placeholder="e.g. Priya R., Radiographer" /></label>
+      <span class="note">Leave blank to be quoted anonymously.</span>
+    </div>
+  </div>
 
   <div class="panel">
     <h2>Finish &amp; export</h2>
@@ -335,7 +362,7 @@ function snapshot(){
   });
   var m = {};
   META_IDS.forEach(function(id){ var el=document.getElementById(id); if(el) m[id]=el.value; });
-  return {fingerprint:FINGERPRINT, meta:m, answers:answers, showQa:qaShown(), savedAt:new Date().toISOString()};
+  return {fingerprint:FINGERPRINT, meta:m, answers:answers, showQa:qaShown(), review:review(), savedAt:new Date().toISOString()};
 }
 
 function setSaveNote(text){
@@ -375,6 +402,16 @@ function restoreSaved(){
   var qa = document.getElementById('showQa');
   if(qa && saved.showQa){ qa.checked = true; }
   applyQa();
+
+  var rv = saved.review || {};
+  if(rv.rating){
+    var picked = document.querySelector('input[name="rating"][value="' + rv.rating + '"]');
+    if(picked) picked.checked = true;
+  }
+  if(rv.text) document.getElementById('review').value = rv.text;
+  if(rv.consent) document.getElementById('reviewConsent').checked = true;
+  if(rv.attribution) document.getElementById('reviewAttrib').value = rv.attribution;
+  refreshReview();
 
   Object.keys(saved.answers || {}).forEach(function(id){
     if(!state[id]) return;
@@ -422,6 +459,16 @@ function clearSaved(){
 (function(){
   var qa = document.getElementById('showQa');
   if(qa) qa.addEventListener('change', function(){ applyQa(); queueSave(); });
+
+  ['review','reviewAttrib'].forEach(function(id){
+    var el = document.getElementById(id);
+    if(el) el.addEventListener('input', function(){ refreshReview(); queueSave(); });
+  });
+  document.querySelectorAll('input[name="rating"]').forEach(function(r){
+    r.addEventListener('change', function(){ refreshReview(); queueSave(); });
+  });
+  var c = document.getElementById('reviewConsent');
+  if(c) c.addEventListener('change', function(){ refreshReview(); queueSave(); });
 })();
 
 META_IDS.forEach(function(id){
@@ -439,7 +486,7 @@ document.addEventListener('visibilitychange', function(){
 });
 
 var wasRestored = restoreSaved();
-if(!wasRestored) applyQa();
+if(!wasRestored){ applyQa(); refreshReview(); }
 saveReady = true;
 setSaveNote(wasRestored ? 'Picked up where you left off' : 'Saved as you go');
 
@@ -483,7 +530,34 @@ function verdict(){
   if(c.left) return 'INCOMPLETE — items still untested';
   return 'PASS WITH DEFECTS';
 }
-function payload(){return {meta:meta(),summary:counts(),verdict:verdict(),results:rows(),generatedAt:new Date().toISOString()};}
+/* The overall verdict on the app, as opposed to the pass/fail on any one
+   scenario. Consent is asked for separately and defaults to no, because a
+   sentence written as private feedback is not a testimonial until somebody
+   says it is. The attribution box only matters once consent is given, so it
+   only appears then. */
+var RATING_WORDS = {1:'Poor',2:'Weak',3:'Fair',4:'Good',5:'Excellent'};
+function ratingValue(){
+  var r = document.querySelector('input[name="rating"]:checked');
+  return r ? Number(r.value) : 0;
+}
+function review(){
+  var consent = document.getElementById('reviewConsent').checked;
+  return {
+    rating: ratingValue(),
+    text: (document.getElementById('review').value || '').trim(),
+    consent: consent,
+    /* Meaningless without consent, so it is not carried without it. */
+    attribution: consent ? (document.getElementById('reviewAttrib').value || '').trim() : ''
+  };
+}
+function refreshReview(){
+  var v = ratingValue();
+  document.getElementById('ratingWord').textContent = v ? RATING_WORDS[v] : '';
+  var text = document.getElementById('review').value || '';
+  document.getElementById('reviewCount').textContent = String(text.length);
+  document.getElementById('attribRow').classList.toggle('show', document.getElementById('reviewConsent').checked);
+}
+function payload(){return {meta:meta(),summary:counts(),verdict:verdict(),review:review(),results:rows(),generatedAt:new Date().toISOString()};}
 /* Hosted, this form posts to the site it was served from — which also means
    the request is same-origin and needs none of the CORS allowance the disk
    copy relies on. Opened from a file:// copy, location.origin is "null", so

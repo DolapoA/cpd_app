@@ -183,6 +183,14 @@ export type UatSubmission = {
   };
   summary: { pass: number; fail: number; block: number; left: number; total: number };
   verdict: string;
+  /** The app as a whole, rather than any one scenario. Optional throughout. */
+  review?: {
+    rating: number;
+    text: string;
+    /** Nothing is quotable without this, and it defaults to false. */
+    consent: boolean;
+    attribution: string;
+  };
   results: UatResult[];
   generatedAt: string;
 };
@@ -200,7 +208,7 @@ export type UatSubmission = {
  */
 export async function sendUatSubmission(submission: UatSubmission): Promise<void> {
   const to = process.env.UAT_TO ?? "info@cpdregister.app";
-  const { meta, summary, verdict, results } = submission;
+  const { meta, summary, verdict, results, review } = submission;
   const tester = meta.name?.trim() || "Anonymous tester";
 
   const line = (r: UatResult) =>
@@ -234,6 +242,20 @@ export async function sendUatSubmission(submission: UatSubmission): Promise<void
   const section = (heading: string, items: string[]) =>
     items.length ? `\n${heading}\n${items.map((i) => `  - ${i}`).join("\n")}\n` : "";
 
+  /* Whether the sentence may be quoted is the first thing to say about it —
+     ahead of the sentence itself, so nobody reads a nice line and lifts it
+     without scrolling to find out they could not. */
+  const rated = review && (review.rating > 0 || review.text);
+  const opinion = rated
+    ? [
+        review.rating > 0 ? `Rated ${review.rating} out of 5` : "No rating given",
+        review.text || "No review written",
+        review.consent
+          ? `May be quoted on the site${review.attribution ? ` as "${review.attribution}"` : " anonymously"}`
+          : "NOT for publication — private feedback",
+      ]
+    : [];
+
   const text = `${tester} finished a UAT run.
 
 Verdict: ${verdict || "not given"}
@@ -241,13 +263,16 @@ Verdict: ${verdict || "not given"}
 ${environment.join("\n")}
 
 ${counts.join("\n")}
-${section("Failures", failures.map(line))}${section("Blocked", blocked.map(line))}
+${section("What they made of it", opinion)}${section("Failures", failures.map(line))}${section("Blocked", blocked.map(line))}
 The full results are attached as JSON.`;
 
   const blocks: EmailBlock[] = [
     { kind: "text", content: `${tester} finished a UAT run.` },
     { kind: "text", content: `Verdict: ${verdict || "not given"}` },
     { kind: "list", heading: "Counts", items: counts },
+    ...(opinion.length
+      ? ([{ kind: "list", heading: "What they made of it", items: opinion }] as EmailBlock[])
+      : []),
     ...(failures.length
       ? ([{ kind: "list", heading: "Failures", items: failures.map(line) }] as EmailBlock[])
       : []),

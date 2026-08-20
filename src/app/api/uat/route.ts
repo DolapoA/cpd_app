@@ -92,6 +92,15 @@ export async function POST(request: Request) {
       total: num(body.summary.total),
     },
     verdict: str(body.verdict, 500),
+    review: {
+      // Anything outside one to five is not a rating; nought reads as "none".
+      rating: [1, 2, 3, 4, 5].includes(num(body.review?.rating)) ? num(body.review?.rating) : 0,
+      text: str(body.review?.text, 400),
+      // Consent has to be the literal true a tick box sends. Anything else —
+      // absent, a string, a number — is not somebody agreeing to be quoted.
+      consent: body.review?.consent === true,
+      attribution: body.review?.consent === true ? str(body.review?.attribution, 80) : "",
+    },
     results: body.results.slice(0, 500).map((r): UatResult => {
       const row = (r ?? {}) as Partial<UatResult>;
       return {
@@ -117,8 +126,9 @@ export async function POST(request: Request) {
       .prepare(
         `INSERT INTO uat_submissions
            (submitted_at, tester_name, role, profession, device, browser, test_date, verdict,
-            pass_count, fail_count, blocked_count, untested_count, total_count, results, user_agent)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+            pass_count, fail_count, blocked_count, untested_count, total_count, results, user_agent,
+            rating, review, review_consent, review_attribution)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
       )
       .run(
         new Date().toISOString(),
@@ -138,7 +148,11 @@ export async function POST(request: Request) {
         // would send a JS array as a Postgres array literal, which jsonb
         // refuses.
         JSON.stringify(submission.results),
-        request.headers.get("user-agent") ?? ""
+        request.headers.get("user-agent") ?? "",
+        submission.review?.rating || null,
+        submission.review?.text || null,
+        submission.review?.consent ? 1 : 0,
+        submission.review?.attribution || null
       );
   } catch (error) {
     console.error("[uat] could not store submission", error);

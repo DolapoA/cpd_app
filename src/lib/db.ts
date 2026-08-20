@@ -313,6 +313,11 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
 /* Separate from reminded_at, which is the day-before email: the two channels
    are answered separately and one failing must not silence the other. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
+/* Temporary, and goes with the rest of the acceptance-testing block. */
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS rating INTEGER;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review TEXT;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_consent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_attribution TEXT;
 
 /* ---------------------------------------------------------------------------
    TEMPORARY — user acceptance testing only. Delete after acceptance.
@@ -347,7 +352,14 @@ CREATE TABLE IF NOT EXISTS uat_submissions (
      that has to be migrated is the wrong shape for something being deleted in
      a fortnight. */
   results JSONB,
-  user_agent TEXT
+  user_agent TEXT,
+  /* The tester's view of the app as a whole, as opposed to pass/fail on any
+     one scenario. review_consent is what separates private feedback from a
+     sentence anybody may quote, and it defaults to no. */
+  rating INTEGER,
+  review TEXT,
+  review_consent INTEGER NOT NULL DEFAULT 0,
+  review_attribution TEXT
 );
 `;
 
