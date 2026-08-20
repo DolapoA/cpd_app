@@ -313,11 +313,6 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
 /* Separate from reminded_at, which is the day-before email: the two channels
    are answered separately and one failing must not silence the other. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
-/* Temporary, and goes with the rest of the acceptance-testing block. */
-ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS rating INTEGER;
-ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review TEXT;
-ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_consent INTEGER NOT NULL DEFAULT 0;
-ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_attribution TEXT;
 
 /* ---------------------------------------------------------------------------
    TEMPORARY — user acceptance testing only. Delete after acceptance.
@@ -361,6 +356,15 @@ CREATE TABLE IF NOT EXISTS uat_submissions (
   review_consent INTEGER NOT NULL DEFAULT 0,
   review_attribution TEXT
 );
+/* For databases that already held the table before the review was added. These
+   have to come after the CREATE above, not before it: the whole schema is sent
+   as one statement and runs as one transaction, so an ALTER naming a table
+   that does not exist yet does not merely fail on its own — it rolls back
+   every CREATE with it, and a fresh database ends up with nothing at all. */
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS rating INTEGER;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review TEXT;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_consent INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_attribution TEXT;
 `;
 
 /**
