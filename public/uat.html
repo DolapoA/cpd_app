@@ -62,6 +62,8 @@
   .followup select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
   .scn textarea{width:100%;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;
     resize:vertical;min-height:38px;font-family:inherit}
+  .qa-only{display:none}
+  body.show-qa .qa-only{display:block}
   .qa-tag{display:inline-block;background:#efe7f6;color:#5b3d86;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px}
 
   .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
@@ -86,7 +88,7 @@
 <header class="top">
   <div class="kicker">User Acceptance Testing</div>
   <h1>CPD App — Acceptance Form</h1>
-  <p>Build: main, 17 Aug 2026 · Work through each item on the device you are testing. Nothing is saved automatically — use <b>Export</b> before you close the page.</p>
+  <p>Work through each item on the device you are testing.</p>
 </header>
 
 <div class="sticky">
@@ -121,7 +123,8 @@
       <div><label>Browser</label><input id="m_browser" placeholder="e.g. Safari, Chrome"/></div>
       <div><label>Date</label><input id="m_date" type="date"/></div>
     </div>
-    <p class="role-note">Only test the flows relevant to your role — mark anything you did not test as <b>Blocked</b> with a note, or leave it untested. Items tagged <span class="qa-tag">QA only</span> are for the dev/QA team, not end users.</p>
+    <p class="role-note">Only test the flows relevant to your role — mark anything you did not test as <b>Blocked</b> with a note, or leave it untested. Checks for the dev and QA team are hidden.</p>
+    <p class="role-note"><label><input type="checkbox" id="showQa"> Show the <span class="qa-tag">QA only</span> checks as well</label></p>
   </div>
 
   <div id="form"></div>
@@ -144,11 +147,6 @@
     <div id="summaryOut"></div>
   </div>
 </div>
-
-<footer>
-  UAT acceptance is met when every <b>Critical</b> and <b>High</b> scenario passes and no Critical/High defects remain open.
-  This form covers user-observable flows; server-side integrity, load, rate-limiting and WCAG conformance are verified separately by QA.
-</footer>
 
 <script>
 const SCENARIOS = [
@@ -235,7 +233,7 @@ const state = {};
 const form = document.getElementById('form');
 
 SCENARIOS.forEach(group=>{
-  const sec=document.createElement('section'); sec.className='area';
+  const sec=document.createElement('section'); sec.className='area'+(group.qa?' qa-only':'');
   const h=document.createElement('h2'); h.innerHTML=group.area + (group.qa?' <span class="qa-tag">QA only</span>':'');
   sec.appendChild(h);
   group.items.forEach(([id,title,pri,steps,exp])=>{
@@ -283,10 +281,20 @@ function setResult(id,val){
 function setSev(id,v){state[id].severity=v;queueSave()}
 function setNotes(id,v){state[id].notes=v;queueSave()}
 
+function qaShown(){var c=document.getElementById('showQa');return !!(c&&c.checked);}
+/* Hidden work is not this tester's work. With the QA checks folded away they
+   are left out of the tally, so the bar can actually reach the end — and they
+   come back into it the moment somebody asks to see them. Every case is still
+   submitted, tagged qa_only, so whoever collates the runs decides what counts. */
+function inScope(s){return qaShown()||!s.qa;}
 function counts(){
   let pass=0,fail=0,block=0,total=0;
-  Object.values(state).forEach(s=>{total++;if(s.result==='Pass')pass++;else if(s.result==='Fail')fail++;else if(s.result==='Blocked')block++;});
+  Object.values(state).filter(inScope).forEach(s=>{total++;if(s.result==='Pass')pass++;else if(s.result==='Fail')fail++;else if(s.result==='Blocked')block++;});
   return {pass,fail,block,left:total-pass-fail-block,total};
+}
+function applyQa(){
+  document.body.classList.toggle('show-qa', qaShown());
+  refresh();
 }
 function refresh(){
   const c=counts();
@@ -327,7 +335,7 @@ function snapshot(){
   });
   var m = {};
   META_IDS.forEach(function(id){ var el=document.getElementById(id); if(el) m[id]=el.value; });
-  return {fingerprint:FINGERPRINT, meta:m, answers:answers, savedAt:new Date().toISOString()};
+  return {fingerprint:FINGERPRINT, meta:m, answers:answers, showQa:qaShown(), savedAt:new Date().toISOString()};
 }
 
 function setSaveNote(text){
@@ -364,6 +372,9 @@ function restoreSaved(){
     var el = document.getElementById(id);
     if(el && saved.meta && saved.meta[id]) el.value = saved.meta[id];
   });
+  var qa = document.getElementById('showQa');
+  if(qa && saved.showQa){ qa.checked = true; }
+  applyQa();
 
   Object.keys(saved.answers || {}).forEach(function(id){
     if(!state[id]) return;
@@ -408,6 +419,11 @@ function clearSaved(){
   setSaveNote('Submitted');
 }
 
+(function(){
+  var qa = document.getElementById('showQa');
+  if(qa) qa.addEventListener('change', function(){ applyQa(); queueSave(); });
+})();
+
 META_IDS.forEach(function(id){
   var el = document.getElementById(id);
   if(!el) return;
@@ -423,6 +439,7 @@ document.addEventListener('visibilitychange', function(){
 });
 
 var wasRestored = restoreSaved();
+if(!wasRestored) applyQa();
 saveReady = true;
 setSaveNote(wasRestored ? 'Picked up where you left off' : 'Saved as you go');
 
