@@ -313,6 +313,42 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
 /* Separate from reminded_at, which is the day-before email: the two channels
    are answered separately and one failing must not silence the other. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
+
+/* ---------------------------------------------------------------------------
+   TEMPORARY — user acceptance testing only. Delete after acceptance.
+
+   Where the standalone UAT form (kept outside this repository) posts its
+   results, via /api/uat. Every submission is also emailed, so this table is
+   only the copy that survives a bad address or a Resend outage — testers walk
+   through the script once and re-running it is expensive, so a submission is
+   never allowed to depend on the mail going out.
+
+   Kept in MIGRATIONS rather than SCHEMA so removing the feature is one deleted
+   block here, plus:  DROP TABLE uat_submissions;
+   It references no other table, so nothing else breaks when it goes.
+--------------------------------------------------------------------------- */
+CREATE TABLE IF NOT EXISTS uat_submissions (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  submitted_at TEXT NOT NULL,
+  tester_name TEXT,
+  role TEXT,
+  profession TEXT,
+  device TEXT,
+  browser TEXT,
+  test_date TEXT,
+  verdict TEXT,
+  pass_count INTEGER,
+  fail_count INTEGER,
+  blocked_count INTEGER,
+  untested_count INTEGER,
+  total_count INTEGER,
+  /* The whole per-case array as sent. Held whole rather than shredded into a
+     row per case: the script changes between rounds of testing, and a shape
+     that has to be migrated is the wrong shape for something being deleted in
+     a fortnight. */
+  results JSONB,
+  user_agent TEXT
+);
 `;
 
 /**

@@ -155,6 +155,134 @@ ${facts.join("\n")}`,
   );
 }
 
+/* ---------------------------------------------------------------------------
+   TEMPORARY — user acceptance testing only. Delete this block after acceptance,
+   along with the uat_submissions table and /api/uat.
+--------------------------------------------------------------------------- */
+
+/** One row of the tester's script, exactly as the standalone form sends it. */
+export type UatResult = {
+  id: string;
+  area: string;
+  priority: string;
+  title: string;
+  qa_only: string;
+  result: string;
+  severity: string;
+  notes: string;
+};
+
+export type UatSubmission = {
+  meta: {
+    name: string;
+    role: string;
+    profession: string;
+    device: string;
+    browser: string;
+    date: string;
+  };
+  summary: { pass: number; fail: number; block: number; left: number; total: number };
+  verdict: string;
+  results: UatResult[];
+  generatedAt: string;
+};
+
+/**
+ * A completed UAT run, to whoever is collating them.
+ *
+ * Unlike feedback this one does default its recipient in code: the address is
+ * already public on the site, and a test run that goes nowhere because an
+ * environment variable was missed is a tester's afternoon wasted.
+ *
+ * The failures are written into the body rather than left in the attachment,
+ * because that is the part anyone acts on — and a JSON file is not something
+ * you read on a phone between clinics. The attachment carries everything else.
+ */
+export async function sendUatSubmission(submission: UatSubmission): Promise<void> {
+  const to = process.env.UAT_TO ?? "info@cpdregister.app";
+  const { meta, summary, verdict, results } = submission;
+  const tester = meta.name?.trim() || "Anonymous tester";
+
+  const line = (r: UatResult) =>
+    [
+      `${r.id} — ${r.title}`,
+      [r.severity, r.priority].filter(Boolean).join(" / "),
+      r.area,
+      r.notes?.trim() || "no notes",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+
+  const failures = results.filter((r) => r.result?.toLowerCase() === "fail");
+  const blocked = results.filter((r) => r.result?.toLowerCase() === "block");
+
+  const environment = [
+    `Tester: ${tester}${meta.role ? ` (${meta.role})` : ""}`,
+    `Profession: ${meta.profession || "not given"}`,
+    `Device: ${meta.device || "not given"}`,
+    `Browser: ${meta.browser || "not given"}`,
+    `Tested on: ${meta.date || "not given"}`,
+  ];
+  const counts = [
+    `Pass: ${summary.pass}`,
+    `Fail: ${summary.fail}`,
+    `Blocked: ${summary.block}`,
+    `Untested: ${summary.left}`,
+    `Total: ${summary.total}`,
+  ];
+
+  const section = (heading: string, items: string[]) =>
+    items.length ? `\n${heading}\n${items.map((i) => `  - ${i}`).join("\n")}\n` : "";
+
+  const text = `${tester} finished a UAT run.
+
+Verdict: ${verdict || "not given"}
+
+${environment.join("\n")}
+
+${counts.join("\n")}
+${section("Failures", failures.map(line))}${section("Blocked", blocked.map(line))}
+The full results are attached as JSON.`;
+
+  const blocks: EmailBlock[] = [
+    { kind: "text", content: `${tester} finished a UAT run.` },
+    { kind: "text", content: `Verdict: ${verdict || "not given"}` },
+    { kind: "list", heading: "Counts", items: counts },
+    ...(failures.length
+      ? ([{ kind: "list", heading: "Failures", items: failures.map(line) }] as EmailBlock[])
+      : []),
+    ...(blocked.length
+      ? ([{ kind: "list", heading: "Blocked", items: blocked.map(line) }] as EmailBlock[])
+      : []),
+    { kind: "list", heading: "Where it was tested", items: environment },
+    { kind: "note", content: "The full results are attached as JSON." },
+  ];
+
+  // Filename-safe, because a tester's name is free text and an attachment is
+  // written straight to somebody's disk.
+  const slug = (s: string) => (s.replace(/[^a-zA-Z0-9]+/g, "_").replace(/^_|_$/g, "") || "unknown");
+
+  await send(
+    to,
+    `[CPD Register UAT] ${tester} — ${verdict || "no verdict"}`,
+    text,
+    undefined,
+    renderEmail({
+      title: "UAT results",
+      preheader: `${summary.pass} pass, ${summary.fail} fail, ${summary.block} blocked.`,
+      blocks,
+    }),
+    [
+      {
+        filename: `uat_${slug(tester)}_${slug(meta.date || "undated")}.json`,
+        content: Buffer.from(JSON.stringify(submission, null, 2), "utf8"),
+      },
+    ]
+  );
+}
+
+/* --------------------------------------------------------------------------- */
+
 export async function sendEmailConfirmation(to: string, name: string, url: string): Promise<void> {
   const title = "Confirm your email";
   // The one email a new account holder has to open, so it carries the
