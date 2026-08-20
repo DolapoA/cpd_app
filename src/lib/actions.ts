@@ -2017,3 +2017,44 @@ export async function deleteEmployment(formData: FormData): Promise<void> {
     .run(id, user.id);
   redirect("/profile/employment");
 }
+
+/* ---------------------------------------------------------------------------
+   What people make of the app
+--------------------------------------------------------------------------- */
+
+/**
+ * Asked once, after three sessions and five working days. Either answer —
+ * a rating or "not now" — settles it for good.
+ */
+export async function saveAppReview(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const raw = Number(formData.get("rating"));
+  const rating = [1, 2, 3, 4, 5].includes(raw) ? raw : null;
+  const review = str(formData, "review").slice(0, 400);
+  // Consent means nothing without something to consent to.
+  const consent = !!formData.get("consent") && !!review;
+
+  await (await getDb())
+    .prepare(
+      `UPDATE users
+          SET app_rating = ?, app_review = ?, app_review_consent = ?, rating_asked_at = ?
+        WHERE id = ?`
+    )
+    .run(rating, review || null, consent ? 1 : 0, new Date().toISOString(), user.id);
+
+  revalidatePath("/dashboard");
+  redirect("/dashboard?thanks=1");
+}
+
+/** Waved away. The same stamp, so the question does not come back. */
+export async function dismissRatingPrompt(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  await (await getDb())
+    .prepare("UPDATE users SET rating_asked_at = ? WHERE id = ?")
+    .run(new Date().toISOString(), user.id);
+  revalidatePath("/dashboard");
+  redirect("/dashboard");
+}

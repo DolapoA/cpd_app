@@ -16,11 +16,18 @@ import { daysUntil, goalUrgency } from "@/lib/goal";
 import { setupState } from "@/lib/setup";
 import { hideSetupPrompt } from "@/lib/actions";
 import { SetupChecklist } from "@/components/setup-checklist";
+import { RatingPrompt } from "@/components/rating-prompt";
+import { shouldAskForReview } from "@/lib/review-prompt";
 
 export const metadata = { title: "Dashboard — CPD Register" };
 
-export default async function DashboardPage() {
+export default async function DashboardPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ thanks?: string }>;
+}) {
   const user = await requireConfirmedUser();
+  const { thanks } = await searchParams;
 
   const db = await getDb();
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
@@ -74,6 +81,9 @@ export default async function DashboardPage() {
     registers: registerCount,
   });
   const showSetup = !setup.complete && !user.setup_hidden_at;
+  // Never both at once: somebody still being asked to finish setting up has
+  // not used the thing yet, whatever the counter says.
+  const askForReview = !showSetup && shouldAskForReview(user);
 
   const dueGoals = goals
     .filter((g) => !typesCovered.has(g.activity_type))
@@ -98,6 +108,16 @@ export default async function DashboardPage() {
           </Link>
         </div>
       </div>
+
+      {thanks === "1" && (
+        <div className="notice notice--ok">
+          <p className="small">Thank you — that is genuinely useful.</p>
+        </div>
+      )}
+
+      {askForReview && (
+        <RatingPrompt name={user.full_name} profession={user.profession} />
+      )}
 
       {showSetup && (
         <div className="card">

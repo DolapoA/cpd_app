@@ -313,6 +313,16 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
 /* Separate from reminded_at, which is the day-before email: the two channels
    are answered separately and one failing must not silence the other. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
+/* Asking somebody what they make of the app, once they have used it enough to
+   have a view. login_count counts sessions begun, of which signing up is the
+   first — so three means they came back twice. rating_asked_at is set whether
+   they answer or wave it away, because both are answers to the question of
+   whether they want to be asked. */
+ALTER TABLE users ADD COLUMN IF NOT EXISTS login_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS rating_asked_at TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS app_rating INTEGER;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS app_review TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS app_review_consent INTEGER NOT NULL DEFAULT 0;
 
 /* ---------------------------------------------------------------------------
    TEMPORARY — user acceptance testing only. Delete after acceptance.
@@ -543,6 +553,11 @@ export type User = {
   notify_shared: number;
   notify_hour: number;
   notified_target_month: string | null;
+  login_count: number;
+  rating_asked_at: string | null;
+  app_rating: number | null;
+  app_review: string | null;
+  app_review_consent: number;
   backup_email: string | null;
   /** Set once the address has been confirmed by following an emailed link. */
   email_verified_at: string | null;

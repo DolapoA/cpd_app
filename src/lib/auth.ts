@@ -11,11 +11,20 @@ export async function createSession(userId: number): Promise<void> {
   const db = await getDb();
   const token = newSessionToken();
   const expires = new Date(Date.now() + SESSION_DAYS * 24 * 60 * 60 * 1000);
-  await db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(
-    token,
-    userId,
-    expires.toISOString()
-  );
+
+  // The count is kept here rather than at each of the three call sites —
+  // signing up, signing in and finishing a second factor all begin a session,
+  // and a counter maintained in three places is one that ends up wrong in one
+  // of them. Sent alongside the insert rather than after it: neither needs the
+  // other's answer, and a login is not the moment to add a network round trip.
+  await Promise.all([
+    db.prepare("INSERT INTO sessions (token, user_id, expires_at) VALUES (?, ?, ?)").run(
+      token,
+      userId,
+      expires.toISOString()
+    ),
+    db.prepare("UPDATE users SET login_count = login_count + 1 WHERE id = ?").run(userId),
+  ]);
   const cookieStore = await cookies();
   cookieStore.set(SESSION_COOKIE, token, {
     httpOnly: true,
