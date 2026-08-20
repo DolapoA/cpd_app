@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<meta name="robots" content="noindex, nofollow" />
+<title>CPD App — UAT Acceptance Form</title>
+<style>
+  :root{
+    --navy:#1f3a5f; --accent:#2e6e8e; --grey:#5a5a5a; --line:#dbe3ea; --bg:#f5f7f9;
+    --pass:#1f7a4d; --pass-bg:#e5f4ec; --fail:#b3261e; --fail-bg:#fbeae9;
+    --block:#8a6d1a; --block-bg:#f6efdb; --card:#ffffff;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;
+    color:#222;background:var(--bg);line-height:1.45;font-size:15px}
+  header.top{background:var(--navy);color:#fff;padding:20px 18px}
+  header.top .kicker{letter-spacing:.14em;font-size:11px;text-transform:uppercase;color:#a9c4d6}
+  header.top h1{margin:.15em 0 .1em;font-size:22px}
+  header.top p{margin:0;color:#c9d9e5;font-size:13px}
+  .wrap{max-width:920px;margin:0 auto;padding:16px}
+  .panel{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:16px;margin:14px 0}
+  .panel h2{margin:0 0 10px;color:var(--accent);font-size:16px}
+  .meta{display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:10px}
+  .meta label{display:block;font-size:12px;color:var(--grey);margin-bottom:3px}
+  .meta input,.meta select{width:100%;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:14px}
+  .role-note{font-size:12.5px;color:var(--grey);margin-top:8px}
+
+  .sticky{position:sticky;top:0;z-index:20;background:rgba(245,247,249,.96);backdrop-filter:blur(4px);
+    border-bottom:1px solid var(--line);padding:10px 16px}
+  .bar{max-width:920px;margin:0 auto;display:flex;flex-wrap:wrap;gap:8px;align-items:center;font-size:13px}
+  .chip{padding:3px 9px;border-radius:20px;font-weight:600;font-size:12.5px;border:1px solid transparent}
+  .chip.pass{background:var(--pass-bg);color:var(--pass)}
+  .chip.fail{background:var(--fail-bg);color:var(--fail)}
+  .chip.block{background:var(--block-bg);color:var(--block)}
+  .chip.left{background:#eceff2;color:#555}
+  .progress{flex:1;min-width:120px;height:8px;background:#e3e8ec;border-radius:6px;overflow:hidden}
+  .progress > i{display:block;height:100%;width:0;background:var(--accent);transition:width .2s}
+
+  section.area{margin:14px 0}
+  section.area > h2{color:var(--navy);font-size:17px;border-bottom:2px solid var(--accent);padding-bottom:6px;margin:22px 0 4px}
+  .scn{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px;margin:10px 0}
+  .scn.done-pass{border-left:5px solid var(--pass)}
+  .scn.done-fail{border-left:5px solid var(--fail)}
+  .scn.done-block{border-left:5px solid var(--block)}
+  .scn .id{font-weight:700;color:var(--accent)}
+  .scn .pri{font-size:11px;font-weight:700;padding:1px 7px;border-radius:20px;margin-left:6px;vertical-align:middle}
+  .pri.C{background:#fbeae9;color:#b3261e}.pri.H{background:#fdf1e3;color:#a15c00}
+  .pri.M{background:#eef3f7;color:#2e6e8e}.pri.L{background:#eee;color:#666}
+  .scn h3{margin:.15em 0 .35em;font-size:15px}
+  .scn .steps,.scn .exp{font-size:13.5px;margin:2px 0;color:#333}
+  .scn .steps b,.scn .exp b{color:var(--grey);font-weight:600}
+  .choices{display:flex;gap:8px;margin:10px 0 6px;flex-wrap:wrap}
+  .choices label{cursor:pointer;border:1px solid var(--line);border-radius:8px;padding:7px 14px;font-size:14px;font-weight:600;
+    display:flex;align-items:center;gap:6px;background:#fafbfc;user-select:none}
+  .choices input{accent-color:var(--accent);margin:0}
+  .choices label:has(input:checked).c-pass{background:var(--pass-bg);border-color:var(--pass);color:var(--pass)}
+  .choices label:has(input:checked).c-fail{background:var(--fail-bg);border-color:var(--fail);color:var(--fail)}
+  .choices label:has(input:checked).c-block{background:var(--block-bg);border-color:var(--block);color:var(--block)}
+  .followup{display:none;margin-top:8px;gap:10px;flex-wrap:wrap;align-items:center}
+  .followup.show{display:flex}
+  .followup select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
+  .scn textarea{width:100%;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;
+    resize:vertical;min-height:38px;font-family:inherit}
+  .qa-tag{display:inline-block;background:#efe7f6;color:#5b3d86;font-size:11px;font-weight:700;padding:1px 8px;border-radius:20px;margin-left:6px}
+
+  .actions{display:flex;gap:10px;flex-wrap:wrap;margin-top:6px}
+  .submit-row{display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin:2px 0 12px}
+  .submit-row label{font-size:12.5px;color:var(--grey);display:flex;flex-direction:column;gap:3px}
+  .submit-row input{padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;min-width:240px}
+  #submitStatus{align-self:center}
+  button{font:inherit;font-weight:600;border:0;border-radius:8px;padding:10px 16px;cursor:pointer}
+  button.primary{background:var(--accent);color:#fff}
+  button.ghost{background:#fff;border:1px solid var(--line);color:var(--navy)}
+  .note{font-size:12.5px;color:var(--grey)}
+  #summaryOut{white-space:pre-wrap;background:#0f1b26;color:#d7e6f0;border-radius:8px;padding:12px;font-size:12.5px;
+    font-family:ui-monospace,Menlo,Consolas,monospace;display:none;margin-top:10px;overflow:auto}
+  footer{max-width:920px;margin:10px auto 40px;padding:0 16px;color:var(--grey);font-size:12px}
+  @media print{.sticky,.actions,header.top p{display:none}.scn{break-inside:avoid}}
+</style>
+</head>
+<body>
+<header class="top">
+  <div class="kicker">User Acceptance Testing</div>
+  <h1>CPD App — Acceptance Form</h1>
+  <p>Build: main, 17 Aug 2026 · Work through each item on the device you are testing. Nothing is saved automatically — use <b>Export</b> before you close the page.</p>
+</header>
+
+<div class="sticky">
+  <div class="bar">
+    <span class="chip pass" id="cPass">Pass 0</span>
+    <span class="chip fail" id="cFail">Fail 0</span>
+    <span class="chip block" id="cBlock">Blocked 0</span>
+    <span class="chip left" id="cLeft">Untested 0</span>
+    <span class="progress"><i id="progBar"></i></span>
+    <span id="progPct" class="note">0%</span>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="panel">
+    <h2>Tester &amp; environment</h2>
+    <div class="meta">
+      <div><label>Tester name</label><input id="m_name" placeholder="Your name"/></div>
+      <div><label>Role tested</label>
+        <select id="m_role">
+          <option value="">Choose…</option>
+          <option>Registered professional</option>
+          <option>Event organiser</option>
+          <option>Guest attendee</option>
+          <option>Multiple / all</option>
+        </select>
+      </div>
+      <div><label>Profession (if applicable)</label><input id="m_prof" placeholder="e.g. Physiotherapist"/></div>
+      <div><label>Device</label><input id="m_device" placeholder="e.g. iPhone 13 / Windows laptop"/></div>
+      <div><label>Browser</label><input id="m_browser" placeholder="e.g. Safari, Chrome"/></div>
+      <div><label>Date</label><input id="m_date" type="date"/></div>
+    </div>
+    <p class="role-note">Only test the flows relevant to your role — mark anything you did not test as <b>Blocked</b> with a note, or leave it untested. Items tagged <span class="qa-tag">QA only</span> are for the dev/QA team, not end users.</p>
+  </div>
+
+  <div id="form"></div>
+
+  <div class="panel">
+    <h2>Finish &amp; export</h2>
+    <p class="note">Submitting sends your results to the CPD Register team (info@cpdregister.app) and stores them. If it fails (e.g. you are offline), use Export instead and send the file.</p>
+    <div class="submit-row">
+      <label id="endpointRow">Server URL<input id="endpoint" value="https://cpdregister.app" /></label>
+      <button class="primary" onclick="submitResults()">Submit results</button>
+      <span id="submitStatus" class="note"></span>
+    </div>
+    <p class="note">Or export a copy — CSV opens in Excel/Sheets; JSON keeps full detail; "Copy summary" gives a short text report.</p>
+    <div class="actions">
+      <button class="primary" onclick="exportCSV()">Export CSV</button>
+      <button class="ghost" onclick="exportJSON()">Export JSON</button>
+      <button class="ghost" onclick="copySummary()">Copy summary</button>
+      <button class="ghost" onclick="window.print()">Print / Save PDF</button>
+    </div>
+    <div id="summaryOut"></div>
+  </div>
+</div>
+
+<footer>
+  UAT acceptance is met when every <b>Critical</b> and <b>High</b> scenario passes and no Critical/High defects remain open.
+  This form covers user-observable flows; server-side integrity, load, rate-limiting and WCAG conformance are verified separately by QA.
+</footer>
+
+<script>
+const SCENARIOS = [
+ {area:"A. Account & onboarding", items:[
+  ["A1","Sign up","C","Go to /signup and register with email + password.","Account created; a confirmation email is sent; you are told what happened."],
+  ["A2","Email confirmation gate","C","Before confirming, try to use the app.","Core features are blocked until the email is confirmed."],
+  ["A3","Confirm email","C","Open the link in the confirmation email.","Email marked confirmed; the app becomes usable."],
+  ["A4","Pick profession","H","Choose a profession from the grouped picker.","Selection saved; a free-typed title is kept and matched where possible."],
+  ["A5","Setup checklist","M","View the dashboard/checklist as a new account.","Only outstanding setup steps show, with progress; completed steps drop off."],
+  ["A6","Enable 2FA","H","Enrol in two-factor at /account/two-factor and confirm.","2FA active; next login asks for the second factor."],
+  ["A7","Recovery email","H","Add a recovery/backup address and confirm it via the emailed link.","Recovery address stored and confirmed."],
+  ["A8","Change sign-in email","H","Request an email change and confirm via the link.","Sign-in address updates only after confirmation; outcome is shown."],
+  ["A9","Password reset","C","Use /reset, receive the link, set a new password.","Reset works; the old password no longer logs you in."],
+  ["A10","Delete safeguard","H","Attempt account/data deletion as intended.","The DELETE confirmation cannot be filled on the user's behalf; deletion needs the correct explicit input."]
+ ]},
+ {area:"B. CPD record management", items:[
+  ["B1","Add manual entry","C","At /record/new add title, date, activity type, hours, reflection.","Entry saved and visible in the record."],
+  ["B2","Activity types","H","Set an activity type on an entry.","Entry carries the correct activity type; dashboard reflects the mix."],
+  ["B3","Attach evidence","H","Add a file attachment to an entry.","File uploads and is retrievable from the entry."],
+  ["B4","Import entries","M","Use /record/import with the provided template.","Rows import; malformed rows are reported, not silently dropped."],
+  ["B5","Dashboard vs target","H","Set a target and view the dashboard.","Totals show against the target for the period."],
+  ["B6","Verified vs self-reported","C","Compare an event-signed entry with a manual one.","Platform-verified entries are visibly distinguished from self-reported."],
+  ["B7","Data export","M","Export the full record.","A complete CSV/JSON export is produced."]
+ ]},
+ {area:"C. Event registers (organiser)", items:[
+  ["C1","Create register","C","At /registers/new set title, date, time window, organiser, place.","Register created and shareable."],
+  ["C2","Required fields","H","Try to share without a link, organiser or place.","Sharing is blocked until link, organiser and place are present."],
+  ["C3","Open/close window","C","Set a window; try signing before and after it.","Signatures only accepted inside the window; opens/closes automatically."],
+  ["C4","QR + projector mode","H","Open the projector view for a register.","Full-screen QR + event title display clearly for a room."],
+  ["C5","View signatures","C","Open the register during/after the event.","Signature list is accurate and searchable."],
+  ["C6","Export signatures","H","Export the signature list.","Complete, accurate CSV."],
+  ["C7","Void a signature","H","Void one signature with a reason.","Marked void with reason; nothing silently deleted or edited."],
+  ["C8","Official vs non-official","H","Create an accredited and a non-accredited register.","Status (and any points) stored and carried to attendee records."]
+ ]},
+ {area:"D. Attendance sign-in", items:[
+  ["D1","Guest reaches form","C","Scan the QR / open the register link on a phone, not logged in.","Lands directly on the sign-in form — no login wall, no app install."],
+  ["D2","Guest signs","C","Complete the fields and submit.","Confirmation shown; signature recorded with a server timestamp."],
+  ["D3","Guest slip (PDF)","C","Download the slip after signing.","Valid PDF: event details, status/points, your details, timestamp, verification code + URL."],
+  ["D4","Slip by email","M","Provide an email when signing.","The slip is also emailed to you."],
+  ["D5","Account-holder one-tap","C","Open a register link while logged in.","Details pre-filled; signing is one tap."],
+  ["D6","Auto record entry","C","Sign as an account holder.","Entry auto-created in your record, marked platform-verified, no re-keying."],
+  ["D7","Guest claim","H","Sign as a guest, then sign up with the same email.","The guest signature is claimed into the new account's record."],
+  ["D8","Duplicate control","M","With 'one signature per email' set, sign twice.","The second attempt is prevented."],
+  ["D9","Share to profession","M","Share a public event to your own profession.","The event surfaces to that profession appropriately."]
+ ]},
+ {area:"E. Public verification", items:[
+  ["E1","Verify a genuine slip","C","Open the /verify link from a real slip.","Attendance confirmed authentic, with the expected summary."],
+  ["E2","Verify an invalid code","H","Open /verify with a wrong/altered code.","Clearly reported as not found / not valid."]
+ ]},
+ {area:"F. Regulator & body packs", items:[
+  ["F1","HCPC audit pack","C","Generate the audit pack for a two-year cycle.","Dated, continuous pack aligned to the HCPC profile, with evidence and verification codes."],
+  ["F2","GMC appraisal","C","Generate the appraisal export for the year.","CPD summary formatted as supporting information (activities, credits, reflection)."],
+  ["F3","GTCS Professional Update","H","Generate the Professional Update pack.","Pack shaped for GTCS Professional Update."],
+  ["F4","Engineering pack","H","Generate the engineering pack.","Pack built for the institutions' sampling/record format."],
+  ["F5","Profession without a pack","H","As a profession with no pack (e.g. Solicitor), view record/exports.","The UI does NOT imply a compliance pack exists; you can still keep/export a record without a misleading claim."]
+ ]},
+ {area:"G. Planned CPD & calendar", items:[
+  ["G1","Add planned CPD","M","Add a planned item at /record/planned/new.","Saved and listed under planned CPD."],
+  ["G2","Edit planned","M","Edit a planned item.","Changes saved."],
+  ["G3","Calendar export","M","Add a planned item to your calendar.","A valid invite appears in your own calendar app."],
+  ["G4","Planned → completed","M","Mark a planned item done.","It converts into a record entry."]
+ ]},
+ {area:"H. Discovery, profile & feedback", items:[
+  ["H1","Discover events","M","Open the discover view.","Relevant events/courses are listed."],
+  ["H2","Public CPD content","M","Open the home / CPD content pages.","Pages render and are readable (crawlable content)."],
+  ["H3","Employment profile","M","Open the employment profile.","Details save and display."],
+  ["H4","Notifications","M","Open notification settings.","Preferences save and are honoured."],
+  ["H5","Feedback","L","Submit feedback.","Submits and reaches the thanks page; report captured."],
+  ["H6","Legal pages","L","Open privacy, terms, FAQ.","Present, current and reachable."]
+ ]},
+ {area:"Technical checklist", qa:true, items:[
+  ["T1","Mobile sign-in speed","H","Time a QR-to-signed on a mid-range phone over event Wi-Fi.","Completes in under 60 seconds."],
+  ["T2","Burst load","H","Simulate a full room signing at once.","No lost signatures."],
+  ["T3","Sign-in availability","H","Keep the sign-in path under load during a window.","Stays available throughout."],
+  ["T4","Security & rate-limiting","C","Probe public register URLs for abuse controls; confirm sensitive data handling.","Rate-limited/abuse-controlled; registration numbers handled as sensitive."],
+  ["T5","Integrity / immutability","C","Attempt to alter a signature or verified entry post-creation.","Immutable; corrections leave a visible trail, no silent edits/deletes."],
+  ["T6","Duplicate-signature race","H","Concurrent submissions for the same register/email.","No doubled attendance (unique index holds)."],
+  ["T7","Accessibility (WCAG 2.2 AA)","H","Check guest form + PDF: labels, contrast, keyboard.","Meets WCAG 2.2 AA basics."],
+  ["T8","Data portability","M","Export full record on demand.","Complete export available any time."]
+ ]}
+];
+
+const state = {};
+const form = document.getElementById('form');
+
+SCENARIOS.forEach(group=>{
+  const sec=document.createElement('section'); sec.className='area';
+  const h=document.createElement('h2'); h.innerHTML=group.area + (group.qa?' <span class="qa-tag">QA only</span>':'');
+  sec.appendChild(h);
+  group.items.forEach(([id,title,pri,steps,exp])=>{
+    state[id]={id,title,pri,area:group.area,qa:!!group.qa,result:'',severity:'',notes:''};
+    const card=document.createElement('div'); card.className='scn'; card.id='scn_'+id;
+    card.innerHTML=`
+      <div><span class="id">${id}</span><span class="pri ${pri}">${pri==='C'?'Critical':pri==='H'?'High':pri==='M'?'Medium':'Low'}</span>${group.qa?' <span class="qa-tag">QA</span>':''}</div>
+      <h3>${title}</h3>
+      <div class="steps"><b>Do:</b> ${steps}</div>
+      <div class="exp"><b>Expect:</b> ${exp}</div>
+      <div class="choices">
+        <label class="c-pass"><input type="radio" name="r_${id}" value="Pass"> Pass</label>
+        <label class="c-fail"><input type="radio" name="r_${id}" value="Fail"> Fail</label>
+        <label class="c-block"><input type="radio" name="r_${id}" value="Blocked"> Blocked</label>
+      </div>
+      <div class="followup" id="fu_${id}">
+        <span class="note">Severity of failure:</span>
+        <select onchange="setSev('${id}',this.value)">
+          <option value="">—</option><option>Critical</option><option>High</option><option>Medium</option><option>Low</option>
+        </select>
+      </div>
+      <textarea placeholder="Notes / what happened (required on Fail or Blocked)" oninput="setNotes('${id}',this.value)"></textarea>
+    `;
+    sec.appendChild(card);
+    card.querySelectorAll(`input[name="r_${id}"]`).forEach(r=>{
+      r.addEventListener('change',()=>setResult(id,r.value));
+    });
+  });
+  form.appendChild(sec);
+});
+
+function setResult(id,val){
+  state[id].result=val;
+  const fu=document.getElementById('fu_'+id);
+  fu.classList.toggle('show', val==='Fail');
+  if(val!=='Fail') state[id].severity='';
+  const card=document.getElementById('scn_'+id);
+  card.classList.remove('done-pass','done-fail','done-block');
+  if(val==='Pass')card.classList.add('done-pass');
+  if(val==='Fail')card.classList.add('done-fail');
+  if(val==='Blocked')card.classList.add('done-block');
+  refresh();
+}
+function setSev(id,v){state[id].severity=v}
+function setNotes(id,v){state[id].notes=v}
+
+function counts(){
+  let pass=0,fail=0,block=0,total=0;
+  Object.values(state).forEach(s=>{total++;if(s.result==='Pass')pass++;else if(s.result==='Fail')fail++;else if(s.result==='Blocked')block++;});
+  return {pass,fail,block,left:total-pass-fail-block,total};
+}
+function refresh(){
+  const c=counts();
+  cPass.textContent='Pass '+c.pass; cFail.textContent='Fail '+c.fail;
+  cBlock.textContent='Blocked '+c.block; cLeft.textContent='Untested '+c.left;
+  const done=c.total-c.left, pct=Math.round(done/c.total*100);
+  progBar.style.width=pct+'%'; progPct.textContent=pct+'%';
+}
+refresh();
+
+function meta(){return{
+  name:val('m_name'),role:val('m_role'),profession:val('m_prof'),
+  device:val('m_device'),browser:val('m_browser'),date:val('m_date')||new Date().toISOString().slice(0,10)
+};}
+function val(id){return document.getElementById(id).value.trim();}
+
+function rows(){return Object.values(state).map(s=>({
+  id:s.id,area:s.area,priority:{C:'Critical',H:'High',M:'Medium',L:'Low'}[s.pri],
+  title:s.title,qa_only:s.qa?'yes':'no',result:s.result||'(untested)',
+  severity:s.severity||'',notes:s.notes.replace(/\s+/g,' ').trim()
+}));}
+
+function download(name,text,type){
+  const b=new Blob([text],{type}); const u=URL.createObjectURL(b);
+  const a=document.createElement('a'); a.href=u; a.download=name; a.click(); URL.revokeObjectURL(u);
+}
+function stamp(){const m=meta();return (m.name||'tester').replace(/\W+/g,'_')+'_'+m.date;}
+
+function exportCSV(){
+  const m=meta();
+  const head=['id','area','priority','title','qa_only','result','severity','notes'];
+  const esc=v=>`"${String(v).replace(/"/g,'""')}"`;
+  let csv='# CPD App UAT — '+m.name+' / '+m.role+' / '+m.device+' '+m.browser+' / '+m.date+'\n';
+  csv+=head.join(',')+'\n';
+  rows().forEach(r=>csv+=head.map(h=>esc(r[h])).join(',')+'\n');
+  const c=counts();
+  csv+='\n# Summary,,,,,'+`Pass ${c.pass} / Fail ${c.fail} / Blocked ${c.block} / Untested ${c.left}`+'\n';
+  download('UAT_'+stamp()+'.csv',csv,'text/csv');
+}
+function exportJSON(){
+  download('UAT_'+stamp()+'.json',JSON.stringify({meta:meta(),summary:counts(),results:rows()},null,2),'application/json');
+}
+function verdict(){
+  const c=counts();
+  const critFails=rows().filter(r=>r.result==='Fail'&&(r.severity==='Critical'||r.priority==='Critical'));
+  if(critFails.length) return 'FAIL — Critical defect(s) open';
+  if(c.fail===0&&c.left===0) return 'PASS — all scenarios pass';
+  if(c.left) return 'INCOMPLETE — items still untested';
+  return 'PASS WITH DEFECTS';
+}
+function payload(){return {meta:meta(),summary:counts(),verdict:verdict(),results:rows(),generatedAt:new Date().toISOString()};}
+/* Hosted, this form posts to the site it was served from — which also means
+   the request is same-origin and needs none of the CORS allowance the disk
+   copy relies on. Opened from a file:// copy, location.origin is "null", so
+   the typed-in default stands and the field stays visible. */
+(function(){
+  if(!location.protocol.startsWith('http')) return;
+  var e=document.getElementById('endpoint'); if(e) e.value=location.origin;
+  var row=document.getElementById('endpointRow'); if(row) row.style.display='none';
+})();
+async function submitResults(){
+  const status=document.getElementById('submitStatus');
+  const base=(document.getElementById('endpoint').value||'').trim().replace(/\/+$/,'');
+  if(!base){status.textContent='Enter the server URL first.';return;}
+  if(!val('m_name')){status.textContent='Add your name before submitting.';return;}
+  status.textContent='Submitting…';
+  try{
+    const res=await fetch(base+'/api/uat',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(payload())});
+    if(!res.ok) throw new Error('HTTP '+res.status);
+    status.textContent='✓ Submitted — thank you. You can close this page.';
+  }catch(e){
+    status.textContent='Could not submit ('+e.message+'). Use Export and send the file instead.';
+  }
+}
+function summaryText(){
+  const m=meta(),c=counts();
+  const critFails=rows().filter(r=>r.result==='Fail'&&(r.severity==='Critical'||r.priority==='Critical'));
+  const highFails=rows().filter(r=>r.result==='Fail'&&r.priority==='High'&&r.severity!=='Critical');
+  let t=`CPD App — UAT summary\nTester: ${m.name||'(none)'} · Role: ${m.role||'(none)'} · ${m.device} ${m.browser} · ${m.date}\n`;
+  t+=`Pass ${c.pass} · Fail ${c.fail} · Blocked ${c.block} · Untested ${c.left} (of ${c.total})\n`;
+  const verdict=(c.fail===0&&c.left===0)?'PASS — all scenarios pass':
+    (critFails.length?'FAIL — Critical defect(s) open':(c.left?'INCOMPLETE — items still untested':'PASS WITH DEFECTS'));
+  t+='Verdict: '+verdict+'\n';
+  if(c.fail){
+    t+='\nFailures:\n';
+    rows().filter(r=>r.result==='Fail').forEach(r=>{
+      t+=`  ${r.id} [${r.severity||r.priority}] ${r.title}${r.notes?' — '+r.notes:''}\n`;
+    });
+  }
+  if(rows().some(r=>r.result==='Blocked')){
+    t+='\nBlocked:\n';
+    rows().filter(r=>r.result==='Blocked').forEach(r=>t+=`  ${r.id} ${r.title}${r.notes?' — '+r.notes:''}\n`);
+  }
+  return t;
+}
+function copySummary(){
+  const out=document.getElementById('summaryOut');
+  const t=summaryText(); out.style.display='block'; out.textContent=t;
+  if(navigator.clipboard) navigator.clipboard.writeText(t).then(
+    ()=>flash('Summary copied to clipboard'),()=>{});
+}
+function flash(msg){
+  const o=document.getElementById('summaryOut');
+  const prev=o.textContent; o.textContent='✓ '+msg+'\n\n'+prev;
+}
+document.getElementById('m_date').value=new Date().toISOString().slice(0,10);
+</script>
+</body>
+</html>
