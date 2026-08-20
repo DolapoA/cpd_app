@@ -16,7 +16,7 @@ export default async function DiscoverPage() {
     <main className="container stack">
       <div className="page-head">
         <div>
-          <h1>What other {peers} are attending</h1>
+          <h1>What events other {peers} are attending</h1>
           <p>Public events that people in your profession have chosen to share.</p>
         </div>
         <div className="actions-row">
