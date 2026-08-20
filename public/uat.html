@@ -62,6 +62,10 @@
   .followup select{padding:7px;border:1px solid var(--line);border-radius:6px;font-size:13.5px}
   .scn textarea{width:100%;margin-top:8px;padding:8px;border:1px solid var(--line);border-radius:6px;font-size:13.5px;
     resize:vertical;min-height:38px;font-family:inherit}
+  .area-link{font-size:13px;font-weight:600;color:var(--accent);text-decoration:none;
+    border:1px solid var(--line);border-radius:20px;padding:2px 10px;margin-left:8px;white-space:nowrap}
+  .area-link:hover{background:var(--bg)}
+  .path-link{color:var(--accent);font-family:ui-monospace,Menlo,monospace;font-size:.95em}
   .rating{display:flex;align-items:center;gap:14px;flex-wrap:wrap;margin:10px 0}
   .rating label{display:flex;align-items:center;gap:4px;font-weight:600}
   #review{width:100%;box-sizing:border-box}
@@ -177,7 +181,7 @@
 
 <script>
 const SCENARIOS = [
- {area:"A. Account & onboarding", items:[
+ {area:"A. Account & onboarding", link:"/account", linkText:"your account", items:[
   ["A1","Sign up","C","Go to /signup and register with email + password.","Account created; a confirmation email is sent; you are told what happened."],
   ["A2","Email confirmation gate","C","Before confirming, try to use the app.","Core features are blocked until the email is confirmed."],
   ["A3","Confirm email","C","Open the link in the confirmation email.","Email marked confirmed; the app becomes usable."],
@@ -189,7 +193,7 @@ const SCENARIOS = [
   ["A9","Password reset","C","Use /reset, receive the link, set a new password.","Reset works; the old password no longer logs you in."],
   ["A10","Delete safeguard","H","Attempt account/data deletion as intended.","The DELETE confirmation cannot be filled on the user's behalf; deletion needs the correct explicit input."]
  ]},
- {area:"B. CPD record management", items:[
+ {area:"B. CPD record management", link:"/record", linkText:"your record", items:[
   ["B1","Add manual entry","C","At /record/new add title, date, activity type, hours, reflection.","Entry saved and visible in the record."],
   ["B2","Activity types","H","Set an activity type on an entry.","Entry carries the correct activity type; dashboard reflects the mix."],
   ["B3","Attach evidence","H","Add a file attachment to an entry.","File uploads and is retrievable from the entry."],
@@ -198,7 +202,7 @@ const SCENARIOS = [
   ["B6","Verified vs self-reported","C","Compare an event-signed entry with a manual one.","Platform-verified entries are visibly distinguished from self-reported."],
   ["B7","Data export","M","Export the full record.","A complete CSV/JSON export is produced."]
  ]},
- {area:"C. Event registers (organiser)", items:[
+ {area:"C. Event registers (organiser)", link:"/registers", linkText:"your registers", items:[
   ["C1","Create register","C","At /registers/new set title, date, time window, organiser, place.","Register created and shareable."],
   ["C2","Required fields","H","Try to share without a link, organiser or place.","Sharing is blocked until link, organiser and place are present."],
   ["C3","Open/close window","C","Set a window; try signing before and after it.","Signatures only accepted inside the window; opens/closes automatically."],
@@ -208,7 +212,7 @@ const SCENARIOS = [
   ["C7","Void a signature","H","Void one signature with a reason.","Marked void with reason; nothing silently deleted or edited."],
   ["C8","Official vs non-official","H","Create an accredited and a non-accredited register.","Status (and any points) stored and carried to attendee records."]
  ]},
- {area:"D. Attendance sign-in", items:[
+ {area:"D. Attendance sign-in", link:"/registers", linkText:"your registers", items:[
   ["D1","Guest reaches form","C","Scan the QR / open the register link on a phone, not logged in.","Lands directly on the sign-in form — no login wall, no app install."],
   ["D2","Guest signs","C","Complete the fields and submit.","Confirmation shown; signature recorded with a server timestamp."],
   ["D3","Guest slip (PDF)","C","Download the slip after signing.","Valid PDF: event details, status/points, your details, timestamp, verification code + URL."],
@@ -219,24 +223,24 @@ const SCENARIOS = [
   ["D8","Duplicate control","M","With 'one signature per email' set, sign twice.","The second attempt is prevented."],
   ["D9","Share to profession","M","Share a public event to your own profession.","The event surfaces to that profession appropriately."]
  ]},
- {area:"E. Public verification", items:[
+ {area:"E. Public verification", link:"/record", linkText:"your record, for a slip code", items:[
   ["E1","Verify a genuine slip","C","Open the /verify link from a real slip.","Attendance confirmed authentic, with the expected summary."],
   ["E2","Verify an invalid code","H","Open /verify with a wrong/altered code.","Clearly reported as not found / not valid."]
  ]},
- {area:"F. Regulator & body packs", items:[
+ {area:"F. Regulator & body packs", link:"/record", linkText:"your record", items:[
   ["F1","HCPC audit pack","C","Generate the audit pack for a two-year cycle.","Dated, continuous pack aligned to the HCPC profile, with evidence and verification codes."],
   ["F2","GMC appraisal","C","Generate the appraisal export for the year.","CPD summary formatted as supporting information (activities, credits, reflection)."],
   ["F3","GTCS Professional Update","H","Generate the Professional Update pack.","Pack shaped for GTCS Professional Update."],
   ["F4","Engineering pack","H","Generate the engineering pack.","Pack built for the institutions' sampling/record format."],
   ["F5","Profession without a pack","H","As a profession with no pack (e.g. Solicitor), view record/exports.","The UI does NOT imply a compliance pack exists; you can still keep/export a record without a misleading claim."]
  ]},
- {area:"G. Planned CPD & calendar", items:[
+ {area:"G. Planned CPD & calendar", link:"/record/planned", linkText:"your plan", items:[
   ["G1","Add planned CPD","M","Add a planned item at /record/planned/new.","Saved and listed under planned CPD."],
   ["G2","Edit planned","M","Edit a planned item.","Changes saved."],
   ["G3","Calendar export","M","Add a planned item to your calendar.","A valid invite appears in your own calendar app."],
   ["G4","Planned → completed","M","Mark a planned item done.","It converts into a record entry."]
  ]},
- {area:"H. Discovery, profile & feedback", items:[
+ {area:"H. Discovery, profile & feedback", link:"/profile", linkText:"your profile", items:[
   ["H1","Discover events","M","Open the discover view.","Relevant events/courses are listed."],
   ["H2","Public CPD content","M","Open the home / CPD content pages.","Pages render and are readable (crawlable content)."],
   ["H3","Employment profile","M","Open the employment profile.","Details save and display."],
@@ -259,9 +263,28 @@ const SCENARIOS = [
 const state = {};
 const form = document.getElementById('form');
 
+/* A path written in an instruction — "Go to /signup" — is a link somebody
+   would otherwise retype into the address bar. Only matched at a word
+   boundary, so "and/or" is left alone. The href is filled in later, once the
+   site's address is known: served from the app that is its own origin, and
+   opened from a disk copy it is whatever the Server URL box says. */
+/* Some of the paths named in the instructions are patterns rather than pages:
+   /verify, /slip and /r all need a code that only exists once a real slip or
+   register does, and on their own they are a 404. Naming them as links would
+   send a tester somewhere broken and have them log it as a defect. */
+var NOT_A_PAGE = ['/verify', '/slip', '/r', '/calendar'];
+
+function linkPaths(text){
+  return text.replace(/(^|[\s(])(\/[a-z][a-z0-9/-]*)/g, function(whole, before, path){
+    if(NOT_A_PAGE.indexOf(path) !== -1) return whole;
+    return before + '<a class="path-link" data-path="' + path + '" target="_blank" rel="noopener">' + path + '</a>';
+  });
+}
+
 SCENARIOS.forEach(group=>{
   const sec=document.createElement('section'); sec.className='area'+(group.qa?' qa-only':'');
-  const h=document.createElement('h2'); h.innerHTML=group.area + (group.qa?' <span class="qa-tag">QA only</span>':'');
+  const h=document.createElement('h2'); h.innerHTML=group.area + (group.qa?' <span class="qa-tag">QA only</span>':'')
+    + (group.link?` <a class="area-link" data-path="${group.link}" target="_blank" rel="noopener">Open ${group.linkText} \u2197</a>`:'');
   sec.appendChild(h);
   group.items.forEach(([id,title,pri,steps,exp])=>{
     state[id]={id,title,pri,area:group.area,qa:!!group.qa,result:'',severity:'',notes:''};
@@ -269,7 +292,7 @@ SCENARIOS.forEach(group=>{
     card.innerHTML=`
       <div><span class="id">${id}</span><span class="pri ${pri}">${pri==='C'?'Critical':pri==='H'?'High':pri==='M'?'Medium':'Low'}</span>${group.qa?' <span class="qa-tag">QA</span>':''}</div>
       <h3>${title}</h3>
-      <div class="steps"><b>Do:</b> ${steps}</div>
+      <div class="steps"><b>Do:</b> ${linkPaths(steps)}</div>
       <div class="exp"><b>Expect:</b> ${exp}</div>
       <div class="choices">
         <label class="c-pass"><input type="radio" name="r_${id}" value="Pass"> Pass</label>
@@ -460,6 +483,9 @@ function clearSaved(){
   var qa = document.getElementById('showQa');
   if(qa) qa.addEventListener('change', function(){ applyQa(); queueSave(); });
 
+  var ep = document.getElementById('endpoint');
+  if(ep) ep.addEventListener('input', function(){ wireAppLinks(); });
+
   ['review','reviewAttrib'].forEach(function(id){
     var el = document.getElementById(id);
     if(el) el.addEventListener('input', function(){ refreshReview(); queueSave(); });
@@ -563,10 +589,23 @@ function payload(){return {meta:meta(),summary:counts(),verdict:verdict(),review
    copy relies on. Opened from a file:// copy, location.origin is "null", so
    the typed-in default stands and the field stays visible. */
 (function(){
-  if(!location.protocol.startsWith('http')) return;
-  var e=document.getElementById('endpoint'); if(e) e.value=location.origin;
-  var row=document.getElementById('endpointRow'); if(row) row.style.display='none';
+  if(location.protocol.startsWith('http')){
+    var e=document.getElementById('endpoint'); if(e) e.value=location.origin;
+    var row=document.getElementById('endpointRow'); if(row) row.style.display='none';
+  }
+  wireAppLinks();
 })();
+
+/* Every link into the app points at whatever the submission points at, so a
+   tester on a preview deployment is sent to that deployment rather than to
+   production — which would be a run against the wrong build. */
+function wireAppLinks(){
+  var el = document.getElementById('endpoint');
+  var base = ((el && el.value) || 'https://cpdregister.app').trim().replace(/\/+$/,'');
+  document.querySelectorAll('[data-path]').forEach(function(a){
+    a.setAttribute('href', base + a.getAttribute('data-path'));
+  });
+}
 async function submitResults(){
   const status=document.getElementById('submitStatus');
   const base=(document.getElementById('endpoint').value||'').trim().replace(/\/+$/,'');
