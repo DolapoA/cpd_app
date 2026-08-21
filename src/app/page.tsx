@@ -4,8 +4,6 @@ import { getCurrentUser } from "@/lib/auth";
 import { RollingProfessions } from "@/components/rolling-professions";
 import { Reveal } from "@/components/reveal";
 import { GUIDES } from "@/lib/guides";
-import { BILLING_STATUS } from "@/lib/plans";
-import { PlanBoard } from "@/components/plan-board";
 
 export const metadata = {
   // The one page meant to be found. The title carries the job people search
@@ -71,15 +69,9 @@ const STRUCTURED_DATA = {
   ],
 };
 
-export default async function LandingPage({
-  searchParams,
-}: {
-  searchParams: Promise<{ billing?: string }>;
-}) {
+export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
-  const { billing } = await searchParams;
-  const yearly = billing !== "monthly";
 
   return (
     <main>
@@ -139,39 +131,6 @@ export default async function LandingPage({
             one go.
           </p>
         </Reveal>
-
-        {/* The price list, on the page where the decision happens. It renders
-            the same board as /plans, from the same data — two copies of a
-            price list is how one ends up contradicting the other. */}
-        <div className="stack plans-home" id="plans">
-          <div className="plans-home__head">
-            <h2>What it costs</h2>
-            <p className="muted">
-              Keeping your own record is free, permanently. Running events for other people is
-              what we charge for.
-            </p>
-          </div>
-          <div className="billing-switch" role="group" aria-label="Billing period">
-            <Link
-              href="/?billing=monthly#plans"
-              className={`billing-switch__option${yearly ? "" : " is-on"}`}
-              aria-current={yearly ? undefined : "true"}
-            >
-              Monthly
-            </Link>
-            <Link
-              href="/#plans"
-              className={`billing-switch__option${yearly ? " is-on" : ""}`}
-              aria-current={yearly ? "true" : undefined}
-            >
-              Yearly <span className="billing-switch__save">2 months free</span>
-            </Link>
-          </div>
-          <PlanBoard yearly={yearly} signedIn={false} />
-          <p className="muted small">
-            {BILLING_STATUS} <Link href="/plans">More on how the plans work →</Link>
-          </p>
-        </div>
 
         {/* The guides are the only substantial public content, so the home
             page links to them by name rather than leaving them reachable only

@@ -1659,22 +1659,6 @@ main {
   margin-left: var(--space-2);
 }
 
-/* ---- The plan board on the home page ---- */
-
-.plans-home {
-  /* The board is the widest thing on the page; a touch of top margin keeps it
-     from crowding the feature cards above. */
-  margin-top: var(--space-6);
-}
-
-.plans-home__head {
-  max-width: 40rem;
-}
-
-.plans-home__head h2 {
-  margin-bottom: var(--space-2);
-}
-
 /* ---- Questions and answers ---- */
 
 .faq {
@@ -3031,27 +3015,18 @@ body:has(.guest-shell) .site-rail__foot {
 /* The recommended plan is marked by weight, not by colour — the palette
    already means something here and a coloured card would compete with it. */
 .plan--featured {
-  position: relative;
   border-color: var(--brand);
   border-width: 2px;
 }
 
-/* Sits on the card's top edge rather than inside its flow, so the three
-   cards' names and prices share a line — a flag that pushed its own column
-   fifty pixels down made the board read as misaligned rather than as one
-   card being recommended. */
 .plan__flag {
-  position: absolute;
-  top: 0;
-  left: var(--space-5);
-  transform: translateY(-50%);
+  align-self: flex-start;
   font-size: var(--text-3xs);
   font-weight: 600;
   text-transform: uppercase;
   letter-spacing: 0.06em;
   color: var(--brand-dark);
   background: var(--brand-soft);
-  border: 1px solid var(--brand);
   border-radius: var(--radius-pill);
   padding: var(--space-05) var(--space-3);
 }

@@ -50,17 +50,13 @@ export const PLANS: Plan[] = [
     note: "Free permanently, not a trial",
     pitch:
       "Everything you need to keep a record and prove it. We don't charge people for meeting an obligation their regulator already imposes.",
-    // Refreshed as features ship — this list is the free tier's contract, and
-    // a plan board behind the product undersells the reason the free tier
-    // exists at all.
     features: [
       { text: "Unlimited CPD entries and reflections" },
       { text: "Sign any register as a guest or account holder" },
       { text: "Verifiable attendance slips, checkable by an auditor" },
-      { text: "Planned CPD, with calendar subscription and phone reminders" },
-      { text: "See events others in your profession are attending" },
       { text: "Spreadsheet import, with every column kept" },
-      { text: "Regulator packs — HCPC audit, GMC appraisal and more" },
+      { text: "Regulator packs — HCPC audit, GMC appraisal" },
+      { text: "Activity-type coverage and reminders" },
       { text: "Full CSV and JSON export, whenever you want it" },
       { text: "Run up to 3 registers a year" },
     ],
