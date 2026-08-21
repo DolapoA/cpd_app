@@ -1,7 +1,12 @@
 import type { CpdEntry } from "./db";
 import { parseStandards, type StandardsFramework } from "./standards";
 
-export type GapKey = "reflection" | "time" | "type" | "standards";
+/* "Other" as a type used to be a gap here. It is not: some learning genuinely
+   fits no listed type, and telling somebody their honest description of it is
+   incomplete pressures them to mislabel it — the opposite of what a record is
+   for. The dashboard still shows the mix; whether the mix satisfies a
+   regulator is the person's judgement to make, not this file's. */
+export type GapKey = "reflection" | "time" | "standards";
 
 export type Gap = {
   key: GapKey;
@@ -38,14 +43,6 @@ export function gapsFor(
       key: "time",
       label: "Hours",
       why: "Without hours or credits, this doesn't count towards your totals.",
-    });
-  }
-
-  if (entry.activity_type === "Other") {
-    gaps.push({
-      key: "type",
-      label: "Activity type",
-      why: "“Other” doesn’t show the mix of learning types regulators look for.",
     });
   }
 

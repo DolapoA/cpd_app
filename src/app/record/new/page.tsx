@@ -51,15 +51,6 @@ export default async function NewEntryPage() {
                   </option>
                 ))}
               </select>
-              {/* "Other" is a real choice, but an entry typed as Other is
-                  counted as incomplete afterwards — regulators want to see a
-                  mix of named learning types. Said here, at the moment of
-                  choosing, rather than sprung as a surprise on the next page.
-                  Shown by CSS alone, so the form stays a server component. */}
-              <div className="hint hint--on-other">
-                &ldquo;Other&rdquo; is fine to save, but it will show as incomplete until a named
-                type fits &mdash; regulators look for the mix of learning types.
-              </div>
             </div>
           </div>
           <div className="field">

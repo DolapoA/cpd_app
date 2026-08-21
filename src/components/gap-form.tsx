@@ -3,7 +3,6 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { fillEntryGaps, type ActionState } from "@/lib/actions";
-import { ACTIVITY_TYPES } from "@/lib/format";
 import type { Gap } from "@/lib/completeness";
 import type { StandardsFramework } from "@/lib/standards";
 
@@ -44,19 +43,6 @@ export function GapForm({
           <div className="field">
             <label htmlFor={`hours-${entryId}`}>Hours</label>
             <input id={`hours-${entryId}`} name="hours" type="number" min={0} step="0.25" />
-          </div>
-        )}
-        {missing.has("type") && (
-          <div className="field">
-            <label htmlFor={`type-${entryId}`}>Activity type</label>
-            <select id={`type-${entryId}`} name="activity_type" defaultValue="">
-              <option value="">Leave as “Other”</option>
-              {ACTIVITY_TYPES.filter((t) => t !== "Other").map((t) => (
-                <option key={t} value={t}>
-                  {t}
-                </option>
-              ))}
-            </select>
           </div>
         )}
       </div>
