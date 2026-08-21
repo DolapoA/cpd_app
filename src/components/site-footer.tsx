@@ -7,7 +7,6 @@ export function SiteFooter() {
       <div className="site-footer__inner">
         <span className="muted small">CPD Register</span>
         <nav className="site-footer__links">
-          <Link href="/plans">Plans</Link>
           <Link href="/faq">Questions</Link>
           <Link href="/cpd">CPD requirements</Link>
           <Link href="/feedback">Report a problem</Link>
