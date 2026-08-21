@@ -554,9 +554,14 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
   const user = await getCurrentUser();
   const fullName = user ? user.full_name : str(formData, "full_name");
   const email = (user ? user.email : str(formData, "email")).toLowerCase();
-  const professionalBody = user ? user.regulator : str(formData, "professional_body") || null;
-  const registrationNumber = user ? user.registration_number : str(formData, "registration_number") || null;
-  const roleGrade = user ? user.role_grade : str(formData, "role_grade") || null;
+  // A guest signs with a name and an email, nothing more: three extra boxes
+  // between a person at the back of a room and a register that closes is how
+  // sign-ins get abandoned, and nothing on the slip depends on them. Someone
+  // signed in contributes the same details from their profile without being
+  // asked — which is also the only version of them anybody has verified.
+  const professionalBody = user ? user.regulator : null;
+  const registrationNumber = user ? user.registration_number : null;
+  const roleGrade = user ? user.role_grade : null;
 
   if (!fullName) return { error: "Enter your full name." };
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };

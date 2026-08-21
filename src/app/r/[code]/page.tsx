@@ -88,30 +88,6 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
                   <input id="email" name="email" type="email" required autoComplete="email" />
                   <div className="hint">Your attendance slip is linked to this address.</div>
                 </div>
-                <div className="field-row">
-                  <div className="field">
-                    <label htmlFor="professional_body">Professional body</label>
-                    <input
-                      id="professional_body"
-                      name="professional_body"
-                      type="text"
-                      placeholder="e.g. GMC, HCPC"
-                    />
-                  </div>
-                  <div className="field">
-                    <label htmlFor="registration_number">Registration number</label>
-                    <input id="registration_number" name="registration_number" type="text" />
-                  </div>
-                </div>
-                <div className="field">
-                  <label htmlFor="role_grade">Role / grade</label>
-                  <input
-                    id="role_grade"
-                    name="role_grade"
-                    type="text"
-                    placeholder="e.g. Band 6 Physiotherapist, ST4"
-                  />
-                </div>
               </>
             )}
             {reg.access_code && (
