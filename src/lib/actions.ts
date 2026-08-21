@@ -316,7 +316,8 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
         (code, organiser_id, organiser_name, title, description, event_date, start_time, end_time, location,
          event_type, is_official, accrediting_body, points, hours, opens_at, closes_at, access_code,
          feedback_enabled, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`
     )
     .get(
       code,
@@ -347,6 +348,127 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
   });
 
   redirect(`/registers/${Number(created.id)}`);
+}
+
+/**
+ * Edit a register that has already been created — and, where people have
+ * already signed it, carry the correction through to their records.
+ *
+ * A slip is generated from the register every time it is fetched, so editing
+ * one silently rewrites every slip already issued from it. The attendance
+ * entry on somebody's own record, by contrast, was copied at the moment they
+ * signed. Left alone, the two would disagree: the slip would say one date and
+ * the record another, which is precisely the kind of contradiction an auditor
+ * is looking for.
+ *
+ * So the entries are brought along. Only the untouched ones: an entry whose
+ * title and date still match what the register said is a copy nobody has
+ * edited, and is safe to correct. One somebody has since rewritten is theirs,
+ * and is left exactly as they left it.
+ *
+ * The join code never changes. It is on printed QR codes and read out in
+ * rooms — editing an event is not the same as replacing it.
+ */
+export async function updateRegister(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const id = num(formData, "id");
+  if (id === null) return { error: "Something went wrong. Try again from your registers." };
+
+  let existing: Register;
+  try {
+    existing = await requireOwnedRegister(user, id);
+  } catch {
+    return { error: "That register is not yours to edit." };
+  }
+
+  const title = str(formData, "title");
+  const eventDate = str(formData, "event_date");
+  const startTime = str(formData, "start_time");
+  const endTime = str(formData, "end_time");
+  const eventType = str(formData, "event_type");
+  const isOfficial = str(formData, "is_official") === "official";
+  const accreditingBody = str(formData, "accrediting_body");
+  const points = num(formData, "points");
+  const hours = num(formData, "hours");
+  const closeAfterHours = num(formData, "close_after_hours") ?? 24;
+
+  // The same rules as creating one, from the same reading of the same form —
+  // a rule enforced on creation but not on an edit lasts until somebody edits.
+  if (!title) return { error: "Enter an event title." };
+  if (!eventDate || !startTime || !endTime) return { error: "Enter the event date, start and end times." };
+  if (!(EVENT_TYPES as readonly string[]).includes(eventType)) return { error: "Choose an event type." };
+  if (isOfficial && !accreditingBody)
+    return { error: "Official CPD events must name the accrediting body." };
+  if (isOfficial && points === null)
+    return { error: "Official CPD events must state the points/credits awarded." };
+
+  const opensAt = new Date(`${eventDate}T${startTime}`);
+  const endsAt = new Date(`${eventDate}T${endTime}`);
+  if (isNaN(opensAt.getTime()) || isNaN(endsAt.getTime())) return { error: "Invalid date or time." };
+  if (endsAt <= opensAt) return { error: "End time must be after the start time." };
+  const closesAt = new Date(endsAt.getTime() + closeAfterHours * 60 * 60 * 1000);
+
+  const organiserName = str(formData, "organiser_name") || user.full_name;
+  const db = await getDb();
+
+  await db.transaction(async (tx) => {
+    await tx
+      .prepare(
+        `UPDATE registers
+            SET organiser_name = ?, title = ?, description = ?, event_date = ?, start_time = ?,
+                end_time = ?, location = ?, event_type = ?, is_official = ?, accrediting_body = ?,
+                points = ?, hours = ?, opens_at = ?, closes_at = ?, access_code = ?,
+                feedback_enabled = ?
+          WHERE id = ? AND organiser_id = ?`
+      )
+      .run(
+        organiserName,
+        title,
+        str(formData, "description") || null,
+        eventDate,
+        startTime,
+        endTime,
+        str(formData, "location") || null,
+        eventType,
+        isOfficial ? 1 : 0,
+        isOfficial ? accreditingBody : null,
+        isOfficial ? points : null,
+        hours,
+        opensAt.toISOString(),
+        closesAt.toISOString(),
+        str(formData, "access_code").toUpperCase() || null,
+        str(formData, "collect_feedback") === "yes" ? 1 : 0,
+        id,
+        user.id
+      );
+
+    await tx
+      .prepare(
+        `UPDATE cpd_entries
+            SET title = ?, activity_date = ?, is_official = ?, points = ?, hours = ?, provider = ?
+          WHERE signature_id IN (SELECT id FROM signatures WHERE register_id = ?)
+            AND title = ? AND activity_date = ?`
+      )
+      .run(
+        title,
+        eventDate,
+        isOfficial ? 1 : 0,
+        isOfficial ? points : null,
+        hours,
+        organiserName,
+        id,
+        existing.title,
+        existing.event_date
+      );
+  });
+
+  revalidatePath(`/registers/${id}`);
+  redirect(`/registers/${id}?updated=1`);
 }
 
 async function requireOwnedRegister(user: User, registerId: number): Promise<Register> {

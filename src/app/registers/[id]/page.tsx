@@ -11,12 +11,15 @@ export const metadata = { title: "Register — CPD Register" };
 
 export default async function RegisterDetailPage({
   params,
+  searchParams,
 }: {
   params: Promise<{ id: string }>;
+  searchParams: Promise<{ updated?: string }>;
 }) {
   const user = await requireConfirmedUser();
 
   const { id } = await params;
+  const { updated } = await searchParams;
   const db = await getDb();
   const reg = await db.prepare("SELECT * FROM registers WHERE id = ?").get(Number(id)) as
     | Register
@@ -42,6 +45,15 @@ export default async function RegisterDetailPage({
 
   return (
     <main className="container stack">
+      {updated === "1" && (
+        <div className="notice notice--ok">
+          <p className="small">
+            Saved. The joining code and QR are unchanged &mdash; but anyone you invited still has
+            the old details, so tell them what moved.
+          </p>
+        </div>
+      )}
+
       <div className="page-head">
         <div>
           <h1>{reg.title}</h1>
@@ -99,7 +111,12 @@ export default async function RegisterDetailPage({
         </div>
 
         <div className="card">
-          <h2>Event details</h2>
+          <div className="page-head page-head--tight">
+            <h2>Event details</h2>
+            <Link href={`/registers/${reg.id}/edit`} className="btn btn--quiet btn--small">
+              Edit
+            </Link>
+          </div>
           <table className="table">
             <tbody>
               <tr>
