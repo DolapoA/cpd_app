@@ -57,6 +57,12 @@ export function RegisterFields({
           <input id="end_time" name="end_time" type="time" required defaultValue={register?.end_time ?? ""} />
         </div>
       </div>
+      {/* The clock these times are read in, said rather than assumed. The
+          register opens and closes on them, so an organiser abroad typing
+          their own local time would stand in a room with a register that is
+          not open yet and no explanation — the settings page already names
+          UK time for notifications, and this form gates more than that. */}
+      <div className="hint">UK time. The register opens and closes on the UK clock.</div>
       <div className="field-row">
         <div className="field">
           <label htmlFor="location">Location</label>
