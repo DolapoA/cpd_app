@@ -16,13 +16,7 @@ export function RatingPrompt({ name, profession }: { name: string; profession: s
 
   return (
     <form action={saveAppReview} className="card stack rating-ask">
-      <div>
-        <h2>How are you finding CPD Register?</h2>
-        <p className="muted small">
-          You have been using it for a week or so. One question, once &mdash; we will not ask
-          again.
-        </p>
-      </div>
+      <h2>How are you finding CPDRegister?</h2>
 
       <fieldset className="rating-ask__scale">
         <legend className="small">Out of 5</legend>
@@ -36,7 +30,7 @@ export function RatingPrompt({ name, profession }: { name: string; profession: s
       </fieldset>
 
       <div className="field">
-        <label htmlFor="review">Anything you would add? (optional)</label>
+        <label htmlFor="review">Anything you would add?</label>
         <textarea id="review" name="review" rows={3} maxLength={400} />
       </div>
 
