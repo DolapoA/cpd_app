@@ -84,12 +84,6 @@ export default async function SignedPage({
       ) : (
         <div className="card">
           <h3>Keep this — and every future slip — automatically</h3>
-          <p className="muted small">
-            We already have your name and email from the register, so this takes a password and
-            nothing else. Your attendance is saved to your CPD record as{" "}
-            <span className="badge badge--verified">Platform-verified</span>, ready for audit or
-            appraisal.
-          </p>
           <div className="actions-row">
             <Link href="/signup" className="btn btn--large">
               Create a free account
@@ -98,9 +92,6 @@ export default async function SignedPage({
               I already have one
             </Link>
           </div>
-          <p className="hint">
-            Nothing else is asked for, and the slip above stays valid either way.
-          </p>
         </div>
       )}
           <p className="muted small">
