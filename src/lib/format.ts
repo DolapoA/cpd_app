@@ -93,9 +93,25 @@ export function isEngineeringBody(regulator: string | null): boolean {
   return !!regulator && (ENGINEERING_BODIES as readonly string[]).includes(regulator);
 }
 
+/*
+   Both formatters pin Europe/London. Left to default they format in the
+   server's timezone — UTC on Vercel — which put "opens 08:00" on the page for
+   a register somebody had just created at 09:00, and stamped slips an hour
+   early all summer. Dates in this app are read by people in the UK; where the
+   server happens to run is not information.
+
+   A date-only string is parsed as UTC midnight before formatting. London is
+   never behind UTC, so midnight UTC is 00:00 or 01:00 the same London day and
+   the date can never shift.
+*/
 export function formatDate(iso: string): string {
-  const d = new Date(iso.length === 10 ? iso + "T00:00:00" : iso);
-  return d.toLocaleDateString("en-GB", { day: "numeric", month: "short", year: "numeric" });
+  const d = new Date(iso.length === 10 ? iso + "T00:00:00Z" : iso);
+  return d.toLocaleDateString("en-GB", {
+    day: "numeric",
+    month: "short",
+    year: "numeric",
+    timeZone: "Europe/London",
+  });
 }
 
 export function formatDateTime(iso: string): string {
@@ -106,6 +122,7 @@ export function formatDateTime(iso: string): string {
     year: "numeric",
     hour: "2-digit",
     minute: "2-digit",
+    timeZone: "Europe/London",
   });
 }
 
