@@ -1608,6 +1608,20 @@ main {
   padding-top: var(--space-1);
 }
 
+/* ---- A hint that appears only for one answer ----
+
+   Shown when the select beside it is set to "Other", with no JavaScript: the
+   form stays a server component, and the explanation arrives at the moment of
+   the choice it explains rather than as a surprise on the next page. */
+
+.hint--on-other {
+  display: none;
+}
+
+.field:has(select option[value="Other"]:checked) .hint--on-other {
+  display: block;
+}
+
 /* ---- Asking what somebody makes of the app ---- */
 
 .rating-ask__scale {

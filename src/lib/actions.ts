@@ -17,6 +17,7 @@ import {
 import { createSession, destroySession, getCurrentUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
 import { getBaseUrl } from "./base-url";
+import { ukWallTimeToInstant } from "./uk-time";
 import {
   sendEmailChangeConfirmation,
   sendEmailChangeNotice,
@@ -302,8 +303,10 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
   if (isOfficial && points === null)
     return { error: "Official CPD events must state the points/credits awarded." };
 
-  const opensAt = new Date(`${eventDate}T${startTime}`);
-  const endsAt = new Date(`${eventDate}T${endTime}`);
+  // Parsed as UK wall time, not server-local: on Vercel the server is in UTC,
+  // and a bare parse there opened every register an hour late in summer.
+  const opensAt = ukWallTimeToInstant(eventDate, startTime);
+  const endsAt = ukWallTimeToInstant(eventDate, endTime);
   if (isNaN(opensAt.getTime()) || isNaN(endsAt.getTime())) return { error: "Invalid date or time." };
   if (endsAt <= opensAt) return { error: "End time must be after the start time." };
   const closesAt = new Date(endsAt.getTime() + closeAfterHours * 60 * 60 * 1000);
@@ -407,8 +410,10 @@ export async function updateRegister(
   if (isOfficial && points === null)
     return { error: "Official CPD events must state the points/credits awarded." };
 
-  const opensAt = new Date(`${eventDate}T${startTime}`);
-  const endsAt = new Date(`${eventDate}T${endTime}`);
+  // Parsed as UK wall time, not server-local: on Vercel the server is in UTC,
+  // and a bare parse there opened every register an hour late in summer.
+  const opensAt = ukWallTimeToInstant(eventDate, startTime);
+  const endsAt = ukWallTimeToInstant(eventDate, endTime);
   if (isNaN(opensAt.getTime()) || isNaN(endsAt.getTime())) return { error: "Invalid date or time." };
   if (endsAt <= opensAt) return { error: "End time must be after the start time." };
   const closesAt = new Date(endsAt.getTime() + closeAfterHours * 60 * 60 * 1000);

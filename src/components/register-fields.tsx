@@ -90,6 +90,11 @@ export function RegisterFields({
           type="text"
           defaultValue={register?.organiser_name ?? defaultOrganiser}
         />
+        {/* The fallback surprised a tester who cleared the box and found their
+            name back in it. It is the right behaviour — a register with no
+            organiser named on it is worthless as evidence — but behaviour
+            nobody was told about reads as a bug. */}
+        <div className="hint">Left blank, your own name is used.</div>
       </div>
 
       <hr className="divider" />

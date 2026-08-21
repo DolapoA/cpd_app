@@ -204,7 +204,7 @@ const SCENARIOS = [
  ]},
  {area:"C. Event registers (organiser)", link:"/registers", linkText:"your registers", items:[
   ["C1","Create register","C","At /registers/new set title, date, time window, organiser, place.","Register created and shareable."],
-  ["C2","Required fields","H","Try to share without a link, organiser or place.","Sharing is blocked until link, organiser and place are present."],
+  ["C2","Required fields","H","Try to create a register with no title or times; then an official one with no accrediting body or points.","Creation is refused with a message naming what is missing. Leaving Organiser blank uses your own name — that is by design, and the form says so."],
   ["C3","Open/close window","C","Set a window; try signing before and after it.","Signatures only accepted inside the window; opens/closes automatically."],
   ["C4","QR + projector mode","H","Open the projector view for a register.","Full-screen QR + event title display clearly for a room."],
   ["C5","View signatures","C","Open the register during/after the event.","Signature list is accurate and searchable."],
@@ -238,6 +238,7 @@ const SCENARIOS = [
   ["G1","Add planned CPD","M","Add a planned item at /record/planned/new.","Saved and listed under planned CPD."],
   ["G2","Edit planned","M","Edit a planned item.","Changes saved."],
   ["G3","Calendar export","M","Add a planned item to your calendar.","A valid invite appears in your own calendar app."],
+  ["G5","Share a public event","H","At /record/planned/new tick \u2018Anyone can attend this\u2019 then \u2018Let others in my profession see it\u2019, leaving the link, provider or location blank.","Sharing is refused until a link to the advert, who is running it, and where it is are all present."],
   ["G4","Planned → completed","M","Mark a planned item done.","It converts into a record entry."]
  ]},
  {area:"H. Discovery, profile & feedback", link:"/profile", linkText:"your profile", items:[
