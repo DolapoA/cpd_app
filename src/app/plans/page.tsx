@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getCurrentUser } from "@/lib/auth";
-import { BILLING_STATUS, CURRENCY, PLANS } from "@/lib/plans";
+import { BILLING_STATUS } from "@/lib/plans";
+import { PlanBoard } from "@/components/plan-board";
 
 export const metadata = {
   title: "Plans",
@@ -54,49 +55,7 @@ export default async function PlansPage({
         </Link>
       </div>
 
-      <div className="plans">
-        {PLANS.map((plan) => {
-          const price = yearly ? plan.priceYearly : plan.priceMonthly;
-          const numeric = /^[0-9]/.test(price);
-          return (
-            <section className={`plan${plan.featured ? " plan--featured" : ""}`} key={plan.id}>
-              {plan.featured && <p className="plan__flag">Most organisers</p>}
-              <h2 className="plan__name">{plan.name}</h2>
-              <p className="plan__audience">{plan.audience}</p>
-
-              <p className="plan__price">
-                {numeric && <span className="plan__currency">{CURRENCY}</span>}
-                {price}
-                {numeric && <span className="plan__period">/{yearly ? "year" : "month"}</span>}
-              </p>
-              <p className="plan__note">{plan.note}</p>
-
-              <p className="plan__pitch">{plan.pitch}</p>
-
-              <ul className="plan__features">
-                {plan.features.map((f) => (
-                  <li key={f.text} className={f.planned ? "is-planned" : undefined}>
-                    <span className="plan__tick" aria-hidden="true">
-                      {f.planned ? "○" : "✓"}
-                    </span>
-                    <span>
-                      {f.text}
-                      {f.planned && <span className="plan__soon">coming</span>}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-
-              <Link
-                href={plan.id === "professional" && user ? "/dashboard" : plan.cta.href}
-                className={`btn${plan.featured ? "" : " btn--secondary"}`}
-              >
-                {plan.id === "professional" && user ? "Go to your record" : plan.cta.label}
-              </Link>
-            </section>
-          );
-        })}
-      </div>
+      <PlanBoard yearly={yearly} signedIn={!!user} />
 
       <div className="card">
         <h2>Why professionals don&rsquo;t pay</h2>
