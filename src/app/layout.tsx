@@ -51,7 +51,13 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  themeColor: "#0e6e6b",
+  // The browser chrome follows the theme: brand teal over the light app, and
+  // a deepened teal over the dark one, so the bar neither glows above a dark
+  // page nor goes grey above a light one.
+  themeColor: [
+    { media: "(prefers-color-scheme: light)", color: "#0e6e6b" },
+    { media: "(prefers-color-scheme: dark)", color: "#0b3f3d" },
+  ],
   // Required before env(safe-area-inset-*) reports anything but zero. Installed
   // on an iPhone, the app owns the whole screen including the strip the home
   // indicator sits in, so the layout has to know where that strip is.

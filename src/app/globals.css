@@ -146,6 +146,11 @@
 
   --container-max: 960px;
   --container-narrow: 520px;
+
+  /* Form controls, scrollbars and the UA's own surfaces follow this, which is
+     what makes a select or a date picker match the page in every browser
+     rather than flashing white inside a dark app. */
+  color-scheme: light;
 }
 
 /* Breakpoints cannot be custom properties, so they are a convention instead.
@@ -153,15 +158,64 @@
    460px (rating labels). Kept in px deliberately — rem breakpoints shift
    under text-only zoom, which is a behaviour change, not a style one. */
 
-/* Dark theme scaffold. Not enabled: .print-doc, .projector and .rating__dot
-   each need a decision first. Every token it would need to re-point is a
-   Layer 2 name, so enabling it later is mechanical.
+/* ---- Dark theme ----
 
+   Follows the browser's own setting; there is no toggle, so there is no
+   stored preference to disagree with the device and no flash while a script
+   decides. Only Layer 2 is re-pointed — every component below already draws
+   from these names, which is the whole reason the two layers exist.
+
+   The three components the old scaffold flagged as needing decisions got
+   them: the rating dots had already become fully token-driven, so they simply
+   follow; the projector and the print documents are pinned light further
+   down, because a projection surface and a sheet of paper are light in every
+   theme.
+
+   The brand pair flips roles rather than merely lightening. Teal dark enough
+   to hold white text is too dark to read as a link on a dark ground, so in
+   the dark the teal brightens and the text on it goes near-black — the same
+   two tokens, still moving together, at ratios that pass where white would
+   have fallen to three-to-one. */
 @media (prefers-color-scheme: dark) {
-  :root:not([data-theme="light"]) { ... }
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+
+    --bg: #0d141b;
+    --surface: #151f28;
+    --surface-sunken: #10181f;
+    --surface-muted: #1b2732;
+    --surface-subtle: #121a22;
+
+    --ink: #e2ebf2;
+    --ink-soft: #94a8ba;
+    --ink-on-brand: #06201e;
+
+    --line: #27333f;
+    --line-danger: #55302c;
+
+    --brand: #2f9e99;
+    --brand-dark: #7fd4cf;
+    --brand-soft: #10312f;
+
+    --ok: #52b788;
+    --ok-soft: #123125;
+    --ok-line: #2e7d55;
+
+    --warn: #e0a458;
+    --warn-soft: #33260f;
+    --warn-line: #8a6420;
+
+    --danger: #ee7b6f;
+    --danger-soft: #371713;
+    --danger-line: #55302c;
+
+    /* A shadow needs more weight to exist against a dark ground at all. */
+    --elevation-1: 0 1px 3px rgba(0, 0, 0, 0.5), 0 4px 16px rgba(0, 0, 0, 0.35);
+
+    --brand-glow-strong: rgba(47, 158, 153, 0.55);
+    --brand-glow-soft: rgba(47, 158, 153, 0.35);
+  }
 }
-[data-theme="dark"] { ... }
-*/
 
 * {
   box-sizing: border-box;
@@ -314,6 +368,28 @@ h3 {
 .stat,
 .print-doc {
   --flow: var(--space-2);
+}
+
+/* A preview of a sheet of paper, which is light in every theme. Its own rule,
+   deliberately: the --flow rule above is a group selector, and pinning paper
+   onto its tail once painted every card in the app light in dark mode. */
+.print-doc {
+  color-scheme: light;
+  background: var(--paper);
+  /* Re-evaluated here, not inherited: the resolved colour coming down from
+     body already carries the dark theme's ink, and re-pinning the token alone
+     leaves near-white text on the white page. */
+  color: var(--ink);
+  --bg: var(--paper);
+  --surface: var(--paper);
+  --surface-sunken: var(--slate-50);
+  --surface-muted: var(--slate-100);
+  --ink: var(--slate-900);
+  --ink-soft: var(--slate-600);
+  --line: var(--slate-200);
+  --brand: var(--teal-600);
+  --brand-dark: var(--teal-800);
+  --brand-soft: var(--teal-50);
 }
 
 .card > *,
@@ -2137,6 +2213,16 @@ main {
 /* ---- Projector mode ---- */
 
 .projector {
+  /* A room is reading this off a wall, and the QR must stay dark-on-white for
+     scanners — so the whole surface is pinned light whatever the theme. The
+     colour is re-evaluated, not inherited: body has already resolved it
+     against the dark root. */
+  color-scheme: light;
+  color: var(--ink);
+  --ink: var(--slate-900);
+  --ink-soft: var(--slate-600);
+  --brand-dark: var(--teal-800);
+  --line: var(--slate-200);
   min-height: 100vh;
   display: flex;
   flex-direction: column;
@@ -2324,6 +2410,29 @@ main {
 }
 
 @media print {
+  /* Paper is light whatever the screen was showing. Printed from a dark
+     browser, the tokens would otherwise carry the dark palette onto the page
+     — white text on a white sheet. */
+  :root {
+    color-scheme: light;
+    --bg: var(--paper);
+    --surface: var(--paper);
+    --surface-sunken: var(--slate-50);
+    --surface-muted: var(--slate-100);
+    --ink: var(--slate-900);
+    --ink-soft: var(--slate-600);
+    --line: var(--slate-200);
+    --brand: var(--teal-600);
+    --brand-dark: var(--teal-800);
+    --brand-soft: var(--teal-50);
+    --ok: var(--green-700);
+    --ok-soft: var(--green-50);
+    --warn: var(--amber-800);
+    --warn-soft: var(--amber-50);
+    --danger: var(--red-700);
+    --danger-soft: var(--red-50);
+  }
+
   .site-header,
   .no-print {
     display: none !important;
