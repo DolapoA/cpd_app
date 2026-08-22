@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
+import { isOrganiserPlan } from "@/lib/entitlements";
 import { getDb } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { unusedRecoveryCount } from "@/lib/totp";
@@ -13,6 +14,7 @@ import {
   revokeOtherSessions,
   sendVerificationEmail,
   setBackupEmail,
+  setOrganiserPlan,
 } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { JunkMailHint } from "@/components/junk-mail-hint";
@@ -300,6 +302,50 @@ export default async function AccountPage({
             <form action={beginTwoFactor}>
               <button type="submit" className="btn btn--secondary">
                 Set up two-factor authentication
+              </button>
+            </form>
+          </>
+        )}
+      </div>
+
+      {/* Free while there is nothing to pay: the organiser features are
+          finished, so the only thing standing between somebody and them is a
+          decision. When billing exists this card becomes the checkout, and
+          the column it sets does not change. */}
+      <div className="card">
+        <div className="page-head page-head--tight">
+          <h2>Running events</h2>
+          {isOrganiserPlan(user) && <span className="badge badge--official">Organiser</span>}
+        </div>
+        {isOrganiserPlan(user) ? (
+          <>
+            <p className="muted small">
+              Your logo on sign-in pages and slips, extra sign-in questions, feedback trends
+              across your events, and a threshold before feedback opens.
+            </p>
+            <div className="actions-row">
+              <Link href="/registers" className="btn btn--secondary">
+                Your registers
+              </Link>
+              <form action={setOrganiserPlan}>
+                <input type="hidden" name="plan" value="free" />
+                <button type="submit" className="btn btn--quiet">
+                  Turn these off
+                </button>
+              </form>
+            </div>
+          </>
+        ) : (
+          <>
+            <p className="muted small">
+              For people who run events regularly: your logo on sign-in pages and slips, extra
+              sign-in questions, feedback trends across your events, and a threshold before
+              feedback opens. Free while we are testing, and reversible.
+            </p>
+            <form action={setOrganiserPlan}>
+              <input type="hidden" name="plan" value="organiser" />
+              <button type="submit" className="btn">
+                Turn on organiser features
               </button>
             </form>
           </>

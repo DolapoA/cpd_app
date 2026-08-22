@@ -30,6 +30,35 @@ export async function GET(_req: Request, ctx: { params: Promise<{ code: string }
   const margin = 56;
 
   page.drawRectangle({ x: 0, y: height - 90, width, height: 90, color: BRAND });
+
+  // The organiser's logo, when their plan carries one. Embedded from the data
+  // URL the branding page stored; a failure to parse costs the logo, never
+  // the slip — this document is somebody's evidence.
+  const branding = (await db
+    .prepare("SELECT org_logo FROM users WHERE id = ? AND plan = 'organiser'")
+    .get(reg.organiser_id ?? 0)) as { org_logo: string | null } | undefined;
+  if (branding?.org_logo) {
+    try {
+      const [head, b64] = branding.org_logo.split(",", 2);
+      const bytes = Buffer.from(b64, "base64");
+      const image = head.includes("png") ? await doc.embedPng(bytes) : await doc.embedJpg(bytes);
+      const box = 58;
+      const scale = Math.min(box / image.width, box / image.height, 1);
+      const w = image.width * scale;
+      const h = image.height * scale;
+      // A white plate behind it, since most logos are drawn for light grounds.
+      page.drawRectangle({
+        x: width - margin - w - 8,
+        y: height - 74 - 4,
+        width: w + 16,
+        height: h + 8,
+        color: rgb(1, 1, 1),
+      });
+      page.drawImage(image, { x: width - margin - w, y: height - 74, width: w, height: h });
+    } catch (error) {
+      console.error("[slip] logo could not be embedded", error);
+    }
+  }
   page.drawText("CPD ATTENDANCE SLIP", {
     x: margin,
     y: height - 52,

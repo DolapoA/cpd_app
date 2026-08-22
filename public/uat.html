@@ -132,6 +132,7 @@
       <div><label>Browser</label><input id="m_browser" placeholder="e.g. Safari, Chrome"/></div>
       <div><label>Date</label><input id="m_date" type="date"/></div>
     </div>
+    <p class="role-note">Section I needs an account on the Organiser plan — ask us to switch yours on before you start it.</p>
     <p class="role-note">Only test the flows relevant to your role — mark anything you did not test as <b>Blocked</b> with a note, or leave it untested. Checks for the dev and QA team are hidden.</p>
     <p class="role-note"><label><input type="checkbox" id="showQa"> Show the <span class="qa-tag">QA only</span> checks as well</label></p>
   </div>
@@ -248,6 +249,14 @@ const SCENARIOS = [
   ["H4","Notifications","M","Open notification settings.","Preferences save and are honoured."],
   ["H5","Feedback","L","Submit feedback.","Submits and reaches the thanks page; report captured."],
   ["H6","Legal pages","L","Open privacy, terms, FAQ.","Present, current and reachable."]
+ ]},
+ {area:"I. Organiser plan (paid features)", link:"/registers", linkText:"your registers", items:[
+  ["I1","Upload a logo","H","On an organiser-plan account, open Branding from /registers and upload a PNG under 300KB.","Logo saves and previews; it appears on the register sign-in page, projector mode, and newly downloaded slips."],
+  ["I2","Extra sign-in questions","H","Create a register with up to three extra questions; sign it as a guest.","The questions appear on the sign-in form; answers show beside the signature on the register page and as extra columns in the CSV export."],
+  ["I3","Feedback threshold","M","Create a register with feedback shown only after 3 replies; submit one reply.","The feedback page says 1 of 3 and shows no results; after the third reply everything unlocks."],
+  ["I4","Feedback trends","M","With two or more events that have feedback, open Feedback trends from /registers.","Every event listed side by side with per-question averages and an overall summary."],
+  ["I5","Who signed","L","Open a register several account holders have signed.","A Who signed block counts signers by professional body; guests count as Not stated. Free accounts see no such block."],
+  ["I6","Free account sees none of it","H","Repeat any of the above on a free account.","No Branding or Trends links, no extra-question boxes on the register form, and /registers/branding answers 404."]
  ]},
  {area:"Technical checklist", qa:true, items:[
   ["T1","Mobile sign-in speed","H","Time a QR-to-signed on a mid-range phone over event Wi-Fi.","Completes in under 60 seconds."],

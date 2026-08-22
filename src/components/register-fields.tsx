@@ -1,5 +1,6 @@
 import { EVENT_TYPES } from "@/lib/format";
 import type { Register } from "@/lib/db";
+import { parseJsonArray } from "@/lib/entitlements";
 
 /**
  * The fields of an attendance register, shared by creating one and editing it.
@@ -27,11 +28,15 @@ function closeAfterHours(register?: Register): string {
 export function RegisterFields({
   defaultOrganiser,
   register,
+  organiserPlan = false,
 }: {
   defaultOrganiser: string;
   register?: Register;
+  /** Renders the paid extras. The action ignores them from anyone else. */
+  organiserPlan?: boolean;
 }) {
   const official = register ? !!register.is_official : false;
+  const customFields = parseJsonArray<string>(register?.custom_fields);
 
   return (
     <>
@@ -192,6 +197,49 @@ export function RegisterFields({
           Ask attendees for feedback after they sign
         </label>
       </div>
+
+      {organiserPlan && (
+        <>
+          <div className="field">
+            <label htmlFor="feedback_min_responses">Show feedback only after</label>
+            <select
+              id="feedback_min_responses"
+              name="feedback_min_responses"
+              defaultValue={String(register?.feedback_min_responses ?? 0)}
+            >
+              <option value="0">Show replies as they arrive</option>
+              <option value="3">3 replies</option>
+              <option value="5">5 replies</option>
+              <option value="10">10 replies</option>
+            </select>
+            <div className="hint">
+              A threshold keeps early replies from being identifiable in a small room.
+            </div>
+          </div>
+
+          <hr className="divider" />
+
+          <div className="field">
+            <label>Extra sign-in questions</label>
+            <div className="hint">
+              Up to three, asked of everyone who signs. Answers appear beside each signature and
+              in the export.
+            </div>
+            {[0, 1, 2].map((i) => (
+              <input
+                key={i}
+                name={`custom_field_${i}`}
+                type="text"
+                maxLength={80}
+                defaultValue={customFields[i] ?? ""}
+                placeholder={i === 0 ? "e.g. Ward or department" : "Leave blank for none"}
+                aria-label={`Extra question ${i + 1}`}
+                style={{ marginBottom: "var(--space-2)" }}
+              />
+            ))}
+          </div>
+        </>
+      )}
     </>
   );
 }

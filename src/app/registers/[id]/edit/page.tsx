@@ -5,6 +5,7 @@ import { getDb, type Register } from "@/lib/db";
 import { updateRegister } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { RegisterFields } from "@/components/register-fields";
+import { isOrganiserPlan } from "@/lib/entitlements";
 
 export const metadata = { title: "Edit event — CPD Register" };
 
@@ -72,7 +73,7 @@ export default async function EditRegisterPage({
       <div className="card">
         <ActionForm action={updateRegister} submitLabel="Save changes">
           <input type="hidden" name="id" value={register.id} />
-          <RegisterFields defaultOrganiser={user.full_name} register={register} />
+          <RegisterFields defaultOrganiser={user.full_name} register={register} organiserPlan={isOrganiserPlan(user)} />
         </ActionForm>
       </div>
     </main>

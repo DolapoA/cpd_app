@@ -16,12 +16,19 @@ export default async function ProjectorPage({ params }: { params: Promise<{ id: 
     | undefined;
   if (!reg || reg.organiser_id !== user.id) notFound();
 
+  // Their own branding, if their plan carries it.
+  const logo = user.plan === "organiser" ? user.org_logo : null;
+
   const shareBase = await getShareBase();
   const shareUrl = `${shareBase.url}/r/${reg.code}`;
   const qrDataUrl = await QRCode.toDataURL(shareUrl, { width: 960, margin: 1 });
 
   return (
     <div className="projector">
+      {logo && (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={logo} alt="" className="event-logo" style={{ maxHeight: 80, maxWidth: 260 }} />
+      )}
       <h1>{reg.title}</h1>
       <p className="muted">Scan to sign the attendance register</p>
       <img src={qrDataUrl} alt={`QR code linking to ${shareUrl}`} />

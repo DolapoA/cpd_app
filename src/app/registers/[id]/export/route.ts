@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, type Register, type Signature } from "@/lib/db";
 import { getCurrentUser } from "@/lib/auth";
 import { toCsv } from "@/lib/format";
+import { parseJsonArray } from "@/lib/entitlements";
 
 export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> }) {
   const user = await getCurrentUser();
@@ -22,6 +23,14 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
     .prepare("SELECT * FROM signatures WHERE register_id = ? ORDER BY signed_at ASC")
     .all(reg.id) as Signature[];
 
+  // One column per extra question this register asked, answers aligned by the
+  // question text so a register edited mid-event still exports coherently.
+  const questions = parseJsonArray<string>(reg.custom_fields);
+  const answersFor = (s: Signature) => {
+    const got = parseJsonArray<{ q: string; a: string }>(s.custom_answers);
+    return questions.map((q) => got.find((x) => x.q === q)?.a ?? "");
+  };
+
   const csv = toCsv(
     [
       "Full name",
@@ -34,6 +43,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       "Account holder",
       "Status",
       "Void reason",
+      ...questions,
     ],
     signatures.map((s) => [
       s.full_name,
@@ -46,6 +56,7 @@ export async function GET(_req: Request, ctx: { params: Promise<{ id: string }> 
       s.user_id ? "Yes" : "No",
       s.voided ? "VOIDED" : "Valid",
       s.void_reason,
+      ...answersFor(s),
     ])
   );
 

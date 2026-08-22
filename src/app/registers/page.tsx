@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getDb, registerStatus, type Register } from "@/lib/db";
 import { requireConfirmedUser } from "@/lib/auth";
+import { isOrganiserPlan } from "@/lib/entitlements";
 import { formatDate } from "@/lib/format";
 
 export const metadata = { title: "My registers — CPD Register" };
@@ -8,8 +9,13 @@ export const metadata = { title: "My registers — CPD Register" };
 const STATUS_LABEL = { open: "Open", closed: "Closed", "not-open": "Not open yet" } as const;
 const STATUS_CLASS = { open: "badge--open", closed: "badge--closed", "not-open": "badge--neutral" } as const;
 
-export default async function RegistersPage() {
+export default async function RegistersPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ upgraded?: string }>;
+}) {
   const user = await requireConfirmedUser();
+  const { upgraded } = await searchParams;
 
   const db = await getDb();
   const registers = await db
@@ -26,10 +32,31 @@ export default async function RegistersPage() {
           <h1>My registers</h1>
           <p>Attendance registers for events you organise.</p>
         </div>
-        <Link href="/registers/new" className="btn">
-          New register
-        </Link>
+        <div className="actions-row">
+          <Link href="/registers/new" className="btn">
+            New register
+          </Link>
+          {isOrganiserPlan(user) && (
+            <>
+              <Link href="/registers/trends" className="btn btn--quiet">
+                Feedback trends
+              </Link>
+              <Link href="/registers/branding" className="btn btn--quiet">
+                Branding
+              </Link>
+            </>
+          )}
+        </div>
       </div>
+
+      {upgraded === "1" && (
+        <div className="notice notice--ok">
+          <p className="small">
+            Organiser features are on. Add your logo from <strong>Branding</strong>, and the next
+            register you create can ask extra questions at sign-in.
+          </p>
+        </div>
+      )}
 
       {registers.length === 0 ? (
         <div className="card empty">

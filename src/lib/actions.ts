@@ -27,6 +27,7 @@ import {
   sendRecoveryConfirmation,
 } from "./email";
 import { pushToUser, type PushResult } from "./push";
+import { isOrganiserPlan, parseJsonArray } from "./entitlements";
 import { claimToken, issueToken } from "./tokens";
 import {
   consumeRecoveryCode,
@@ -312,14 +313,15 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
   const closesAt = new Date(endsAt.getTime() + closeAfterHours * 60 * 60 * 1000);
 
   const db = await getDb();
+  const planFields = organiserPlanFields(user, formData);
   const code = newRegisterCode();
   const created = (await db
     .prepare(
       `INSERT INTO registers
         (code, organiser_id, organiser_name, title, description, event_date, start_time, end_time, location,
          event_type, is_official, accrediting_body, points, hours, opens_at, closes_at, access_code,
-         feedback_enabled, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+         feedback_enabled, created_at, custom_fields, feedback_min_responses)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
        RETURNING id`
     )
     .get(
@@ -341,7 +343,9 @@ export async function createRegister(_prev: ActionState, formData: FormData): Pr
       closesAt.toISOString(),
       str(formData, "access_code").toUpperCase() || null,
       str(formData, "collect_feedback") === "yes" ? 1 : 0,
-      new Date().toISOString()
+      new Date().toISOString(),
+      planFields.customFields,
+      planFields.feedbackMin
     )) as { id: number };
 
   await record({
@@ -420,6 +424,7 @@ export async function updateRegister(
 
   const organiserName = str(formData, "organiser_name") || user.full_name;
   const db = await getDb();
+  const planFields = organiserPlanFields(user, formData);
 
   await db.transaction(async (tx) => {
     await tx
@@ -428,7 +433,7 @@ export async function updateRegister(
             SET organiser_name = ?, title = ?, description = ?, event_date = ?, start_time = ?,
                 end_time = ?, location = ?, event_type = ?, is_official = ?, accrediting_body = ?,
                 points = ?, hours = ?, opens_at = ?, closes_at = ?, access_code = ?,
-                feedback_enabled = ?
+                feedback_enabled = ?, custom_fields = ?, feedback_min_responses = ?
           WHERE id = ? AND organiser_id = ?`
       )
       .run(
@@ -448,6 +453,8 @@ export async function updateRegister(
         closesAt.toISOString(),
         str(formData, "access_code").toUpperCase() || null,
         str(formData, "collect_feedback") === "yes" ? 1 : 0,
+        planFields.customFields,
+        planFields.feedbackMin,
         id,
         user.id
       );
@@ -474,6 +481,26 @@ export async function updateRegister(
 
   revalidatePath(`/registers/${id}`);
   redirect(`/registers/${id}?updated=1`);
+}
+
+/**
+ * The organiser-plan fields on the register forms.
+ *
+ * Read only for accounts on the plan: the free form never renders the inputs,
+ * so anything arriving in them is a hand-built request — ignored rather than
+ * refused, because these fields are additive and nothing depends on them.
+ */
+function organiserPlanFields(user: User, formData: FormData): {
+  customFields: string | null;
+  feedbackMin: number;
+} {
+  if (!isOrganiserPlan(user)) return { customFields: null, feedbackMin: 0 };
+  const labels = [0, 1, 2]
+    .map((i) => str(formData, `custom_field_${i}`).slice(0, 80))
+    .filter(Boolean);
+  const raw = Number(formData.get("feedback_min_responses"));
+  const feedbackMin = [0, 3, 5, 10].includes(raw) ? raw : 0;
+  return { customFields: labels.length ? JSON.stringify(labels) : null, feedbackMin };
 }
 
 async function requireOwnedRegister(user: User, registerId: number): Promise<Register> {
@@ -563,6 +590,15 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
   const registrationNumber = user ? user.registration_number : null;
   const roleGrade = user ? user.role_grade : null;
 
+  // Whatever extra questions this register asks, answered by everyone who
+  // signs it and stored beside the question they answered — so a register
+  // edited later cannot silently re-caption old answers.
+  const questions = parseJsonArray<string>(reg.custom_fields);
+  const answers = questions
+    .map((q, i) => ({ q, a: str(formData, `custom_answer_${i}`).slice(0, 200) }))
+    .filter((x) => x.a);
+  const customAnswers = answers.length ? JSON.stringify(answers) : null;
+
   if (!fullName) return { error: "Enter your full name." };
   if (!email || !/^\S+@\S+\.\S+$/.test(email)) return { error: "Enter a valid email address." };
 
@@ -578,8 +614,8 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
     const sigResult = (await tx
       .prepare(
         `INSERT INTO signatures
-          (register_id, user_id, full_name, email, professional_body, registration_number, role_grade, signed_at, verification_code)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+          (register_id, user_id, full_name, email, professional_body, registration_number, role_grade, signed_at, verification_code, custom_answers)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
          RETURNING id`
       )
       .get(
@@ -591,7 +627,8 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
         registrationNumber,
         roleGrade,
         now,
-        verificationCode
+        verificationCode,
+        customAnswers
       )) as { id: number };
 
     if (user) {
@@ -2189,4 +2226,67 @@ export async function dismissRatingPrompt(): Promise<void> {
     .run(new Date().toISOString(), user.id);
   revalidatePath("/dashboard");
   redirect("/dashboard");
+}
+
+/* ---------------------------------------------------------------------------
+   Organiser branding
+--------------------------------------------------------------------------- */
+
+/** Small enough to live in a column and load with every slip. */
+const MAX_LOGO_BYTES = 300 * 1024;
+
+/**
+ * The organiser's logo, stored as a data URL and drawn wherever their events
+ * appear — the sign-in page, the projector, and the slip itself.
+ */
+export async function uploadOrgLogo(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  if (!isOrganiserPlan(user)) return { error: "Branding is part of the Organiser plan." };
+
+  const file = formData.get("logo");
+  if (!(file instanceof File) || file.size === 0) return { error: "Choose an image file." };
+  if (!["image/png", "image/jpeg"].includes(file.type))
+    return { error: "PNG or JPEG only — it has to embed into a PDF." };
+  if (file.size > MAX_LOGO_BYTES)
+    return { error: "Keep it under 300KB — it is printed small on every slip." };
+
+  const bytes = Buffer.from(await file.arrayBuffer());
+  const dataUrl = `data:${file.type};base64,${bytes.toString("base64")}`;
+  await (await getDb()).prepare("UPDATE users SET org_logo = ? WHERE id = ?").run(dataUrl, user.id);
+  redirect("/registers/branding?saved=1");
+}
+
+export async function removeOrgLogo(): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  await (await getDb()).prepare("UPDATE users SET org_logo = NULL WHERE id = ?").run(user.id);
+  redirect("/registers/branding");
+}
+
+/**
+ * Turn the organiser features on for yourself.
+ *
+ * A button rather than a payment, because there is no payment yet. When
+ * billing arrives this is the place it replaces: the entitlement is the same
+ * column either way, so a checkout session's webhook will set exactly what
+ * this sets, and nothing downstream needs to know which hand flipped it.
+ *
+ * Reversible on purpose. Somebody who turns it on to look around should be
+ * able to put it back without asking us, and a feature you cannot leave is a
+ * feature people are wary of entering.
+ */
+export async function setOrganiserPlan(formData: FormData): Promise<void> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+
+  const wanted = str(formData, "plan") === "organiser" ? "organiser" : "free";
+  await (await getDb()).prepare("UPDATE users SET plan = ? WHERE id = ?").run(wanted, user.id);
+
+  revalidatePath("/account");
+  revalidatePath("/registers");
+  redirect(wanted === "organiser" ? "/registers?upgraded=1" : "/account?plan=free");
 }

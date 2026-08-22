@@ -21,6 +21,11 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
     .prepare("SELECT * FROM feedback_responses WHERE register_id = ? ORDER BY id ASC")
     .all(reg.id) as FeedbackResponse[];
 
+  // The organiser can hold feedback back until enough replies have arrived
+  // that no one reply is identifiable in a small room. Zero — the default and
+  // the free behaviour — shows replies as they arrive, with the caution.
+  const threshold = reg.feedback_min_responses ?? 0;
+  const held = threshold > 0 && responses.length < threshold;
   const smallSample = responses.length > 0 && responses.length < SMALL_SAMPLE_CAUTION;
 
   const summary = FEEDBACK_QUESTIONS.map((question) => {
@@ -57,6 +62,16 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
         </div>
       </div>
 
+      {held && (
+        <div className="notice notice--info">
+          <p className="small">
+            <strong>{responses.length}</strong> of <strong>{threshold}</strong>{" "}
+            replies so far. You chose to open feedback once {threshold} people have answered, so
+            no early reply stands alone. Everything unlocks at {threshold}.
+          </p>
+        </div>
+      )}
+
       {!reg.feedback_enabled && (
         <div className="notice notice--warn">
           <p className="small">
@@ -80,11 +95,11 @@ export default async function FeedbackPage({ params }: { params: Promise<{ id: s
       {responses.length === 0 ? (
         <div className="card">
           <p className="muted">
-            No feedback yet. Attendees are asked right after signing; replies appear here
-            straight away.
+            No feedback yet. Attendees are asked right after signing
+            {threshold > 0 ? `; replies appear once ${threshold} have arrived.` : "; replies appear here straight away."}
           </p>
         </div>
-      ) : (
+      ) : held ? null : (
         <>
           <div className="grid-4">
             <div className="stat">

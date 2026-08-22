@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import QRCode from "qrcode";
 import { getDb, registerStatus, type Register, type Signature } from "@/lib/db";
+import { isOrganiserPlan, parseJsonArray } from "@/lib/entitlements";
 import { requireConfirmedUser } from "@/lib/auth";
 import { getShareBase } from "@/lib/base-url";
 import { formatDate, formatDateTime } from "@/lib/format";
@@ -29,6 +30,17 @@ export default async function RegisterDetailPage({
   const signatures = await db
     .prepare("SELECT * FROM signatures WHERE register_id = ? ORDER BY signed_at DESC")
     .all(reg.id) as Signature[];
+
+  // The room's professional make-up, counted rather than named.
+  const composition = Object.entries(
+    signatures
+      .filter((s) => !s.voided)
+      .reduce<Record<string, number>>((acc, s) => {
+        const key = s.professional_body ?? "Not stated";
+        acc[key] = (acc[key] ?? 0) + 1;
+        return acc;
+      }, {})
+  ).sort((a, b) => b[1] - a[1]);
 
   const feedbackCount = (
     await db
@@ -191,6 +203,23 @@ export default async function RegisterDetailPage({
         </div>
       </div>
 
+      {isOrganiserPlan(user) && composition.length > 0 && (
+        <div className="card stack">
+          <h2>Who signed</h2>
+          <p className="muted small">
+            From the profiles of account holders who signed. Guests sign with a name and an
+            email only, so they appear as &ldquo;Not stated&rdquo;.
+          </p>
+          <div className="badge-row">
+            {composition.map(([body, n]) => (
+              <span className="badge badge--neutral" key={body}>
+                {body} · {n}
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       <div className="card card--flush">
         <div className="page-head page-head--tight card__header">
           <h2>
@@ -234,6 +263,11 @@ export default async function RegisterDetailPage({
                     ) : (
                       <span className="badge badge--nonofficial">Guest</span>
                     )}
+                    {parseJsonArray<{ q: string; a: string }>(s.custom_answers).map((x) => (
+                      <div className="muted small" key={x.q}>
+                        {x.q}: {x.a}
+                      </div>
+                    ))}
                   </td>
                   <td>{s.email}</td>
                   <td>

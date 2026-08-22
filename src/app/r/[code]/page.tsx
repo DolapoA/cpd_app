@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { getDb, registerStatus, type Register } from "@/lib/db";
+import { parseJsonArray } from "@/lib/entitlements";
 import { getCurrentUser } from "@/lib/auth";
 import { formatDate } from "@/lib/format";
 import { signRegister } from "@/lib/actions";
@@ -10,11 +11,20 @@ export const metadata = { title: "Sign the attendance register — CPD Register"
 
 export default async function PublicSignPage({ params }: { params: Promise<{ code: string }> }) {
   const { code } = await params;
-  const reg = await (await getDb())
+  const db = await getDb();
+  const reg = await db
     .prepare("SELECT * FROM registers WHERE code = ?").get(code) as
     | Register
     | undefined;
   if (!reg) notFound();
+
+  // The organiser's branding travels with their events, but only while their
+  // plan does — a lapsed plan takes the logo off the door, not just the shop.
+  const branding = (await db
+    .prepare("SELECT org_logo FROM users WHERE id = ? AND plan = 'organiser'")
+    .get(reg.organiser_id ?? 0)) as { org_logo: string | null } | undefined;
+  const logo = branding?.org_logo ?? null;
+  const questions = parseJsonArray<string>(reg.custom_fields);
 
   const user = await getCurrentUser();
   const status = registerStatus(reg);
@@ -27,6 +37,10 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
   return (
     <main className="container container--narrow stack">
       <div className="card">
+        {logo && (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={logo} alt={`${reg.organiser_name} logo`} className="event-logo" />
+        )}
         <h1>{reg.title}</h1>
         <p className="muted">
           {formatDate(reg.event_date)} · {reg.start_time}–{reg.end_time}
@@ -90,6 +104,17 @@ export default async function PublicSignPage({ params }: { params: Promise<{ cod
                 </div>
               </>
             )}
+            {questions.map((q, i) => (
+              <div className="field" key={i}>
+                <label htmlFor={`custom_answer_${i}`}>{q}</label>
+                <input
+                  id={`custom_answer_${i}`}
+                  name={`custom_answer_${i}`}
+                  type="text"
+                  maxLength={200}
+                />
+              </div>
+            ))}
             {reg.access_code && (
               <div className="field">
                 <label htmlFor="access_code">Access code</label>

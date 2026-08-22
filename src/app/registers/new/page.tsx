@@ -1,6 +1,7 @@
 import { createRegister } from "@/lib/actions";
 import { requireConfirmedUser } from "@/lib/auth";
 import { RegisterFields } from "@/components/register-fields";
+import { isOrganiserPlan } from "@/lib/entitlements";
 import { ActionForm } from "@/components/action-form";
 
 export const metadata = { title: "New register — CPD Register" };
@@ -21,7 +22,7 @@ export default async function NewRegisterPage() {
       </div>
       <div className="card">
         <ActionForm action={createRegister} submitLabel="Create register">
-          <RegisterFields defaultOrganiser={user.full_name} />
+          <RegisterFields defaultOrganiser={user.full_name} organiserPlan={isOrganiserPlan(user)} />
         </ActionForm>
       </div>
     </main>

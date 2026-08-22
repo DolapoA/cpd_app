@@ -313,6 +313,20 @@ ALTER TABLE users ADD COLUMN IF NOT EXISTS notified_target_month TEXT;
 /* Separate from reminded_at, which is the day-before email: the two channels
    are answered separately and one failing must not silence the other. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS notified_at TEXT;
+/* Which plan an account is on. Set by hand until billing exists — there is no
+   self-serve path to anything but 'free', which is the point: features ship
+   dark and are lit account by account. */
+ALTER TABLE users ADD COLUMN IF NOT EXISTS plan TEXT NOT NULL DEFAULT 'free';
+/* The organiser's logo, as a data URL. A column rather than an upload bucket:
+   it is one small image per account, read wherever their events appear. */
+ALTER TABLE users ADD COLUMN IF NOT EXISTS org_logo TEXT;
+/* Extra questions an organiser asks at sign-in, as a JSON array of labels,
+   and each signer's answers beside their signature. */
+ALTER TABLE registers ADD COLUMN IF NOT EXISTS custom_fields JSONB;
+ALTER TABLE signatures ADD COLUMN IF NOT EXISTS custom_answers JSONB;
+/* How many replies must arrive before feedback opens. Zero keeps the old
+   behaviour — visible at once, with the small-sample caution. */
+ALTER TABLE registers ADD COLUMN IF NOT EXISTS feedback_min_responses INTEGER NOT NULL DEFAULT 0;
 /* Asking somebody what they make of the app, once they have used it enough to
    have a view. login_count counts sessions begun, of which signing up is the
    first — so three means they came back twice. rating_asked_at is set whether
@@ -558,6 +572,8 @@ export type User = {
   app_rating: number | null;
   app_review: string | null;
   app_review_consent: number;
+  plan: string;
+  org_logo: string | null;
   backup_email: string | null;
   /** Set once the address has been confirmed by following an emailed link. */
   email_verified_at: string | null;
@@ -637,6 +653,9 @@ export type Register = {
   access_code: string | null;
   closed_manually: number;
   feedback_enabled: number;
+  /** JSON array of question labels, or null when none were asked. */
+  custom_fields: string | string[] | null;
+  feedback_min_responses: number;
   created_at: string;
 };
 
@@ -666,6 +685,8 @@ export type Signature = {
   verification_code: string;
   voided: number;
   void_reason: string | null;
+  /** JSON array of { q, a } pairs, or null. */
+  custom_answers: string | { q: string; a: string }[] | null;
   feedback_given: number;
 };
 
