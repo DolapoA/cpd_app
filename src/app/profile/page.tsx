@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { updateProfile } from "@/lib/actions";
+import { logout, updateProfile } from "@/lib/actions";
 import { requireConfirmedUser } from "@/lib/auth";
 import { REGULATORS } from "@/lib/format";
 import { ActionForm } from "@/components/action-form";
@@ -190,9 +190,19 @@ export default async function ProfilePage({
 
       <div className="card">
         <h2>Account and security</h2>
-        <Link href="/account" className="btn btn--secondary">
-          Go to your account
-        </Link>
+        <div className="actions-row">
+          <Link href="/account" className="btn btn--secondary">
+            Go to your account
+          </Link>
+          {/* The only log out a phone can reach. The tab bar hides the rail's
+              one — a bar of four tabs has no room for a fifth control that
+              is not a place — and this is the page its fourth tab leads to. */}
+          <form action={logout}>
+            <button type="submit" className="btn btn--quiet">
+              Log out
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );

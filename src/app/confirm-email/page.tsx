@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getCurrentUser } from "@/lib/auth";
-import { sendVerificationEmail } from "@/lib/actions";
+import { logout, sendVerificationEmail } from "@/lib/actions";
 import { JunkMailHint } from "@/components/junk-mail-hint";
 
 export const metadata = { title: "Confirm your email — CPD Register" };
@@ -59,9 +59,20 @@ export default async function ConfirmEmailPage({
           doesn&rsquo;t exist vanishes without a bounce. You can change it on your account page,
           and the new address gets the link instead.
         </p>
-        <Link href="/account" className="btn btn--secondary">
-          Check or change my email
-        </Link>
+        <div className="actions-row">
+          <Link href="/account" className="btn btn--secondary">
+            Check or change my email
+          </Link>
+          {/* Signed in as the wrong person, or someone else's phone: without
+              this an unconfirmed account is a dead end, because every page
+              that carries a log out is behind the confirmation it is waiting
+              for. */}
+          <form action={logout}>
+            <button type="submit" className="btn btn--quiet">
+              Log out
+            </button>
+          </form>
+        </div>
       </div>
     </main>
   );
