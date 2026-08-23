@@ -15,20 +15,22 @@ export default function robots(): MetadataRoute.Robots {
         // Everything the sitemap offers, named here too — a page in one and
         // not the other is a mixed signal about whether we meant it.
         allow: ["/", "/cpd", "/faq", "/privacy", "/terms"],
+        // Only pages nothing public links to. /login, /signup, /feedback and
+        // /reset are linked from every page, and disallowing a linked page
+        // hides its noindex from the crawler — which is how a "blocked" URL
+        // ends up indexed as a bare address anyway. Those four rely on their
+        // meta noindex instead; this list is for the token-bearing and
+        // signed-in paths a crawler has no business fetching at all.
         disallow: [
           "/r/",
           "/slip/",
           "/verify/",
           "/verify-email/",
-          "/reset",
           "/record",
           "/registers",
           "/account",
           "/profile",
           "/dashboard",
-          "/login",
-          "/signup",
-          "/feedback",
           "/uat",
           "/msf/",
         ],
