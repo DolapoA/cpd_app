@@ -1378,6 +1378,10 @@ textarea:focus {
 
 /* ---- Rating scale (event feedback) ---- */
 
+/* A div with role="radiogroup", not a fieldset: a legend sits on the
+   fieldset's border and interrupts it, which turned the separator above each
+   question into a stray line trailing from the end of the text. A plain
+   block takes a border like anything else. */
 .rating {
   border: none;
   border-top: 1px solid var(--line);
@@ -1386,6 +1390,7 @@ textarea:focus {
 }
 
 .rating__legend {
+  display: block;
   font-weight: 600;
   font-size: var(--text-m);
   padding: 0;

@@ -50,8 +50,15 @@ export function FeedbackForm({
         <input type="hidden" name="verification_code" value={verificationCode} />
 
         {FEEDBACK_QUESTIONS.map((question) => (
-          <fieldset className="rating" key={question.key}>
-            <legend className="rating__legend">{question.text}</legend>
+          <div
+            className="rating"
+            role="radiogroup"
+            aria-labelledby={`${question.key}-label`}
+            key={question.key}
+          >
+            <p className="rating__legend" id={`${question.key}-label`}>
+              {question.text}
+            </p>
             <div className="rating__options">
               {question.labels.map((label, i) => (
                 <label className="rating__option" key={label}>
@@ -61,7 +68,7 @@ export function FeedbackForm({
                 </label>
               ))}
             </div>
-          </fieldset>
+          </div>
         ))}
 
         {showComment ? (

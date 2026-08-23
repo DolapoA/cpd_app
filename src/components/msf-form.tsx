@@ -130,11 +130,16 @@ export function MsfForm({
       {state?.error && <p className="form-error">{state.error}</p>}
 
       {rated.map((question, index) => (
-        <fieldset className="rating" key={question.key}>
-          <legend className="rating__legend">
+        <div
+          className="rating"
+          role="radiogroup"
+          aria-labelledby={`${question.key}-label`}
+          key={question.key}
+        >
+          <p className="rating__legend" id={`${question.key}-label`}>
             {index + 1}. {renderMsfQuestion(question.template, captions)}
             {question.optional && <span className="muted"> (optional)</span>}
-          </legend>
+          </p>
           <div className="rating__options">
             {MSF_SCALE_LABELS.map((label, i) => (
               <label className="rating__option" key={label}>
@@ -148,7 +153,7 @@ export function MsfForm({
             <input type="radio" name={question.key} value={MSF_ABSTAIN} />
             <span>{MSF_ABSTAIN_LABEL}</span>
           </label>
-        </fieldset>
+        </div>
       ))}
 
       {MSF_TEXT_QUESTIONS.map((question, index) => (
