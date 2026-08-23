@@ -25,6 +25,21 @@ export async function GET() {
     activity_type_goals: await db
       .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
       .all(user.id),
+    // Feedback rounds the user asked for: the request and who was invited,
+    // which are theirs. The colleagues' answers are not included even though
+    // they are about this person — they are stored with no link to who gave
+    // them, so there is no "their answer" to hand over, only the pool.
+    colleague_feedback_requests: await db
+      .prepare("SELECT * FROM msf_requests WHERE user_id = ?")
+      .all(user.id),
+    colleague_feedback_invitations: await db
+      .prepare(
+        `SELECT i.request_id, i.email, i.responded, i.created_at
+           FROM msf_invitations i
+           JOIN msf_requests r ON r.id = i.request_id
+          WHERE r.user_id = ?`
+      )
+      .all(user.id),
     // Feedback the user gave is deliberately not here: it is stored with no
     // link to who gave it, so there is nothing to retrieve. That is the same
     // property that makes it anonymous to the organiser.

@@ -160,6 +160,79 @@ CREATE TABLE IF NOT EXISTS feedback_responses (
 CREATE INDEX IF NOT EXISTS idx_feedback_register ON feedback_responses(register_id);
 
 /*
+  Multi-source feedback: colleagues rating a professional anonymously.
+
+  Three tables, and the split between them is the whole privacy design.
+
+  msf_invitations is the named side. It knows who was asked, holds the hashed
+  link each of them got, and records whether they answered — because the one
+  reminder has to reach the people who have not. That flag is a boolean and
+  not a date on purpose: a date, crossed with the day the reminder went out,
+  would narrow every later answer to the handful of people who were chased.
+
+  msf_responses is the anonymous side, and carries no date at all — stricter
+  than feedback_responses, for the same reason. It references the request, so
+  answers can be pooled, and never the invitation. Not an unused column, not a
+  nullable one: nothing, so that "your colleague sees the answers, not who
+  gave them" survives a database breach or a subpoena and not merely the
+  interface. The subject is never shown which invitations came back either,
+  only how many, so a pool of one still does not say whose it is.
+
+  One channel remains: row ids ascend, so insertion order is recoverable by
+  anyone reading the table directly. The results page sorts written answers by
+  a hash of their text rather than by id, which closes it in the product; the
+  database itself keeps the ordering, as feedback_responses does.
+*/
+CREATE TABLE IF NOT EXISTS msf_requests (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  question_set_version INTEGER NOT NULL DEFAULT 1,
+  /* Frozen when the request is made. A colleague answered one particular
+     sentence, and a profile edited afterwards — a new name, a new job — must
+     not silently re-caption an answer already given. */
+  subject_name TEXT NOT NULL,
+  subject_word TEXT NOT NULL,
+  compared_to TEXT NOT NULL,
+  opened_on TEXT NOT NULL,
+  closes_on TEXT NOT NULL,
+  /* The single reminder. NULL until it is sent, and set once, ever. */
+  reminded_on TEXT,
+  cpd_entry_id INTEGER REFERENCES cpd_entries(id),
+  created_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_msf_requests_user ON msf_requests(user_id);
+
+CREATE TABLE IF NOT EXISTS msf_invitations (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  request_id INTEGER NOT NULL REFERENCES msf_requests(id) ON DELETE CASCADE,
+  email TEXT NOT NULL,
+  /* Hashed, like auth_tokens: a leaked database should not hand over working
+     links. The plaintext exists only long enough to build the email. */
+  token_hash TEXT NOT NULL UNIQUE,
+  /* Boolean, never a date. See the note above. */
+  responded INTEGER NOT NULL DEFAULT 0,
+  declined_at TEXT,
+  created_at TEXT NOT NULL,
+  UNIQUE (request_id, email)
+);
+CREATE INDEX IF NOT EXISTS idx_msf_invitations_request ON msf_invitations(request_id);
+
+CREATE TABLE IF NOT EXISTS msf_responses (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  request_id INTEGER NOT NULL REFERENCES msf_requests(id) ON DELETE CASCADE,
+  question_set_version INTEGER NOT NULL DEFAULT 1,
+  /* 0 means "unable to comment" and is excluded from every average. */
+  q1 INTEGER NOT NULL, q2 INTEGER NOT NULL, q3 INTEGER NOT NULL,
+  q4 INTEGER NOT NULL, q5 INTEGER NOT NULL, q6 INTEGER NOT NULL,
+  q7 INTEGER NOT NULL, q8 INTEGER NOT NULL, q9 INTEGER NOT NULL,
+  q10 INTEGER NOT NULL, q11 INTEGER NOT NULL, q12 INTEGER NOT NULL,
+  q13 INTEGER NOT NULL, q14 INTEGER NOT NULL, q15 INTEGER NOT NULL,
+  q16 INTEGER NOT NULL, q17 INTEGER NOT NULL,
+  q18 TEXT, q19 TEXT, q20 TEXT
+);
+CREATE INDEX IF NOT EXISTS idx_msf_responses_request ON msf_responses(request_id);
+
+/*
   CPD someone intends to do, as opposed to CPD they have done. Deliberately a
   separate table from cpd_entries rather than a flag on it: an intention is not
   evidence, and an audit pack that could contain plans nobody attended would be
@@ -599,6 +672,37 @@ export type Employment = {
   ended_on: string | null;
   created_at: string;
 };
+
+export type MsfRequest = {
+  id: number;
+  user_id: number;
+  question_set_version: number;
+  subject_name: string;
+  subject_word: string;
+  compared_to: string;
+  opened_on: string;
+  closes_on: string;
+  reminded_on: string | null;
+  cpd_entry_id: number | null;
+  created_at: string;
+};
+
+export type MsfInvitation = {
+  id: number;
+  request_id: number;
+  email: string;
+  token_hash: string;
+  responded: number;
+  declined_at: string | null;
+  created_at: string;
+};
+
+/** Note the absence of a date and of any link to an invitation. Both deliberate. */
+export type MsfResponse = {
+  id: number;
+  request_id: number;
+  question_set_version: number;
+} & Record<`q${number}`, number | string | null>;
 
 export type PlannedEvent = {
   id: number;

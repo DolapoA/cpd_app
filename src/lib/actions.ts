@@ -3,18 +3,19 @@
 import bcrypt from "bcryptjs";
 import crypto from "crypto";
 import { cookies } from "next/headers";
-import { redirect } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { revalidatePath } from "next/cache";
 import {
   getDb,
   registerStatus,
   type CpdEntry,
   type PlannedEvent,
+  type MsfRequest,
   type Register,
   type Signature,
   type User,
 } from "./db";
-import { createSession, destroySession, getCurrentUser } from "./auth";
+import { createSession, destroySession, getCurrentUser, requireConfirmedUser } from "./auth";
 import { forgetGuestSlip, getGuestSlipCode, rememberGuestSlip } from "./guest-signature";
 import { getBaseUrl } from "./base-url";
 import { ukWallTimeToInstant } from "./uk-time";
@@ -28,6 +29,27 @@ import {
 } from "./email";
 import { pushToUser, type PushResult } from "./push";
 import { isOrganiserPlan, parseJsonArray } from "./entitlements";
+import {
+  MSF_MAX_COLLEAGUES,
+  MSF_MIN_COLLEAGUES,
+  MSF_QUESTION_SET_VERSION,
+  MSF_RATED_QUESTIONS,
+  MSF_SCALE_POINTS,
+  MSF_TEXT_QUESTIONS,
+  MSF_WINDOW_DAYS,
+} from "./msf";
+import {
+  addDays,
+  canRemind,
+  hashInviteToken,
+  invitationForToken,
+  msfStatus,
+  newInviteToken,
+  ukToday,
+} from "./msf-invites";
+import { professionWord } from "./professions";
+import { formatDate } from "./format";
+import { sendMsfInvitation } from "./email";
 import { claimToken, issueToken } from "./tokens";
 import {
   consumeRecoveryCode,
@@ -1222,6 +1244,10 @@ export async function deleteAccount(_prev: ActionState, formData: FormData): Pro
     // Yours alone — removed outright.
     await tx.prepare("DELETE FROM cpd_entries WHERE user_id = ?").run(user.id);
     await tx.prepare("DELETE FROM activity_type_goals WHERE user_id = ?").run(user.id);
+    // Unlike signatures, a feedback round is nobody else's evidence — the
+    // colleagues who answered gave their answers to this person, for this
+    // person. The cascade takes the invitations and the responses with it.
+    await tx.prepare("DELETE FROM msf_requests WHERE user_id = ?").run(user.id);
 
     // Signatures are somebody else's evidence: an organiser's register and any
     // slip already handed to an auditor. Deleting them would silently alter a
@@ -2289,4 +2315,246 @@ export async function setOrganiserPlan(formData: FormData): Promise<void> {
   revalidatePath("/account");
   revalidatePath("/registers");
   redirect(wanted === "organiser" ? "/registers?upgraded=1" : "/account?plan=free");
+}
+
+/* ---------------------------------------------------------------------------
+   Multi-source feedback
+--------------------------------------------------------------------------- */
+
+/** One address per line or comma, lowercased, de-duplicated, sanity-checked. */
+function colleagueEmails(raw: string, own: string): { emails: string[] } | { error: string } {
+  const seen = new Set<string>();
+  for (const candidate of raw.split(/[\s,;]+/)) {
+    const email = candidate.trim().toLowerCase();
+    if (!email) continue;
+    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254)
+      return { error: `That doesn't look like an email address: ${candidate.trim()}` };
+    // Rating yourself is not multi-source feedback.
+    if (email === own.toLowerCase())
+      return { error: "You can't ask yourself — take your own address out of the list." };
+    seen.add(email);
+  }
+  const emails = [...seen];
+  if (emails.length < MSF_MIN_COLLEAGUES)
+    return {
+      error: `Ask at least ${MSF_MIN_COLLEAGUES} colleagues. Fewer than that and a reply starts to be traceable to the person who gave it.`,
+    };
+  if (emails.length > MSF_MAX_COLLEAGUES)
+    return { error: `That's more than ${MSF_MAX_COLLEAGUES}. Ask the ones whose view you actually want.` };
+  return { emails };
+}
+
+/**
+ * Open a feedback round.
+ *
+ * The captions are frozen onto the request here, not read at display time: a
+ * colleague answers one particular sentence, and a profile edited next month
+ * must not re-caption an answer already given.
+ */
+export async function createMsfRequest(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+
+  const comparedTo = str(formData, "compared_to").slice(0, 60);
+  if (!comparedTo)
+    return { error: "Say who you should be compared with — it is what the last question means." };
+
+  const parsed = colleagueEmails(str(formData, "colleagues"), user.email);
+  if ("error" in parsed) return parsed;
+
+  const db = await getDb();
+  const open = (await db
+    .prepare("SELECT COUNT(*) AS c FROM msf_requests WHERE user_id = ? AND closes_on >= ?")
+    .get(user.id, ukToday())) as { c: string };
+  if (Number(open.c) > 0)
+    return { error: "You already have a round open. Wait for it to close before starting another." };
+
+  // The same throttle the problem-report form uses, for the same reason: this
+  // sends mail to addresses we have never seen.
+  const throttleKey = `msf:${user.id}`;
+  if (await tooManyAttempts(throttleKey, 3))
+    return { error: "That's several rounds in a short time. Try again in 15 minutes." };
+  await recordFailedAttempt(throttleKey);
+
+  const openedOn = ukToday();
+  const closesOn = addDays(openedOn, MSF_WINDOW_DAYS);
+  const tokens: { email: string; token: string }[] = [];
+
+  const created = (await db
+    .prepare(
+      `INSERT INTO msf_requests
+         (user_id, question_set_version, subject_name, subject_word, compared_to,
+          opened_on, closes_on, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+       RETURNING id`
+    )
+    .get(
+      user.id,
+      MSF_QUESTION_SET_VERSION,
+      user.full_name,
+      professionWord(user.profession),
+      comparedTo,
+      openedOn,
+      closesOn,
+      new Date().toISOString()
+    )) as { id: number };
+
+  for (const email of parsed.emails) {
+    const token = newInviteToken();
+    tokens.push({ email, token });
+    await db
+      .prepare(
+        `INSERT INTO msf_invitations (request_id, email, token_hash, created_at)
+         VALUES (?, ?, ?, ?)`
+      )
+      .run(Number(created.id), email, hashInviteToken(token), new Date().toISOString());
+  }
+
+  // Sent after the rows exist, so a mail failure loses an invitation rather
+  // than the round. Anyone who never gets theirs can be re-sent by the
+  // reminder on day seven.
+  const base = await getBaseUrl();
+  for (const { email, token } of tokens) {
+    try {
+      await sendMsfInvitation(
+        email,
+        { name: user.full_name, email: user.email, profession: user.profession },
+        `${base}/msf/${token}`,
+        formatDate(closesOn)
+      );
+    } catch (error) {
+      console.error("[msf] invitation failed for one colleague", error);
+    }
+  }
+
+  // Rounded down to the nearest five, as the event's own comment promises:
+  // whether rounds are being opened is the useful signal, not who asked how
+  // many people.
+  await record({
+    name: "msf_requested",
+    colleagues: Math.floor(parsed.emails.length / 5) * 5,
+  });
+  redirect(`/record/colleague-feedback/${Number(created.id)}?sent=1`);
+}
+
+/**
+ * The one reminder, to the people who have not answered.
+ *
+ * The list is resolved here and never rendered: the subject is told how many
+ * are outstanding, not which of their colleagues they are. A name beside a
+ * "hasn't replied" is the strongest hint anyone could be given about who said
+ * what once the answers arrive.
+ */
+export async function sendMsfReminder(formData: FormData): Promise<void> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "request_id");
+  if (id === null) redirect("/record/colleague-feedback");
+
+  const db = await getDb();
+  const request = (await db
+    .prepare("SELECT * FROM msf_requests WHERE id = ? AND user_id = ?")
+    .get(id, user.id)) as MsfRequest | undefined;
+  if (!request) notFound();
+  if (!canRemind(request)) redirect(`/record/colleague-feedback/${id}`);
+
+  const waiting = (await db
+    .prepare("SELECT email FROM msf_invitations WHERE request_id = ? AND responded = 0 AND declined_at IS NULL")
+    .all(request.id)) as { email: string }[];
+
+  // Stamped first: a reminder half-sent is still a reminder used, and sending
+  // it twice to the people at the top of the list would be worse than missing
+  // the people at the bottom.
+  await db.prepare("UPDATE msf_requests SET reminded_on = ? WHERE id = ?").run(ukToday(), request.id);
+
+  const base = await getBaseUrl();
+  for (const { email } of waiting) {
+    const invite = (await db
+      .prepare("SELECT token_hash FROM msf_invitations WHERE request_id = ? AND email = ?")
+      .get(request.id, email)) as { token_hash: string } | undefined;
+    if (!invite) continue;
+    // The token itself is not recoverable from its hash, so a reminder cannot
+    // repeat the original link. A fresh one replaces it for this colleague.
+    const token = newInviteToken();
+    await db
+      .prepare("UPDATE msf_invitations SET token_hash = ? WHERE request_id = ? AND email = ?")
+      .run(hashInviteToken(token), request.id, email);
+    try {
+      await sendMsfInvitation(
+        email,
+        { name: user.full_name, email: user.email, profession: user.profession },
+        `${base}/msf/${token}`,
+        formatDate(request.closes_on),
+        true
+      );
+    } catch (error) {
+      console.error("[msf] reminder failed for one colleague", error);
+    }
+  }
+
+  redirect(`/record/colleague-feedback/${id}?reminded=1`);
+}
+
+/**
+ * A colleague's answers.
+ *
+ * The insert and the spend happen in one transaction, and the spend is a
+ * conditional update rather than a read followed by a write — two taps on a
+ * flaky connection must not become two responses. (tokens.ts still does the
+ * read-then-update version; this is the pattern it should adopt.)
+ */
+export async function submitMsfResponse(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const token = str(formData, "token");
+  const found = await invitationForToken(token);
+  if (!found) return { error: "That link is not valid. It may have already been used." };
+
+  const { invitation, request } = found;
+  if (invitation.responded) return { error: "You have already given feedback for this colleague. Thank you." };
+  if (invitation.declined_at) return { error: "You declined this request." };
+  if (msfStatus(request) === "closed") return { error: "This round has closed." };
+
+  const ratings: number[] = [];
+  for (const question of MSF_RATED_QUESTIONS) {
+    const raw = Number(formData.get(question.key));
+    if (!Number.isInteger(raw) || raw < 0 || raw > MSF_SCALE_POINTS)
+      return { error: "Please answer every question, or choose “Unable to comment”." };
+    ratings.push(raw);
+  }
+  const texts = MSF_TEXT_QUESTIONS.map((q) => str(formData, q.key).slice(0, 2000) || null);
+
+  const db = await getDb();
+  let spent = false;
+  await db.transaction(async (tx) => {
+    const claimed = (await tx
+      .prepare("UPDATE msf_invitations SET responded = 1 WHERE id = ? AND responded = 0 RETURNING id")
+      .get(invitation.id)) as { id: number } | undefined;
+    if (!claimed) return;
+    spent = true;
+    await tx
+      .prepare(
+        `INSERT INTO msf_responses
+           (request_id, question_set_version,
+            q1,q2,q3,q4,q5,q6,q7,q8,q9,q10,q11,q12,q13,q14,q15,q16,q17,q18,q19,q20)
+         VALUES (?, ?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?)`
+      )
+      .run(request.id, request.question_set_version, ...ratings, ...texts);
+  });
+
+  if (!spent) return { error: "That link has already been used. Thank you." };
+  await record({ name: "msf_response_submitted" });
+  redirect("/msf/thanks");
+}
+
+/** Bows out, which also stops the reminder reaching them. */
+export async function declineMsfInvitation(formData: FormData): Promise<void> {
+  const found = await invitationForToken(str(formData, "token"));
+  if (!found) redirect("/msf/thanks");
+  await (await getDb())
+    .prepare("UPDATE msf_invitations SET declined_at = ? WHERE id = ? AND responded = 0")
+    .run(new Date().toISOString(), found.invitation.id);
+  redirect("/msf/thanks?declined=1");
 }

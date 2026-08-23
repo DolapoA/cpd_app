@@ -1735,6 +1735,55 @@ main {
   margin-left: var(--space-2);
 }
 
+/* ---- Multi-source feedback ---- */
+
+/*
+   "Unable to comment" is not a sixth point on the scale, so it does not sit
+   in the row of five. Placed after "Below expectations" it would read as
+   worse than the worst rating, when it means something else entirely — that
+   this colleague has never been in a position to judge.
+*/
+.rating__abstain {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  min-height: 44px;
+  margin-top: var(--space-2);
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-md);
+  font-size: var(--text-s);
+  color: var(--ink-soft);
+  cursor: pointer;
+}
+
+.rating__abstain:hover {
+  background: var(--surface-sunken);
+}
+
+.rating__abstain:has(input:checked) {
+  background: var(--surface-muted);
+  color: var(--ink);
+  font-weight: 600;
+}
+
+.rating__abstain:has(input:focus-visible) {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+/* Follows the form down a long page so somebody can see how far they have to go. */
+.msf-progress {
+  position: sticky;
+  top: 0;
+  z-index: 5;
+  margin: 0;
+  padding: var(--space-2) 0;
+  background: var(--surface);
+  font-size: var(--text-s);
+  font-weight: 600;
+  color: var(--ink-soft);
+}
+
 /* ---- Organiser plan surfaces ---- */
 
 .org-logo-preview {

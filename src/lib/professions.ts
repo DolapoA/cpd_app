@@ -101,6 +101,101 @@ export const OTHER_PROFESSION = "Other";
  * will fail to join "physio" to "physiotherapist", which leaves two small
  * groups rather than wrongly merging two professions.
  */
+/**
+ * The word each profession uses for its own kind of judgement.
+ *
+ * Multi-source feedback asks two questions that only read properly in a
+ * profession's own language: "makes {word}-appropriate decisions" and "is
+ * appropriately {word} skilled for their practice". A scientist makes
+ * scientifically-appropriate decisions; a physiotherapist makes clinically-
+ * appropriate ones; a solicitor makes neither.
+ *
+ * Kept beside the list rather than inside it, the way STANDARDS_FRAMEWORKS
+ * sits beside REGULATORS — a profession is a bare string everywhere else and
+ * widening that type would touch the picker, the matcher and every consumer
+ * for the sake of two sentences.
+ *
+ * Every value has to work as an adverb in both slots above. That is the whole
+ * constraint, and it is why this is a string rather than an object: a future
+ * question needing an adjective would need a different shape, and inventing
+ * one now for a question nobody has written would be guessing.
+ *
+ * Unlisted professions, free-typed ones and people who have not said fall
+ * back to "professionally", which is true of everybody and wrong for nobody.
+ */
+const PROFESSION_WORDS: Record<string, string> = {
+  // Health and care — "clinically" for anyone who sees patients, and
+  // "scientifically" for the laboratory professions whose judgements are
+  // about analysis rather than treatment.
+  physiotherapist: "clinically",
+  "occupational therapist": "clinically",
+  "speech and language therapist": "clinically",
+  dietitian: "clinically",
+  podiatrist: "clinically",
+  paramedic: "clinically",
+  radiographer: "clinically",
+  "operating department practitioner": "clinically",
+  "biomedical scientist": "scientifically",
+  "clinical scientist": "scientifically",
+  orthoptist: "clinically",
+  "prosthetist orthotist": "clinically",
+  "art music or drama therapist": "clinically",
+  "hearing aid dispenser": "clinically",
+  "practitioner psychologist": "clinically",
+  "social worker": "professionally",
+  nurse: "clinically",
+  midwife: "clinically",
+  "nursing associate": "clinically",
+  doctor: "clinically",
+  dentist: "clinically",
+  "dental hygienist or therapist": "clinically",
+  "dental nurse": "clinically",
+  pharmacist: "clinically",
+  "pharmacy technician": "clinically",
+  optometrist: "clinically",
+  "dispensing optician": "clinically",
+  osteopath: "clinically",
+  chiropractor: "clinically",
+  "veterinary surgeon": "clinically",
+  "veterinary nurse": "clinically",
+
+  // Education
+  teacher: "educationally",
+  "headteacher or school leader": "educationally",
+  lecturer: "academically",
+  "teaching assistant": "educationally",
+
+  // Engineering and built environment
+  "mechanical engineer": "technically",
+  "civil engineer": "technically",
+  "electrical engineer": "technically",
+  "electronic engineer": "technically",
+  "chemical engineer": "technically",
+  "aerospace engineer": "technically",
+  "structural engineer": "technically",
+  architect: "technically",
+  surveyor: "technically",
+  "town planner": "technically",
+
+  // Law, finance and business
+  solicitor: "legally",
+  barrister: "legally",
+  "legal executive": "legally",
+  paralegal: "legally",
+  accountant: "financially",
+  auditor: "financially",
+  actuary: "financially",
+  "financial adviser": "financially",
+  "mortgage adviser": "financially",
+  "insurance broker": "financially",
+};
+
+/** The adverb for a profession, or the neutral one. Never returns null. */
+export function professionWord(profession: string | null | undefined): string {
+  const key = professionKey(profession);
+  return (key && PROFESSION_WORDS[key]) || "professionally";
+}
+
 export function professionKey(profession: string | null | undefined): string | null {
   if (!profession) return null;
   const cleaned = profession

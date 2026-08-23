@@ -568,3 +568,76 @@ CPD Register`;
     })
   );
 }
+
+/* ---------------------------------------------------------------------------
+   Multi-source feedback
+--------------------------------------------------------------------------- */
+
+/**
+ * A colleague's invitation to give anonymous feedback.
+ *
+ * Carries no message from the person asking. That is not an omission: a
+ * free-text body a sender controls, delivered from our domain to addresses we
+ * have never seen, is the spam vector this feature would otherwise be. The
+ * email says who is asking, what it is for and when it closes, and nothing
+ * else — and replies go to the colleague who asked, not to us.
+ */
+export async function sendMsfInvitation(
+  to: string,
+  from: { name: string; email: string; profession: string | null },
+  url: string,
+  closesOn: string,
+  reminder = false
+): Promise<void> {
+  const who = from.profession ? `${from.name}, ${from.profession},` : `${from.name}`;
+  const title = reminder ? "A reminder: feedback for a colleague" : "A colleague has asked for your feedback";
+  const opening = reminder
+    ? `${who} asked for your feedback a week ago and has not heard back. There is still time.`
+    : `${who} is collecting feedback from colleagues as part of their professional development, and has asked for yours.`;
+
+  const text = `${opening}
+
+It takes about five minutes. Your answers are pooled with everyone else's and shown to ${from.name} after ${closesOn}. Your name and email address are not stored with your answers — they cannot be, so nobody can work out which reply was yours.
+
+${url}
+
+The link is yours alone and works once. It stops working on ${closesOn}.
+
+CPD Register`;
+
+  const blocks: EmailBlock[] = [
+    { kind: "text", content: opening },
+    {
+      kind: "text",
+      content:
+        "It takes about five minutes, and it is anonymous — your answers are pooled with everyone else's before anyone sees them.",
+    },
+    { kind: "button", label: "Give your feedback", url },
+    { kind: "fallbackUrl", url },
+    {
+      kind: "list",
+      heading: "What happens to your answers",
+      items: [
+        `They are shown to ${from.name} after ${closesOn}, together with everyone else's.`,
+        "Your name and email address are not stored alongside them, so no reply can be traced back to you.",
+        "Written comments are passed on word for word, so write them as you would want them read.",
+      ],
+    },
+    {
+      kind: "note",
+      content: `This link is yours alone, works once, and stops working on ${closesOn}. If you would rather not take part, simply ignore this — ${from.name} is told how many people replied, never who.`,
+    },
+  ];
+
+  await send(
+    to,
+    reminder ? `Reminder: ${from.name} would still value your feedback` : `${from.name} has asked for your feedback`,
+    text,
+    from.email,
+    renderEmail({
+      title,
+      preheader: `Five minutes, anonymous, open until ${closesOn}.`,
+      blocks,
+    })
+  );
+}

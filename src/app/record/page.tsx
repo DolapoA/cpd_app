@@ -153,6 +153,9 @@ export default async function RecordPage({
                   {pack.label}
                 </Link>
               )}
+              <Link href="/record/colleague-feedback" className="btn btn--quiet btn--small">
+                Colleague feedback
+              </Link>
               <Link href="/record/import" className="btn btn--quiet btn--small">
                 Import spreadsheet
               </Link>
