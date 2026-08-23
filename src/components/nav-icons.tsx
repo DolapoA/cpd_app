@@ -54,10 +54,23 @@ function RegistersIcon() {
   );
 }
 
+/** Two colleagues — feedback is other people's view of you. */
+function MsfIcon() {
+  return (
+    <svg {...shared}>
+      <circle cx="7" cy="6.6" r="2.6" />
+      <path d="M2.8 16.6v-1.2a4.2 4.2 0 0 1 8.4 0v1.2" />
+      <circle cx="14.2" cy="7.6" r="2.1" />
+      <path d="M13.3 12.3a3.6 3.6 0 0 1 4.2 3.1v1.2" />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, () => React.JSX.Element> = {
   home: HomeIcon,
   record: RecordIcon,
   registers: RegistersIcon,
+  msf: MsfIcon,
 };
 
 export function NavIcon({ name }: { name: string }) {

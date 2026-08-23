@@ -32,26 +32,14 @@ export default async function ColleagueFeedbackPage() {
       <div className="page-head">
         <div>
           <h1>Colleague feedback</h1>
-          <p>
-            What the people you work with make of how you practise.{" "}
-            <Link href="/record">Back to your record</Link>
-          </p>
+          <p>What the people you work with make of how you practise.</p>
         </div>
-        {!open && (
-          <Link href="/record/colleague-feedback/new" className="btn">
-            Ask for feedback
-          </Link>
-        )}
       </div>
 
       {rounds.length === 0 ? (
         <div className="card empty">
           <div className="empty__icon" aria-hidden="true">◎</div>
           <p className="empty__title">Nothing asked yet</p>
-          <p>
-            You name colleagues by email; each gets their own private link and answers twenty
-            questions anonymously. Their replies are pooled and shown to you three weeks later.
-          </p>
           <div className="actions-row">
             <Link href="/record/colleague-feedback/new" className="btn">
               Ask for feedback
@@ -65,21 +53,25 @@ export default async function ColleagueFeedbackPage() {
               <tbody>
                 {rounds.map((round) => {
                   const c = counts.get(round.id) ?? { asked: 0, replied: 0 };
-                  const closed = msfStatus(round) === "closed";
-                  const left = daysBetween(ukToday(), round.closes_on);
+                  const status = msfStatus(round);
+                  const left = round.closes_on ? daysBetween(ukToday(), round.closes_on) : null;
                   return (
                     <tr key={round.id}>
                       <td data-label=".">
                         <Link href={`/record/colleague-feedback/${round.id}`}>
-                          <strong>Opened {formatDate(round.opened_on)}</strong>
+                          <strong>{round.reference ?? `Round ${round.id}`}</strong>
                         </Link>
                         <div className="muted small">
-                          {c.replied} of {c.asked} replied
+                          {round.opened_on
+                            ? `Opened ${formatDate(round.opened_on)} · ${c.replied} of ${c.asked} replied`
+                            : "No raters invited yet"}
                         </div>
                       </td>
                       <td data-label="Status">
-                        {closed ? (
+                        {status === "closed" ? (
                           <span className="badge badge--verified">Results ready</span>
+                        ) : status === "draft" ? (
+                          <span className="badge badge--neutral">Draft</span>
                         ) : (
                           <span className="badge badge--neutral">
                             {left} {left === 1 ? "day" : "days"} left
@@ -92,6 +84,14 @@ export default async function ColleagueFeedbackPage() {
               </tbody>
             </table>
           </div>
+        </div>
+      )}
+
+      {rounds.length > 0 && !open && (
+        <div className="actions-row">
+          <Link href="/record/colleague-feedback/new" className="btn">
+            Ask for feedback
+          </Link>
         </div>
       )}
     </main>

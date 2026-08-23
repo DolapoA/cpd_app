@@ -1,11 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireConfirmedUser } from "@/lib/auth";
-import { getDb, type MsfRequest, type MsfResponse } from "@/lib/db";
+import { getDb, type MsfInvitation, type MsfRequest, type MsfResponse } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { sendMsfReminder } from "@/lib/actions";
+import { addMsfRater, sendMsfReminder } from "@/lib/actions";
+import { ActionForm } from "@/components/action-form";
+import { MsfForm } from "@/components/msf-form";
 import { canRemind, daysBetween, msfStatus, ukToday } from "@/lib/msf-invites";
 import {
+  MSF_MIN_COLLEAGUES,
   MSF_RATED_QUESTIONS,
   MSF_SCALE_LABELS,
   MSF_SCALE_POINTS,
@@ -23,11 +26,11 @@ export default async function ColleagueFeedbackDetailPage({
   searchParams,
 }: {
   params: Promise<{ id: string }>;
-  searchParams: Promise<{ sent?: string; reminded?: string }>;
+  searchParams: Promise<{ self?: string; reminded?: string }>;
 }) {
   const user = await requireConfirmedUser();
   const { id } = await params;
-  const { sent, reminded } = await searchParams;
+  const { self, reminded } = await searchParams;
 
   const db = await getDb();
   const request = (await db
@@ -35,34 +38,42 @@ export default async function ColleagueFeedbackDetailPage({
     .get(Number(id), user.id)) as MsfRequest | undefined;
   if (!request) notFound();
 
-  const tally = (await db
-    .prepare(
-      `SELECT COUNT(*) AS asked,
-              COALESCE(SUM(responded), 0) AS replied,
-              COUNT(declined_at) AS declined
-         FROM msf_invitations WHERE request_id = ?`
-    )
-    .get(request.id)) as { asked: string; replied: string; declined: string };
-  const asked = Number(tally.asked);
-  const replied = Number(tally.replied);
-  const declined = Number(tally.declined);
+  const invitations = (await db
+    .prepare("SELECT * FROM msf_invitations WHERE request_id = ? ORDER BY id ASC")
+    .all(request.id)) as MsfInvitation[];
+  const asked = invitations.length;
+  const replied = invitations.filter((i) => i.responded).length;
+  const declined = invitations.filter((i) => i.declined_at).length;
 
-  const closed = msfStatus(request) === "closed";
-  const daysLeft = daysBetween(ukToday(), request.closes_on);
+  const selfDone = !!(await db
+    .prepare("SELECT request_id FROM msf_self_assessments WHERE request_id = ?")
+    .get(request.id));
+
+  const status = msfStatus(request);
+  const daysLeft = request.closes_on ? daysBetween(ukToday(), request.closes_on) : null;
+
+  // The results unseal only when the window has closed, the subject has done
+  // the same exercise themselves, and enough people were asked for a reply
+  // not to be traceable. All three are conditions, not suggestions.
+  const enoughInvited = asked >= MSF_MIN_COLLEAGUES;
+  const released = status === "closed" && selfDone && enoughInvited;
+
+  const responses = released
+    ? ((await db
+        .prepare("SELECT * FROM msf_responses WHERE request_id = ?")
+        .all(request.id)) as MsfResponse[])
+    : [];
+  const selfAnswers = released
+    ? ((await db
+        .prepare("SELECT * FROM msf_self_assessments WHERE request_id = ?")
+        .get(request.id)) as Record<string, number | string | null> | undefined)
+    : undefined;
+
   const captions = {
     name: request.subject_name,
     word: request.subject_word,
     comparedTo: request.compared_to,
   };
-
-  // Only fetched once the window has closed: there is no code path that reads
-  // an answer while colleagues can still be nudged.
-  const responses = closed
-    ? ((await db
-        .prepare("SELECT * FROM msf_responses WHERE request_id = ?")
-        .all(request.id)) as MsfResponse[])
-    : [];
-
   const summary = MSF_RATED_QUESTIONS.map((question) =>
     summariseMsfItem(
       question,
@@ -76,18 +87,14 @@ export default async function ColleagueFeedbackDetailPage({
         <div>
           <h1>Colleague feedback</h1>
           <p>
-            Opened {formatDate(request.opened_on)} &middot; closes {formatDate(request.closes_on)}
-            {" "}&middot; <Link href="/record/colleague-feedback">All rounds</Link>
+            <Link href="/record/colleague-feedback">All rounds</Link>
           </p>
         </div>
       </div>
 
-      {sent === "1" && (
+      {self === "1" && (
         <div className="notice notice--ok">
-          <p className="small">
-            Invitations sent to {asked} colleagues. You will see the replies after{" "}
-            {formatDate(request.closes_on)}.
-          </p>
+          <p className="small">Self-assessment saved.</p>
         </div>
       )}
       {reminded === "1" && (
@@ -96,71 +103,166 @@ export default async function ColleagueFeedbackDetailPage({
         </div>
       )}
 
-      <div className="grid-4">
+      {/* Reference · due date · self-assessment: the filing strip an
+          appraisal system expects to see. */}
+      <div className="grid-4 msf-strip">
         <div className="stat">
-          <div className="stat__value">{asked}</div>
-          <div className="stat__label">Colleagues asked</div>
+          <div className="stat__value mono msf-ref">{request.reference}</div>
+          <div className="stat__label">Reference</div>
+        </div>
+        <div className="stat">
+          <div className="stat__value">
+            {request.closes_on ? formatDate(request.closes_on) : "Not set"}
+          </div>
+          <div className="stat__label">
+            {request.closes_on ? "Due date" : "Set when your first rater is invited"}
+          </div>
         </div>
         <div className="stat">
           <div className="stat__value">{replied}</div>
-          <div className="stat__label">Replied</div>
+          <div className="stat__label">
+            {asked === 0 ? "Responses" : `Responses of ${asked} invited`}
+          </div>
         </div>
         <div className="stat">
-          <div className="stat__value">{declined}</div>
-          <div className="stat__label">Declined</div>
-        </div>
-        <div className="stat">
-          <div className="stat__value">{closed ? 0 : Math.max(0, daysLeft)}</div>
-          <div className="stat__label">{closed ? "Closed" : "Days left"}</div>
+          <div className="stat__value">{selfDone ? "✓" : "—"}</div>
+          <div className="stat__label">
+            {selfDone ? "Self-assessment complete" : "Self-assessment needed"}
+          </div>
         </div>
       </div>
 
-      {!closed && (
-        <div className="card stack">
-          <h2>Still open</h2>
-          {/* Counts, never names. Putting a colleague's address beside "hasn't
-              replied" would be the strongest hint anyone could be given about
-              who said what once the answers arrive. */}
-          <p className="muted small">
-            Nothing is shown until {formatDate(request.closes_on)}, including to you. We tell you
-            how many people have replied and never which &mdash; that is what lets your
-            colleagues answer candidly.
-          </p>
-          {canRemind(request) ? (
-            <form action={sendMsfReminder}>
-              <input type="hidden" name="request_id" value={request.id} />
-              <button type="submit" className="btn btn--secondary">
-                Remind the {asked - replied - declined} who haven&rsquo;t replied
-              </button>
-            </form>
-          ) : (
-            <p className="hint">
-              {request.reminded_on
-                ? `Reminder sent ${formatDate(request.reminded_on)}. That is the only one — beyond that it is chasing.`
-                : `You can send one reminder from ${formatDate(request.opened_on)} plus 7 days.`}
-            </p>
-          )}
+      {!released && (
+        <div className="msf-columns">
+          <div className="stack">
+            <div className="card stack">
+              <h2>Nominated raters</h2>
+              {status === "closed" ? (
+                <p className="muted small">The window has closed — no more raters can be added.</p>
+              ) : (
+                <ActionForm action={addMsfRater} submitLabel="Send">
+                  <input type="hidden" name="request_id" value={request.id} />
+                  <div className="field-row">
+                    <div className="field">
+                      <label htmlFor="full_name">Full name</label>
+                      <input id="full_name" name="full_name" type="text" required />
+                    </div>
+                    <div className="field">
+                      <label htmlFor="email">Email address</label>
+                      <input
+                        id="email"
+                        name="email"
+                        type="email"
+                        required
+                        placeholder="e.g. ade@trust.nhs.uk"
+                      />
+                    </div>
+                  </div>
+                </ActionForm>
+              )}
+
+              {asked > 0 && (
+                <ul className="bullets small">
+                  {/* Who was invited — which the subject typed, so it is
+                      theirs to see. Whether each has replied is not: a name
+                      beside "hasn't answered" is the strongest attribution
+                      aid anyone could be handed once the answers arrive. */}
+                  {invitations.map((i) => (
+                    <li key={i.id}>
+                      {i.full_name ?? i.email}
+                      <span className="muted"> · {i.email}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+              {asked > 0 && !enoughInvited && (
+                <p className="hint">
+                  Invite at least {MSF_MIN_COLLEAGUES} — with fewer, replies start to be
+                  traceable, so the results will not open.
+                </p>
+              )}
+              {status === "open" && (
+                <p className="muted small">
+                  Your round closes {formatDate(request.closes_on as string)}
+                  {daysLeft !== null && daysLeft >= 0 ? ` — ${daysLeft} ${daysLeft === 1 ? "day" : "days"} left.` : "."}
+                </p>
+              )}
+              {canRemind(request) && asked - replied - declined > 0 && (
+                <form action={sendMsfReminder}>
+                  <input type="hidden" name="request_id" value={request.id} />
+                  <button type="submit" className="btn btn--secondary">
+                    Remind the {asked - replied - declined} who haven&rsquo;t replied
+                  </button>
+                </form>
+              )}
+              {request.reminded_on && (
+                <p className="hint">
+                  Reminder sent {formatDate(request.reminded_on)}. That is the only one.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="stack">
+            <div className="card stack">
+              <h2>Responses</h2>
+              <p className="msf-count">
+                <strong>{replied}</strong> out of <strong>{asked}</strong>
+              </p>
+              <p className="muted small">
+                Nothing is shown until the round closes, including to you — and never who
+                replied, only how many. That is what lets colleagues answer candidly.
+              </p>
+            </div>
+
+            {!selfDone && (
+              <div className="card stack">
+                <h2>Your self-assessment</h2>
+                <p className="muted small">
+                  Answer the same questions about yourself. The results stay sealed until you
+                  have — rating yourself after reading everyone else&rsquo;s answers is a
+                  different exercise, and not the one an appraiser wants.
+                </p>
+                <details>
+                  <summary className="btn btn--secondary">Start now</summary>
+                  <div className="stack" style={{ marginTop: "var(--space-4)" }}>
+                    <MsfForm selfRequestId={request.id} captions={captions} />
+                  </div>
+                </details>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
-      {closed && responses.length === 0 && (
+      {status === "closed" && !released && (
+        <div className="notice notice--info">
+          <p className="small">
+            {!enoughInvited
+              ? `This round closed with only ${asked} raters invited. Results open at ${MSF_MIN_COLLEAGUES} — with fewer, a reply is close to attributable, and colleagues were promised better.`
+              : "The window has closed. Complete your self-assessment above and the results unseal."}
+          </p>
+        </div>
+      )}
+
+      {released && responses.length === 0 && (
         <div className="card empty">
           <p className="empty__title">Nobody replied</p>
           <p>
-            The window closed with no answers. Colleagues are busy and this asks a real favour of
-            them &mdash; it is worth asking again, in person first.
+            The window closed with no answers. Colleagues are busy and this asks a real favour
+            of them &mdash; it is worth asking again, in person first.
           </p>
         </div>
       )}
 
-      {closed && responses.length > 0 && (
+      {released && responses.length > 0 && (
         <>
           {responses.length < MSF_SMALL_SAMPLE && (
             <div className="notice notice--warn">
               <p className="small">
-                <strong>Only {responses.length} replies.</strong> Treat these as indicative rather
-                than representative &mdash; and with this few, a written answer can be traceable
-                from its wording. Please don&rsquo;t try to work out who wrote what.
+                <strong>Only {responses.length} replies.</strong> Treat these as indicative
+                rather than representative &mdash; and with this few, a written answer can be
+                traceable from its wording. Please don&rsquo;t try to work out who wrote what.
               </p>
             </div>
           )}
@@ -171,49 +273,52 @@ export default async function ColleagueFeedbackDetailPage({
                 <thead>
                   <tr>
                     <th>Question</th>
-                    <th className="col--bar">Average</th>
+                    <th className="col--bar">Colleagues</th>
+                    <th>You</th>
                     <th>Spread (low &rarr; high)</th>
                   </tr>
                 </thead>
                 <tbody>
-                  {summary.map((item) => (
-                    <tr key={item.question.key}>
-                      <td data-label=".">
-                        {renderMsfQuestion(item.question.template, captions)}
-                        {item.abstained > 0 && (
-                          <div className="muted small">
-                            {item.abstained} could not comment
-                          </div>
-                        )}
-                      </td>
-                      <td data-label="Average" className="col--bar">
-                        {item.mean === null ? (
-                          <span className="muted small">No one felt able to say</span>
-                        ) : (
-                          <div className="fb-bar">
-                            <span className="fb-bar__track">
-                              <i
-                                className="fb-bar__fill"
-                                style={{ ["--fill" as string]: `${(item.mean / MSF_SCALE_POINTS) * 100}%` }}
-                              />
-                            </span>
-                            <span className="small">{item.mean.toFixed(1)}</span>
-                          </div>
-                        )}
-                      </td>
-                      <td data-label="Spread" className="small">
-                        {item.rated > 0 ? item.distribution.join(" · ") : "—"}
-                      </td>
-                    </tr>
-                  ))}
+                  {summary.map((item) => {
+                    const own = Number(selfAnswers?.[item.question.key] ?? 0);
+                    return (
+                      <tr key={item.question.key}>
+                        <td data-label=".">
+                          {renderMsfQuestion(item.question.template, captions)}
+                          {item.abstained > 0 && (
+                            <div className="muted small">{item.abstained} could not comment</div>
+                          )}
+                        </td>
+                        <td data-label="Colleagues" className="col--bar">
+                          {item.mean === null ? (
+                            <span className="muted small">No one felt able to say</span>
+                          ) : (
+                            <div className="fb-bar">
+                              <span className="fb-bar__track">
+                                <i
+                                  className="fb-bar__fill"
+                                  style={{ ["--fill" as string]: `${(item.mean / MSF_SCALE_POINTS) * 100}%` }}
+                                />
+                              </span>
+                              <span className="small">{item.mean.toFixed(1)}</span>
+                            </div>
+                          )}
+                        </td>
+                        <td data-label="You" className="small">
+                          {own >= 1 ? own : "—"}
+                        </td>
+                        <td data-label="Spread" className="small">
+                          {item.rated > 0 ? item.distribution.join(" · ") : "—"}
+                        </td>
+                      </tr>
+                    );
+                  })}
                 </tbody>
               </table>
             </div>
           </div>
 
           {MSF_TEXT_QUESTIONS.map((question) => {
-            // Sorted by a hash of the text, not by row id: arrival order is
-            // one of the few threads left that could lead back to a person.
             const written = responses
               .map((r) => String(r[question.key as `q${number}`] ?? "").trim())
               .filter(Boolean)
@@ -235,10 +340,10 @@ export default async function ColleagueFeedbackDetailPage({
           })}
 
           <p className="muted small">
-            Rated against &ldquo;{request.compared_to}&rdquo;. Scale:{" "}
-            {MSF_SCALE_LABELS.map((l, i) => `${i + 1} ${l.toLowerCase()}`).join(" · ")}. Replies
-            are not linked to the colleague who gave them, so they cannot be attributed by anyone
-            &mdash; including us.
+            {request.reference} &middot; Rated against &ldquo;{request.compared_to}&rdquo;.
+            Scale: {MSF_SCALE_LABELS.map((l, i) => `${i + 1} ${l.toLowerCase()}`).join(" · ")}.
+            Replies are not linked to the colleague who gave them, so they cannot be attributed
+            by anyone &mdash; including us.
           </p>
         </>
       )}

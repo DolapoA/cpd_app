@@ -25,6 +25,9 @@ export default async function MsfRespondPage({
   if (!found) notFound();
 
   const { invitation, request } = found;
+  // An invitation cannot exist before the first rater was added, and adding
+  // the first rater is what stamps the window — so it is set here.
+  const closesOn = request.closes_on as string;
   const closed = msfStatus(request) === "closed";
   const spent = !!invitation.responded;
   const declined = !!invitation.declined_at;
@@ -39,7 +42,7 @@ export default async function MsfRespondPage({
               ? `Your feedback for ${request.subject_name} was received. Thank you — it is pooled with everyone else's.`
               : declined
                 ? "Nothing was sent, and you will not be reminded again."
-                : `Feedback for ${request.subject_name} closed on ${formatDate(request.closes_on)}.`}
+                : `Feedback for ${request.subject_name} closed on ${formatDate(closesOn)}.`}
           </p>
         </div>
       </main>
@@ -68,7 +71,7 @@ export default async function MsfRespondPage({
         <h2 className="notice__title">This is anonymous</h2>
         <p className="small">
           Your answers are pooled with the other colleagues&rsquo; and shown to{" "}
-          {request.subject_name} after {formatDate(request.closes_on)}. Your name, your email
+          {request.subject_name} after {formatDate(closesOn)}. Your name, your email
           address and the date you answered are <strong>not stored with your answers</strong> —
           they cannot be, so nobody can work out which reply was yours.
         </p>

@@ -587,15 +587,17 @@ export async function sendMsfInvitation(
   from: { name: string; email: string; profession: string | null },
   url: string,
   closesOn: string,
-  reminder = false
+  reminder = false,
+  toName?: string
 ): Promise<void> {
   const who = from.profession ? `${from.name}, ${from.profession},` : `${from.name}`;
+  const greeting = toName ? `Hello ${toName},` : null;
   const title = reminder ? "A reminder: feedback for a colleague" : "A colleague has asked for your feedback";
   const opening = reminder
     ? `${who} asked for your feedback a week ago and has not heard back. There is still time.`
     : `${who} is collecting feedback from colleagues as part of their professional development, and has asked for yours.`;
 
-  const text = `${opening}
+  const text = `${greeting ? greeting + "\n\n" : ""}${opening}
 
 It takes about five minutes. Your answers are pooled with everyone else's and shown to ${from.name} after ${closesOn}. Your name and email address are not stored with your answers — they cannot be, so nobody can work out which reply was yours.
 
@@ -606,6 +608,7 @@ The link is yours alone and works once. It stops working on ${closesOn}.
 CPD Register`;
 
   const blocks: EmailBlock[] = [
+    ...(greeting ? [{ kind: "text", content: greeting } as EmailBlock] : []),
     { kind: "text", content: opening },
     {
       kind: "text",

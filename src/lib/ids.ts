@@ -22,3 +22,8 @@ export function newVerificationCode(): string {
 export function newSessionToken(): string {
   return crypto.randomBytes(32).toString("hex");
 }
+
+/** A filing reference for a feedback round, e.g. MSF-7Q2M-K4XV. */
+export function newMsfReference(): string {
+  return `MSF-${randomFromAlphabet(4)}-${randomFromAlphabet(4)}`;
+}

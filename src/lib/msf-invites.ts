@@ -41,17 +41,19 @@ export function daysBetween(from: string, to: string): number {
 /**
  * Where a request is in its life.
  *
+ * "draft" means nobody has been invited and the clock has not started;
  * "open" means colleagues can still answer and the subject sees counts only;
  * "closed" means the window has passed and the results are theirs to read.
  */
-export function msfStatus(request: MsfRequest, today = ukToday()): "open" | "closed" {
+export function msfStatus(request: MsfRequest, today = ukToday()): "draft" | "open" | "closed" {
+  if (!request.closes_on) return "draft";
   return today > request.closes_on ? "closed" : "open";
 }
 
 /** Whether the one reminder is available yet, and has not already been used. */
 export function canRemind(request: MsfRequest, today = ukToday()): boolean {
-  if (request.reminded_on) return false;
-  if (msfStatus(request, today) === "closed") return false;
+  if (request.reminded_on || !request.opened_on) return false;
+  if (msfStatus(request, today) !== "open") return false;
   return daysBetween(request.opened_on, today) >= MSF_REMINDER_AFTER_DAYS;
 }
 

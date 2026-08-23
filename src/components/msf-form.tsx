@@ -2,7 +2,7 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { submitMsfResponse } from "@/lib/actions";
+import { submitMsfResponse, submitMsfSelfAssessment } from "@/lib/actions";
 import {
   MSF_ABSTAIN,
   MSF_ABSTAIN_LABEL,
@@ -27,19 +27,33 @@ import {
  * has never been in a position to judge.
  */
 
-function Submit() {
+function Submit({ label }: { label: string }) {
   const { pending } = useFormStatus();
   return (
     <button type="submit" className="btn btn--large" disabled={pending}>
-      {pending ? "Sending…" : "Send my feedback"}
+      {pending ? "Sending…" : label}
     </button>
   );
 }
 
-export function MsfForm({ token, captions }: { token: string; captions: MsfCaptions }) {
-  const [state, action] = useActionState(submitMsfResponse, null);
+export function MsfForm({
+  token,
+  captions,
+  selfRequestId,
+}: {
+  token?: string;
+  captions: MsfCaptions;
+  /** Set when the subject is rating themselves; the questions are the same. */
+  selfRequestId?: number;
+}) {
+  const [state, action] = useActionState(
+    selfRequestId ? submitMsfSelfAssessment : submitMsfResponse,
+    null
+  );
   const [answered, setAnswered] = useState(0);
-  const storeKey = `cpd:msf:${token.slice(0, 12)}`;
+  const storeKey = selfRequestId
+    ? `cpd:msf-self:${selfRequestId}`
+    : `cpd:msf:${(token ?? "").slice(0, 12)}`;
 
   // Restore whatever this browser was holding, then keep it current.
   useEffect(() => {
@@ -99,7 +113,11 @@ export function MsfForm({ token, captions }: { token: string; captions: MsfCapti
       }}
       className="stack"
     >
-      <input type="hidden" name="token" value={token} />
+      {selfRequestId ? (
+        <input type="hidden" name="request_id" value={selfRequestId} />
+      ) : (
+        <input type="hidden" name="token" value={token} />
+      )}
 
       <p className="msf-progress" aria-live="polite">
         {answered} of {MSF_RATED_QUESTIONS.length} answered
@@ -142,7 +160,7 @@ export function MsfForm({ token, captions }: { token: string; captions: MsfCapti
       ))}
 
       <div className="actions-row">
-        <Submit />
+        <Submit label={selfRequestId ? "Save my self-assessment" : "Send my feedback"} />
       </div>
     </form>
   );

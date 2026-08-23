@@ -186,6 +186,9 @@ CREATE INDEX IF NOT EXISTS idx_feedback_register ON feedback_responses(register_
 CREATE TABLE IF NOT EXISTS msf_requests (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  /* Quoted in emails and on the results, the way an appraisal system would
+     expect to file it. */
+  reference TEXT,
   question_set_version INTEGER NOT NULL DEFAULT 1,
   /* Frozen when the request is made. A colleague answered one particular
      sentence, and a profile edited afterwards — a new name, a new job — must
@@ -193,8 +196,10 @@ CREATE TABLE IF NOT EXISTS msf_requests (
   subject_name TEXT NOT NULL,
   subject_word TEXT NOT NULL,
   compared_to TEXT NOT NULL,
-  opened_on TEXT NOT NULL,
-  closes_on TEXT NOT NULL,
+  /* NULL until the first rater is invited: the clock starts when somebody is
+     actually asked, not when the form is opened. */
+  opened_on TEXT,
+  closes_on TEXT,
   /* The single reminder. NULL until it is sent, and set once, ever. */
   reminded_on TEXT,
   cpd_entry_id INTEGER REFERENCES cpd_entries(id),
@@ -205,6 +210,7 @@ CREATE INDEX IF NOT EXISTS idx_msf_requests_user ON msf_requests(user_id);
 CREATE TABLE IF NOT EXISTS msf_invitations (
   id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   request_id INTEGER NOT NULL REFERENCES msf_requests(id) ON DELETE CASCADE,
+  full_name TEXT,
   email TEXT NOT NULL,
   /* Hashed, like auth_tokens: a leaked database should not hand over working
      links. The plaintext exists only long enough to build the email. */
@@ -231,6 +237,39 @@ CREATE TABLE IF NOT EXISTS msf_responses (
   q18 TEXT, q19 TEXT, q20 TEXT
 );
 CREATE INDEX IF NOT EXISTS idx_msf_responses_request ON msf_responses(request_id);
+
+/*
+  The subject's own answers to the same questions. Kept apart from the
+  colleagues' — this one is attributed by definition, and the whole value of
+  the exercise is the gap between the two columns. Results stay sealed until
+  it exists: rating yourself after reading everyone else's answers is a
+  different, easier exercise, and not the one an appraiser wants.
+*/
+CREATE TABLE IF NOT EXISTS msf_self_assessments (
+  request_id INTEGER PRIMARY KEY REFERENCES msf_requests(id) ON DELETE CASCADE,
+  question_set_version INTEGER NOT NULL DEFAULT 1,
+  q1 INTEGER NOT NULL, q2 INTEGER NOT NULL, q3 INTEGER NOT NULL,
+  q4 INTEGER NOT NULL, q5 INTEGER NOT NULL, q6 INTEGER NOT NULL,
+  q7 INTEGER NOT NULL, q8 INTEGER NOT NULL, q9 INTEGER NOT NULL,
+  q10 INTEGER NOT NULL, q11 INTEGER NOT NULL, q12 INTEGER NOT NULL,
+  q13 INTEGER NOT NULL, q14 INTEGER NOT NULL, q15 INTEGER NOT NULL,
+  q16 INTEGER NOT NULL, q17 INTEGER NOT NULL,
+  q18 TEXT, q19 TEXT, q20 TEXT,
+  completed_on TEXT NOT NULL
+);
+
+/* Databases that ran yesterday's shape, where the window was stamped at
+   creation and raters had no names. Order matters: these sit after the
+   CREATEs they alter, or a fresh database rolls the whole schema back. */
+ALTER TABLE msf_requests ADD COLUMN IF NOT EXISTS reference TEXT;
+ALTER TABLE msf_requests ALTER COLUMN opened_on DROP NOT NULL;
+ALTER TABLE msf_requests ALTER COLUMN closes_on DROP NOT NULL;
+ALTER TABLE msf_invitations ADD COLUMN IF NOT EXISTS full_name TEXT;
+UPDATE msf_requests SET reference = 'MSF-' || id WHERE reference IS NULL;
+/* After the ALTER above, not beside the CREATE: on a database that already
+   held the table, the CREATE is a no-op and an index on a column the ALTER
+   has not yet added takes the whole schema transaction down with it. */
+CREATE UNIQUE INDEX IF NOT EXISTS idx_msf_requests_reference ON msf_requests(reference);
 
 /*
   CPD someone intends to do, as opposed to CPD they have done. Deliberately a
@@ -676,12 +715,14 @@ export type Employment = {
 export type MsfRequest = {
   id: number;
   user_id: number;
+  reference: string | null;
   question_set_version: number;
   subject_name: string;
   subject_word: string;
   compared_to: string;
-  opened_on: string;
-  closes_on: string;
+  /** Null until the first rater is invited — the clock starts then. */
+  opened_on: string | null;
+  closes_on: string | null;
   reminded_on: string | null;
   cpd_entry_id: number | null;
   created_at: string;
@@ -690,6 +731,7 @@ export type MsfRequest = {
 export type MsfInvitation = {
   id: number;
   request_id: number;
+  full_name: string | null;
   email: string;
   token_hash: string;
   responded: number;

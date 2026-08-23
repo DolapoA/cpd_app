@@ -47,7 +47,7 @@ const EXPECTED = [
   "users", "sessions", "registers", "signatures", "cpd_entries",
   "feedback_responses", "activity_type_goals", "auth_tokens", "auth_attempts",
   "planned_events", "employments", "push_subscriptions", "notified_events",
-  "msf_requests", "msf_invitations", "msf_responses",
+  "msf_requests", "msf_invitations", "msf_responses", "msf_self_assessments",
 ];
 
 let problems = 0;

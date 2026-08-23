@@ -48,6 +48,7 @@ import {
   ukToday,
 } from "./msf-invites";
 import { professionWord } from "./professions";
+import { newMsfReference } from "./ids";
 import { formatDate } from "./format";
 import { sendMsfInvitation } from "./email";
 import { claimToken, issueToken } from "./tokens";
@@ -2321,35 +2322,15 @@ export async function setOrganiserPlan(formData: FormData): Promise<void> {
    Multi-source feedback
 --------------------------------------------------------------------------- */
 
-/** One address per line or comma, lowercased, de-duplicated, sanity-checked. */
-function colleagueEmails(raw: string, own: string): { emails: string[] } | { error: string } {
-  const seen = new Set<string>();
-  for (const candidate of raw.split(/[\s,;]+/)) {
-    const email = candidate.trim().toLowerCase();
-    if (!email) continue;
-    if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254)
-      return { error: `That doesn't look like an email address: ${candidate.trim()}` };
-    // Rating yourself is not multi-source feedback.
-    if (email === own.toLowerCase())
-      return { error: "You can't ask yourself — take your own address out of the list." };
-    seen.add(email);
-  }
-  const emails = [...seen];
-  if (emails.length < MSF_MIN_COLLEAGUES)
-    return {
-      error: `Ask at least ${MSF_MIN_COLLEAGUES} colleagues. Fewer than that and a reply starts to be traceable to the person who gave it.`,
-    };
-  if (emails.length > MSF_MAX_COLLEAGUES)
-    return { error: `That's more than ${MSF_MAX_COLLEAGUES}. Ask the ones whose view you actually want.` };
-  return { emails };
-}
-
 /**
- * Open a feedback round.
+ * Open a feedback round — as a draft, with a filing reference.
  *
- * The captions are frozen onto the request here, not read at display time: a
- * colleague answers one particular sentence, and a profile edited next month
- * must not re-caption an answer already given.
+ * Nobody is emailed here. Raters are invited one at a time, by name, and the
+ * twenty-one days start when the first of them is actually asked: the clock
+ * belongs to the invitations, not to the form.
+ *
+ * The captions are frozen here all the same: a colleague answers one
+ * particular sentence, and a profile edited later must not re-caption it.
  */
 export async function createMsfRequest(
   _prev: ActionState,
@@ -2359,84 +2340,163 @@ export async function createMsfRequest(
 
   const comparedTo = str(formData, "compared_to").slice(0, 60);
   if (!comparedTo)
-    return { error: "Say who you should be compared with — it is what the last question means." };
-
-  const parsed = colleagueEmails(str(formData, "colleagues"), user.email);
-  if ("error" in parsed) return parsed;
+    return { error: "Say which position you should be rated against — it is what the last question means." };
 
   const db = await getDb();
   const open = (await db
-    .prepare("SELECT COUNT(*) AS c FROM msf_requests WHERE user_id = ? AND closes_on >= ?")
+    .prepare(
+      "SELECT COUNT(*) AS c FROM msf_requests WHERE user_id = ? AND (closes_on IS NULL OR closes_on >= ?)"
+    )
     .get(user.id, ukToday())) as { c: string };
   if (Number(open.c) > 0)
     return { error: "You already have a round open. Wait for it to close before starting another." };
 
-  // The same throttle the problem-report form uses, for the same reason: this
-  // sends mail to addresses we have never seen.
-  const throttleKey = `msf:${user.id}`;
-  if (await tooManyAttempts(throttleKey, 3))
-    return { error: "That's several rounds in a short time. Try again in 15 minutes." };
-  await recordFailedAttempt(throttleKey);
-
-  const openedOn = ukToday();
-  const closesOn = addDays(openedOn, MSF_WINDOW_DAYS);
-  const tokens: { email: string; token: string }[] = [];
-
   const created = (await db
     .prepare(
       `INSERT INTO msf_requests
-         (user_id, question_set_version, subject_name, subject_word, compared_to,
-          opened_on, closes_on, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+         (user_id, reference, question_set_version, subject_name, subject_word, compared_to, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?)
        RETURNING id`
     )
     .get(
       user.id,
+      newMsfReference(),
       MSF_QUESTION_SET_VERSION,
       user.full_name,
       professionWord(user.profession),
       comparedTo,
-      openedOn,
-      closesOn,
       new Date().toISOString()
     )) as { id: number };
 
-  for (const email of parsed.emails) {
-    const token = newInviteToken();
-    tokens.push({ email, token });
+  await record({ name: "msf_requested", colleagues: 0 });
+  redirect(`/record/colleague-feedback/${Number(created.id)}`);
+}
+
+/**
+ * Invite one rater, by name and address.
+ *
+ * The first invitation starts the clock: the due date is that day plus
+ * twenty-one, and it does not move for raters added later — a round that
+ * re-opened its window with every added name would never close.
+ */
+export async function addMsfRater(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "request_id");
+  if (id === null) return { error: "Something went wrong — go back to your feedback rounds." };
+
+  const fullName = str(formData, "full_name").slice(0, 100);
+  const email = str(formData, "email").trim().toLowerCase();
+  if (!fullName) return { error: "Give the rater's name — the invitation addresses them by it." };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email) || email.length > 254)
+    return { error: "That doesn't look like an email address." };
+  if (email === user.email.toLowerCase())
+    return { error: "You can't ask yourself — your own view goes in the self-assessment." };
+
+  const db = await getDb();
+  const request = (await db
+    .prepare("SELECT * FROM msf_requests WHERE id = ? AND user_id = ?")
+    .get(id, user.id)) as MsfRequest | undefined;
+  if (!request) return { error: "That round is not yours." };
+  if (msfStatus(request) === "closed") return { error: "This round has closed." };
+
+  const tally = (await db
+    .prepare("SELECT COUNT(*) AS c FROM msf_invitations WHERE request_id = ?")
+    .get(request.id)) as { c: string };
+  if (Number(tally.c) >= MSF_MAX_COLLEAGUES)
+    return { error: `That's ${MSF_MAX_COLLEAGUES} raters — enough for anyone's appraisal.` };
+
+  const already = (await db
+    .prepare("SELECT id FROM msf_invitations WHERE request_id = ? AND email = ?")
+    .get(request.id, email)) as { id: number } | undefined;
+  if (already) return { error: "That colleague has already been invited." };
+
+  // Each invitation is one email to an address we have never seen, so the
+  // same throttle as every other outbound form. Generous enough for a full
+  // rater list in one sitting.
+  const throttleKey = `msf:${user.id}`;
+  if (await tooManyAttempts(throttleKey, 30))
+    return { error: "That's a lot of invitations at once. Try again in 15 minutes." };
+  await recordFailedAttempt(throttleKey);
+
+  const token = newInviteToken();
+  await db
+    .prepare(
+      `INSERT INTO msf_invitations (request_id, full_name, email, token_hash, created_at)
+       VALUES (?, ?, ?, ?, ?)`
+    )
+    .run(request.id, fullName, email, hashInviteToken(token), new Date().toISOString());
+
+  // The first rater starts the clock.
+  let closesOn = request.closes_on;
+  if (!request.opened_on) {
+    const openedOn = ukToday();
+    closesOn = addDays(openedOn, MSF_WINDOW_DAYS);
     await db
-      .prepare(
-        `INSERT INTO msf_invitations (request_id, email, token_hash, created_at)
-         VALUES (?, ?, ?, ?)`
-      )
-      .run(Number(created.id), email, hashInviteToken(token), new Date().toISOString());
+      .prepare("UPDATE msf_requests SET opened_on = ?, closes_on = ? WHERE id = ?")
+      .run(openedOn, closesOn, request.id);
   }
 
-  // Sent after the rows exist, so a mail failure loses an invitation rather
-  // than the round. Anyone who never gets theirs can be re-sent by the
-  // reminder on day seven.
-  const base = await getBaseUrl();
-  for (const { email, token } of tokens) {
-    try {
-      await sendMsfInvitation(
-        email,
-        { name: user.full_name, email: user.email, profession: user.profession },
-        `${base}/msf/${token}`,
-        formatDate(closesOn)
-      );
-    } catch (error) {
-      console.error("[msf] invitation failed for one colleague", error);
-    }
+  try {
+    await sendMsfInvitation(
+      email,
+      { name: user.full_name, email: user.email, profession: user.profession },
+      `${await getBaseUrl()}/msf/${token}`,
+      formatDate(closesOn as string),
+      false,
+      fullName
+    );
+  } catch (error) {
+    console.error("[msf] invitation failed for one rater", error);
   }
 
-  // Rounded down to the nearest five, as the event's own comment promises:
-  // whether rounds are being opened is the useful signal, not who asked how
-  // many people.
-  await record({
-    name: "msf_requested",
-    colleagues: Math.floor(parsed.emails.length / 5) * 5,
-  });
-  redirect(`/record/colleague-feedback/${Number(created.id)}?sent=1`);
+  return null;
+}
+
+/**
+ * The subject's own answers to the same questions.
+ *
+ * Required before the results unseal: rating yourself after reading what
+ * everyone else said is a different, easier exercise, and not the one an
+ * appraiser wants. The gap between the two columns is the output.
+ */
+export async function submitMsfSelfAssessment(
+  _prev: ActionState,
+  formData: FormData
+): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "request_id");
+  if (id === null) return { error: "Something went wrong — go back to your feedback rounds." };
+
+  const db = await getDb();
+  const request = (await db
+    .prepare("SELECT * FROM msf_requests WHERE id = ? AND user_id = ?")
+    .get(id, user.id)) as MsfRequest | undefined;
+  if (!request) return { error: "That round is not yours." };
+
+  const existing = await db
+    .prepare("SELECT request_id FROM msf_self_assessments WHERE request_id = ?")
+    .get(request.id);
+  if (existing) return { error: "Your self-assessment is already in." };
+
+  const ratings: number[] = [];
+  for (const question of MSF_RATED_QUESTIONS) {
+    const raw = Number(formData.get(question.key));
+    if (!Number.isInteger(raw) || raw < 0 || raw > MSF_SCALE_POINTS)
+      return { error: "Please answer every question, or choose “Unable to comment”." };
+    ratings.push(raw);
+  }
+  const texts = MSF_TEXT_QUESTIONS.map((q) => str(formData, q.key).slice(0, 2000) || null);
+
+  await db
+    .prepare(
+      `INSERT INTO msf_self_assessments
+         (request_id, question_set_version,
+          q1,q2,q3,q4,q5,q6,q7,q8,q9,q10,q11,q12,q13,q14,q15,q16,q17,q18,q19,q20, completed_on)
+       VALUES (?, ?, ?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?, ?,?,?, ?)`
+    )
+    .run(request.id, request.question_set_version, ...ratings, ...texts, ukToday());
+
+  redirect(`/record/colleague-feedback/${request.id}?self=1`);
 }
 
 /**
@@ -2460,8 +2520,10 @@ export async function sendMsfReminder(formData: FormData): Promise<void> {
   if (!canRemind(request)) redirect(`/record/colleague-feedback/${id}`);
 
   const waiting = (await db
-    .prepare("SELECT email FROM msf_invitations WHERE request_id = ? AND responded = 0 AND declined_at IS NULL")
-    .all(request.id)) as { email: string }[];
+    .prepare(
+      "SELECT email, full_name FROM msf_invitations WHERE request_id = ? AND responded = 0 AND declined_at IS NULL"
+    )
+    .all(request.id)) as { email: string; full_name: string | null }[];
 
   // Stamped first: a reminder half-sent is still a reminder used, and sending
   // it twice to the people at the top of the list would be worse than missing
@@ -2469,7 +2531,7 @@ export async function sendMsfReminder(formData: FormData): Promise<void> {
   await db.prepare("UPDATE msf_requests SET reminded_on = ? WHERE id = ?").run(ukToday(), request.id);
 
   const base = await getBaseUrl();
-  for (const { email } of waiting) {
+  for (const { email, full_name } of waiting) {
     const invite = (await db
       .prepare("SELECT token_hash FROM msf_invitations WHERE request_id = ? AND email = ?")
       .get(request.id, email)) as { token_hash: string } | undefined;
@@ -2485,8 +2547,9 @@ export async function sendMsfReminder(formData: FormData): Promise<void> {
         email,
         { name: user.full_name, email: user.email, profession: user.profession },
         `${base}/msf/${token}`,
-        formatDate(request.closes_on),
-        true
+        formatDate(request.closes_on as string),
+        true,
+        full_name ?? undefined
       );
     } catch (error) {
       console.error("[msf] reminder failed for one colleague", error);

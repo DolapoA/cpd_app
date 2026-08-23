@@ -10,4 +10,5 @@ export const SECTIONS = [
   { href: "/dashboard", label: "Home", short: "Home", icon: "home" },
   { href: "/record", label: "My Record", short: "Record", icon: "record" },
   { href: "/registers", label: "My Registers", short: "Registers", icon: "registers" },
+  { href: "/record/colleague-feedback", label: "Multi-Source Feedback", short: "MSF", icon: "msf" },
 ] as const;
