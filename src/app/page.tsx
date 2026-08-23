@@ -141,8 +141,13 @@ export default async function LandingPage() {
             Short guides to what each body expects you to keep, and what has to be recorded
             against every activity.
           </p>
+          {/* Every guide, not the first five. These are the only pages on the
+              site meant to be found from outside, and a link from the home
+              page is the strongest signal the site can give its own pages —
+              five of ten linked left the rest two hops out, which is where a
+              crawler with no reason to hurry leaves them. */}
           <ul className="bullets small">
-            {GUIDES.slice(0, 5).map((guide) => (
+            {GUIDES.map((guide) => (
               <li key={guide.slug}>
                 <Link href={`/cpd/${guide.slug}`}>{guide.title}</Link>
               </li>

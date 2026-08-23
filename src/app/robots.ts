@@ -12,7 +12,9 @@ export default function robots(): MetadataRoute.Robots {
     rules: [
       {
         userAgent: "*",
-        allow: ["/", "/cpd", "/privacy", "/terms"],
+        // Everything the sitemap offers, named here too — a page in one and
+        // not the other is a mixed signal about whether we meant it.
+        allow: ["/", "/cpd", "/faq", "/privacy", "/terms"],
         disallow: [
           "/r/",
           "/slip/",
