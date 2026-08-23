@@ -2456,6 +2456,12 @@ export async function addMsfRater(_prev: ActionState, formData: FormData): Promi
     console.error("[msf] invitation failed for one rater", error);
   }
 
+  // Without this, the invitation stores but the page a JavaScript-enabled
+  // browser is looking at never learns: the action returns into
+  // useActionState, nothing revalidates, and the new rater appears only on a
+  // manual reload. The no-script path refetches anyway, which is why the
+  // HTTP harness never caught it — the screenshot run did.
+  revalidatePath(`/record/colleague-feedback/${request.id}`);
   return null;
 }
 

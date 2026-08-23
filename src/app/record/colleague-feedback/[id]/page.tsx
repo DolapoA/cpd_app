@@ -21,6 +21,41 @@ import {
 
 export const metadata = { title: "Your colleague feedback — CPD Register" };
 
+/**
+ * The completion ring. Before the day-7 checkpoint the centre shows a dash:
+ * the count is deliberately withheld, and an empty ring that filled in live
+ * would say what the number does not.
+ */
+function ResponseRing({ replied, asked }: { replied: number | null; asked: number }) {
+  const r = 52;
+  const c = 2 * Math.PI * r;
+  const share = replied !== null && asked > 0 ? replied / asked : 0;
+  return (
+    <div className="msf-ring">
+      <svg viewBox="0 0 120 120" role="img" aria-label={
+        replied === null ? "Responses counted from day 7" : `${replied} of ${asked} responses received`
+      }>
+        <circle cx="60" cy="60" r={r} className="msf-ring__track" />
+        <circle
+          cx="60"
+          cy="60"
+          r={r}
+          className="msf-ring__fill"
+          strokeDasharray={`${share * c} ${c}`}
+          transform="rotate(-90 60 60)"
+        />
+        <text x="60" y="58" className="msf-ring__big">
+          {asked === 0 ? "0" : replied === null ? "—" : replied}
+        </text>
+        <text x="60" y="76" className="msf-ring__small">
+          {asked === 0 ? "no raters yet" : `out of ${asked}`}
+        </text>
+      </svg>
+      <p className="muted small">Responses received</p>
+    </div>
+  );
+}
+
 export default async function ColleagueFeedbackDetailPage({
   params,
   searchParams,
@@ -94,6 +129,14 @@ export default async function ColleagueFeedbackDetailPage({
             <Link href="/record/colleague-feedback">All rounds</Link>
           </p>
         </div>
+        {status === "draft" && asked === 0 && (
+          <form action={deleteMsfRequest}>
+            <input type="hidden" name="request_id" value={request.id} />
+            <button type="submit" className="btn btn--quiet btn--small">
+              Delete this round
+            </button>
+          </form>
+        )}
       </div>
 
       {self === "1" && (
@@ -109,7 +152,7 @@ export default async function ColleagueFeedbackDetailPage({
 
       {/* Reference · due date · self-assessment: the filing strip an
           appraisal system expects to see. */}
-      <div className="grid-4 msf-strip">
+      <div className="msf-strip">
         <div className="stat">
           <div className="stat__value mono msf-ref">{request.reference}</div>
           <div className="stat__label">Reference</div>
@@ -120,16 +163,6 @@ export default async function ColleagueFeedbackDetailPage({
           </div>
           <div className="stat__label">
             {request.closes_on ? "Due date" : "Set when your first rater is invited"}
-          </div>
-        </div>
-        <div className="stat">
-          <div className="stat__value">{shownReplies ?? "—"}</div>
-          <div className="stat__label">
-            {shownReplies === null
-              ? "Responses — counted from day 7"
-              : asked === 0
-                ? "Responses"
-                : `Responses of ${asked} invited`}
           </div>
         </div>
         <div className="stat">
@@ -193,14 +226,6 @@ export default async function ColleagueFeedbackDetailPage({
               {asked > 0 && !enoughInvited && (
                 <p className="hint">Invite at least {MSF_MIN_COLLEAGUES}, or the results will not open.</p>
               )}
-              {status === "draft" && asked === 0 && (
-                <form action={deleteMsfRequest}>
-                  <input type="hidden" name="request_id" value={request.id} />
-                  <button type="submit" className="btn btn--quiet btn--small">
-                    Delete this round
-                  </button>
-                </form>
-              )}
               {status === "open" && (
                 <p className="muted small">
                   Your round closes {formatDate(request.closes_on as string)}
@@ -226,21 +251,12 @@ export default async function ColleagueFeedbackDetailPage({
           <div className="stack">
             <div className="card stack">
               <h2>Responses</h2>
-              {shownReplies === null ? (
-                <p className="muted small">Counted from day 7, then again at day 14.</p>
-              ) : (
-                <p className="msf-count">
-                  <strong>{shownReplies}</strong> out of <strong>{asked}</strong>
-                </p>
-              )}
+              <ResponseRing replied={shownReplies} asked={asked} />
             </div>
 
             {!selfDone && (
               <div className="card stack">
                 <h2>Your self-assessment</h2>
-                <p className="muted small">
-                  Answer the same questions about yourself. Results stay sealed until you have.
-                </p>
                 <details>
                   <summary className="btn btn--secondary">Start now</summary>
                   <div className="stack" style={{ marginTop: "var(--space-4)" }}>
