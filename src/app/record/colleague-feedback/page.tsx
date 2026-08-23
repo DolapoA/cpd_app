@@ -2,7 +2,7 @@ import Link from "next/link";
 import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type MsfRequest } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { msfStatus, ukToday, daysBetween } from "@/lib/msf-invites";
+import { msfStatus, ukToday, daysBetween, visibleReplyCount } from "@/lib/msf-invites";
 
 export const metadata = { title: "Colleague feedback — CPD Register" };
 
@@ -14,15 +14,12 @@ export default async function ColleagueFeedbackPage() {
     .prepare("SELECT * FROM msf_requests WHERE user_id = ? ORDER BY opened_on DESC, id DESC")
     .all(user.id)) as MsfRequest[];
 
-  const counts = new Map<number, { asked: number; replied: number }>();
+  const counts = new Map<number, { asked: number; replied: number | null }>();
   for (const round of rounds) {
     const row = (await db
-      .prepare(
-        `SELECT COUNT(*) AS asked, COALESCE(SUM(responded), 0) AS replied
-           FROM msf_invitations WHERE request_id = ?`
-      )
-      .get(round.id)) as { asked: string; replied: string };
-    counts.set(round.id, { asked: Number(row.asked), replied: Number(row.replied) });
+      .prepare("SELECT COUNT(*) AS asked FROM msf_invitations WHERE request_id = ?")
+      .get(round.id)) as { asked: string };
+    counts.set(round.id, { asked: Number(row.asked), replied: await visibleReplyCount(round) });
   }
 
   const open = rounds.find((r) => msfStatus(r) === "open");
@@ -32,7 +29,7 @@ export default async function ColleagueFeedbackPage() {
       <div className="page-head">
         <div>
           <h1>Colleague feedback</h1>
-          <p>What the people you work with make of how you practise.</p>
+          <p>What colleagues make of how you practise.</p>
         </div>
       </div>
 
@@ -63,7 +60,7 @@ export default async function ColleagueFeedbackPage() {
                         </Link>
                         <div className="muted small">
                           {round.opened_on
-                            ? `Opened ${formatDate(round.opened_on)} · ${c.replied} of ${c.asked} replied`
+                            ? `Opened ${formatDate(round.opened_on)}${c.replied === null ? "" : ` · ${c.replied} of ${c.asked} replied`}`
                             : "No raters invited yet"}
                         </div>
                       </td>

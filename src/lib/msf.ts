@@ -22,7 +22,9 @@
  * Bump MSF_QUESTION_SET_VERSION whenever wording changes, so answers already
  * given stay interpretable against the questions actually asked.
  */
-export const MSF_QUESTION_SET_VERSION = 1;
+/* Version 2: the overall question gained its article — "compared to a Band 7"
+   rather than "compared to Band 7" — and became optional, asked per rater. */
+export const MSF_QUESTION_SET_VERSION = 2;
 
 /** The five real points. Zero is the abstention and is not one of them. */
 export const MSF_SCALE_POINTS = 5;
@@ -64,6 +66,8 @@ export type MsfCaptions = {
 
 export type MsfRatedQuestion = {
   key: string;
+  /** The overall comparison is optional, and asked only of chosen raters. */
+  optional?: boolean;
   /** Carries {name}, {word} and {compared_to}; interpolated at render. */
   template: string;
   /** Column heading in the results table and the CSV. */
@@ -95,7 +99,7 @@ export const MSF_RATED_QUESTIONS: MsfRatedQuestion[] = [
   { key: "q14", template: "{name} gives feedback that is private, honest and supportive", short: "Gives feedback", group: "communication" },
   { key: "q15", template: "{name} works effectively as a team member", short: "Teamwork", group: "teamwork" },
   { key: "q16", template: "{name} is accessible and reliable", short: "Accessible and reliable", group: "teamwork" },
-  { key: "q17", template: "Overall, compared to {compared_to}, I rate {name}:", short: "Overall", group: "overall" },
+  { key: "q17", template: "Overall, compared to {a_compared_to}, I rate {name}:", short: "Overall", group: "overall", optional: true },
 ];
 
 export const MSF_TEXT_QUESTIONS: MsfTextQuestion[] = [
@@ -121,11 +125,22 @@ export const MSF_TEXT_QUESTIONS: MsfTextQuestion[] = [
 
 export const MSF_QUESTION_COUNT = MSF_RATED_QUESTIONS.length + MSF_TEXT_QUESTIONS.length;
 
+/**
+ * "a Band 7", "an SHO", "the head of department" — the comparator reads
+ * mid-sentence, so it needs its article unless it brought its own.
+ */
+export function withArticle(phrase: string): string {
+  const p = phrase.trim();
+  if (/^(a|an|the|my|our|your)\s/i.test(p)) return p;
+  return `${/^[aeiou]/i.test(p) ? "an" : "a"} ${p}`;
+}
+
 /** Fills a template from the captions frozen on the request. */
 export function renderMsfQuestion(template: string, captions: MsfCaptions): string {
   return template
     .replace(/\{name\}/g, captions.name)
     .replace(/\{word\}/g, captions.word)
+    .replace(/\{a_compared_to\}/g, withArticle(captions.comparedTo))
     .replace(/\{compared_to\}/g, captions.comparedTo);
 }
 

@@ -37,10 +37,6 @@ export default async function NewColleagueFeedbackPage() {
               it is usually one position above your current job title
             </div>
           </div>
-          <p className="muted small">
-            You add raters by name on the next page. The round gets a reference, and the
-            21 days start when your first rater is invited.
-          </p>
         </ActionForm>
       </div>
     </main>

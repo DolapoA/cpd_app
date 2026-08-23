@@ -80,3 +80,47 @@ export async function invitationForToken(
 
   return { invitation, request };
 }
+
+/**
+ * The response count as the subject may see it.
+ *
+ * A live tally is a quiet informer: a count that ticks up the morning after
+ * you nudged one particular colleague has named them. So the subject sees the
+ * figure as it stood at each weekly checkpoint — stamped here the first time
+ * anyone looks after the checkpoint has passed, because the responses
+ * themselves deliberately carry no dates from which to reconstruct it.
+ * Returns null while the round is open but the first checkpoint has not
+ * arrived; the live figure only once the round has closed.
+ */
+export async function visibleReplyCount(request: MsfRequest): Promise<number | null> {
+  const db = await getDb();
+  const live = Number(
+    ((await db
+      .prepare("SELECT COALESCE(SUM(responded), 0) AS c FROM msf_invitations WHERE request_id = ?")
+      .get(request.id)) as { c: string }).c
+  );
+
+  if (msfStatus(request) === "closed") return live;
+  if (!request.opened_on) return null;
+
+  const day = daysBetween(request.opened_on, ukToday());
+  if (day >= 14) {
+    if (request.replies_at_day14 === null) {
+      await db
+        .prepare("UPDATE msf_requests SET replies_at_day14 = ? WHERE id = ? AND replies_at_day14 IS NULL")
+        .run(live, request.id);
+      return live;
+    }
+    return request.replies_at_day14;
+  }
+  if (day >= 7) {
+    if (request.replies_at_day7 === null) {
+      await db
+        .prepare("UPDATE msf_requests SET replies_at_day7 = ? WHERE id = ? AND replies_at_day7 IS NULL")
+        .run(live, request.id);
+      return live;
+    }
+    return request.replies_at_day7;
+  }
+  return null;
+}

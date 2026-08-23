@@ -2421,10 +2421,17 @@ export async function addMsfRater(_prev: ActionState, formData: FormData): Promi
   const token = newInviteToken();
   await db
     .prepare(
-      `INSERT INTO msf_invitations (request_id, full_name, email, token_hash, created_at)
-       VALUES (?, ?, ?, ?, ?)`
+      `INSERT INTO msf_invitations (request_id, full_name, email, token_hash, ask_overall, created_at)
+       VALUES (?, ?, ?, ?, ?, ?)`
     )
-    .run(request.id, fullName, email, hashInviteToken(token), new Date().toISOString());
+    .run(
+      request.id,
+      fullName,
+      email,
+      hashInviteToken(token),
+      formData.get("ask_overall") ? 1 : 0,
+      new Date().toISOString()
+    );
 
   // The first rater starts the clock.
   let closesOn = request.closes_on;
@@ -2480,7 +2487,12 @@ export async function submitMsfSelfAssessment(
 
   const ratings: number[] = [];
   for (const question of MSF_RATED_QUESTIONS) {
-    const raw = Number(formData.get(question.key));
+    const value = formData.get(question.key);
+    if (value === null && question.optional) {
+      ratings.push(0);
+      continue;
+    }
+    const raw = Number(value);
     if (!Number.isInteger(raw) || raw < 0 || raw > MSF_SCALE_POINTS)
       return { error: "Please answer every question, or choose “Unable to comment”." };
     ratings.push(raw);
@@ -2582,7 +2594,20 @@ export async function submitMsfResponse(
 
   const ratings: number[] = [];
   for (const question of MSF_RATED_QUESTIONS) {
-    const raw = Number(formData.get(question.key));
+    // A rater not chosen for the optional question was never asked it, so an
+    // answer arriving anyway is a hand-built request — recorded as the
+    // abstention it should have been, not as data.
+    if (question.optional && !invitation.ask_overall) {
+      ratings.push(0);
+      continue;
+    }
+    const value = formData.get(question.key);
+    // Skipping the optional question is an abstention, not a zero score.
+    if (value === null && question.optional) {
+      ratings.push(0);
+      continue;
+    }
+    const raw = Number(value);
     if (!Number.isInteger(raw) || raw < 0 || raw > MSF_SCALE_POINTS)
       return { error: "Please answer every question, or choose “Unable to comment”." };
     ratings.push(raw);
@@ -2620,4 +2645,32 @@ export async function declineMsfInvitation(formData: FormData): Promise<void> {
     .prepare("UPDATE msf_invitations SET declined_at = ? WHERE id = ? AND responded = 0")
     .run(new Date().toISOString(), found.invitation.id);
   redirect("/msf/thanks?declined=1");
+}
+
+/**
+ * Delete a draft round.
+ *
+ * Only before anyone has been invited: once a single email is out, colleagues
+ * hold links into this round and may be mid-answer, so from that point it can
+ * only run its course.
+ */
+export async function deleteMsfRequest(formData: FormData): Promise<void> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "request_id");
+  if (id === null) redirect("/record/colleague-feedback");
+
+  const db = await getDb();
+  const invited = (await db
+    .prepare(
+      `SELECT COUNT(*) AS c FROM msf_invitations WHERE request_id = ?
+        AND request_id IN (SELECT id FROM msf_requests WHERE user_id = ?)`
+    )
+    .get(id, user.id)) as { c: string };
+  const owned = await db
+    .prepare("SELECT id FROM msf_requests WHERE id = ? AND user_id = ?")
+    .get(id, user.id);
+  if (!owned || Number(invited.c) > 0) redirect("/record/colleague-feedback");
+
+  await db.prepare("DELETE FROM msf_requests WHERE id = ? AND user_id = ?").run(id, user.id);
+  redirect("/record/colleague-feedback");
 }

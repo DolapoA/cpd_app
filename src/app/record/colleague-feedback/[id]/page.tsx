@@ -3,10 +3,10 @@ import { notFound } from "next/navigation";
 import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type MsfInvitation, type MsfRequest, type MsfResponse } from "@/lib/db";
 import { formatDate } from "@/lib/format";
-import { addMsfRater, sendMsfReminder } from "@/lib/actions";
+import { addMsfRater, deleteMsfRequest, sendMsfReminder } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { MsfForm } from "@/components/msf-form";
-import { canRemind, daysBetween, msfStatus, ukToday } from "@/lib/msf-invites";
+import { canRemind, daysBetween, msfStatus, ukToday, visibleReplyCount } from "@/lib/msf-invites";
 import {
   MSF_MIN_COLLEAGUES,
   MSF_RATED_QUESTIONS,
@@ -50,6 +50,10 @@ export default async function ColleagueFeedbackDetailPage({
     .get(request.id));
 
   const status = msfStatus(request);
+  // The count the subject may see: weekly checkpoints while open, live once
+  // closed. A tally that moved the day after one colleague was nudged would
+  // name them.
+  const shownReplies = await visibleReplyCount(request);
   const daysLeft = request.closes_on ? daysBetween(ukToday(), request.closes_on) : null;
 
   // The results unseal only when the window has closed, the subject has done
@@ -119,9 +123,13 @@ export default async function ColleagueFeedbackDetailPage({
           </div>
         </div>
         <div className="stat">
-          <div className="stat__value">{replied}</div>
+          <div className="stat__value">{shownReplies ?? "—"}</div>
           <div className="stat__label">
-            {asked === 0 ? "Responses" : `Responses of ${asked} invited`}
+            {shownReplies === null
+              ? "Responses — counted from day 7"
+              : asked === 0
+                ? "Responses"
+                : `Responses of ${asked} invited`}
           </div>
         </div>
         <div className="stat">
@@ -158,6 +166,13 @@ export default async function ColleagueFeedbackDetailPage({
                       />
                     </div>
                   </div>
+                  <div className="field">
+                    <label className="choice" htmlFor="ask_overall">
+                      <input id="ask_overall" name="ask_overall" type="checkbox" defaultChecked />{" "}
+                      Ask them the overall comparison question
+                    </label>
+                    <div className="hint">Untick for colleagues not placed to judge it.</div>
+                  </div>
                 </ActionForm>
               )}
 
@@ -176,10 +191,15 @@ export default async function ColleagueFeedbackDetailPage({
                 </ul>
               )}
               {asked > 0 && !enoughInvited && (
-                <p className="hint">
-                  Invite at least {MSF_MIN_COLLEAGUES} — with fewer, replies start to be
-                  traceable, so the results will not open.
-                </p>
+                <p className="hint">Invite at least {MSF_MIN_COLLEAGUES}, or the results will not open.</p>
+              )}
+              {status === "draft" && asked === 0 && (
+                <form action={deleteMsfRequest}>
+                  <input type="hidden" name="request_id" value={request.id} />
+                  <button type="submit" className="btn btn--quiet btn--small">
+                    Delete this round
+                  </button>
+                </form>
               )}
               {status === "open" && (
                 <p className="muted small">
@@ -190,15 +210,15 @@ export default async function ColleagueFeedbackDetailPage({
               {canRemind(request) && asked - replied - declined > 0 && (
                 <form action={sendMsfReminder}>
                   <input type="hidden" name="request_id" value={request.id} />
+                  {/* No number: the count on this page is a weekly checkpoint,
+                      and a live figure here would undo that. */}
                   <button type="submit" className="btn btn--secondary">
-                    Remind the {asked - replied - declined} who haven&rsquo;t replied
+                    Remind everyone who hasn&rsquo;t replied
                   </button>
                 </form>
               )}
               {request.reminded_on && (
-                <p className="hint">
-                  Reminder sent {formatDate(request.reminded_on)}. That is the only one.
-                </p>
+                <p className="hint">Reminder sent {formatDate(request.reminded_on)}.</p>
               )}
             </div>
           </div>
@@ -206,22 +226,20 @@ export default async function ColleagueFeedbackDetailPage({
           <div className="stack">
             <div className="card stack">
               <h2>Responses</h2>
-              <p className="msf-count">
-                <strong>{replied}</strong> out of <strong>{asked}</strong>
-              </p>
-              <p className="muted small">
-                Nothing is shown until the round closes, including to you — and never who
-                replied, only how many. That is what lets colleagues answer candidly.
-              </p>
+              {shownReplies === null ? (
+                <p className="muted small">Counted from day 7, then again at day 14.</p>
+              ) : (
+                <p className="msf-count">
+                  <strong>{shownReplies}</strong> out of <strong>{asked}</strong>
+                </p>
+              )}
             </div>
 
             {!selfDone && (
               <div className="card stack">
                 <h2>Your self-assessment</h2>
                 <p className="muted small">
-                  Answer the same questions about yourself. The results stay sealed until you
-                  have — rating yourself after reading everyone else&rsquo;s answers is a
-                  different exercise, and not the one an appraiser wants.
+                  Answer the same questions about yourself. Results stay sealed until you have.
                 </p>
                 <details>
                   <summary className="btn btn--secondary">Start now</summary>
@@ -239,8 +257,8 @@ export default async function ColleagueFeedbackDetailPage({
         <div className="notice notice--info">
           <p className="small">
             {!enoughInvited
-              ? `This round closed with only ${asked} raters invited. Results open at ${MSF_MIN_COLLEAGUES} — with fewer, a reply is close to attributable, and colleagues were promised better.`
-              : "The window has closed. Complete your self-assessment above and the results unseal."}
+              ? `Closed with only ${asked} raters invited. Results open at ${MSF_MIN_COLLEAGUES}.`
+              : "Complete your self-assessment to see the results."}
           </p>
         </div>
       )}
@@ -248,10 +266,7 @@ export default async function ColleagueFeedbackDetailPage({
       {released && responses.length === 0 && (
         <div className="card empty">
           <p className="empty__title">Nobody replied</p>
-          <p>
-            The window closed with no answers. Colleagues are busy and this asks a real favour
-            of them &mdash; it is worth asking again, in person first.
-          </p>
+          <p>The window closed with no answers.</p>
         </div>
       )}
 
@@ -342,8 +357,7 @@ export default async function ColleagueFeedbackDetailPage({
           <p className="muted small">
             {request.reference} &middot; Rated against &ldquo;{request.compared_to}&rdquo;.
             Scale: {MSF_SCALE_LABELS.map((l, i) => `${i + 1} ${l.toLowerCase()}`).join(" · ")}.
-            Replies are not linked to the colleague who gave them, so they cannot be attributed
-            by anyone &mdash; including us.
+            Replies are not linked to who gave them.
           </p>
         </>
       )}

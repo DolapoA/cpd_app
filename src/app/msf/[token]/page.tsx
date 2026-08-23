@@ -82,7 +82,7 @@ export default async function MsfRespondPage({
       </div>
 
       <div className="card">
-        <MsfForm token={token} captions={captions} />
+        <MsfForm token={token} captions={captions} askOverall={!!invitation.ask_overall} />
       </div>
 
       <div className="card">

@@ -202,6 +202,13 @@ CREATE TABLE IF NOT EXISTS msf_requests (
   closes_on TEXT,
   /* The single reminder. NULL until it is sent, and set once, ever. */
   reminded_on TEXT,
+  /* The response count as it stood at each weekly checkpoint, stamped when
+     the checkpoint passes. Stored because it cannot be recomputed — the
+     responses deliberately carry no dates — and shown instead of a live
+     tally: a count that moves the day after you nudged one colleague is a
+     name, and a weekly figure is not. */
+  replies_at_day7 INTEGER,
+  replies_at_day14 INTEGER,
   cpd_entry_id INTEGER REFERENCES cpd_entries(id),
   created_at TEXT NOT NULL
 );
@@ -217,6 +224,10 @@ CREATE TABLE IF NOT EXISTS msf_invitations (
   token_hash TEXT NOT NULL UNIQUE,
   /* Boolean, never a date. See the note above. */
   responded INTEGER NOT NULL DEFAULT 0,
+  /* Whether this rater is asked the overall comparison question. The subject
+     chooses per colleague — a judgement against a benchmark is worth most
+     from the people placed to make it. */
+  ask_overall INTEGER NOT NULL DEFAULT 1,
   declined_at TEXT,
   created_at TEXT NOT NULL,
   UNIQUE (request_id, email)
@@ -265,6 +276,9 @@ ALTER TABLE msf_requests ADD COLUMN IF NOT EXISTS reference TEXT;
 ALTER TABLE msf_requests ALTER COLUMN opened_on DROP NOT NULL;
 ALTER TABLE msf_requests ALTER COLUMN closes_on DROP NOT NULL;
 ALTER TABLE msf_invitations ADD COLUMN IF NOT EXISTS full_name TEXT;
+ALTER TABLE msf_invitations ADD COLUMN IF NOT EXISTS ask_overall INTEGER NOT NULL DEFAULT 1;
+ALTER TABLE msf_requests ADD COLUMN IF NOT EXISTS replies_at_day7 INTEGER;
+ALTER TABLE msf_requests ADD COLUMN IF NOT EXISTS replies_at_day14 INTEGER;
 UPDATE msf_requests SET reference = 'MSF-' || id WHERE reference IS NULL;
 /* After the ALTER above, not beside the CREATE: on a database that already
    held the table, the CREATE is a no-op and an index on a column the ALTER
@@ -724,6 +738,8 @@ export type MsfRequest = {
   opened_on: string | null;
   closes_on: string | null;
   reminded_on: string | null;
+  replies_at_day7: number | null;
+  replies_at_day14: number | null;
   cpd_entry_id: number | null;
   created_at: string;
 };
@@ -735,6 +751,7 @@ export type MsfInvitation = {
   email: string;
   token_hash: string;
   responded: number;
+  ask_overall: number;
   declined_at: string | null;
   created_at: string;
 };

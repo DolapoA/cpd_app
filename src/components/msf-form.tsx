@@ -40,12 +40,16 @@ export function MsfForm({
   token,
   captions,
   selfRequestId,
+  askOverall = true,
 }: {
   token?: string;
   captions: MsfCaptions;
   /** Set when the subject is rating themselves; the questions are the same. */
   selfRequestId?: number;
+  /** Whether this rater was chosen for the overall comparison question. */
+  askOverall?: boolean;
 }) {
+  const rated = MSF_RATED_QUESTIONS.filter((q) => askOverall || !q.optional);
   const [state, action] = useActionState(
     selfRequestId ? submitMsfSelfAssessment : submitMsfResponse,
     null
@@ -80,7 +84,7 @@ export function MsfForm({
     const form = document.getElementById("msf") as HTMLFormElement | null;
     if (!form) return;
     setAnswered(
-      MSF_RATED_QUESTIONS.filter((q) => form.querySelector(`input[name="${q.key}"]:checked`)).length
+      rated.filter((q) => form.querySelector(`input[name="${q.key}"]:checked`)).length
     );
   }
 
@@ -120,20 +124,21 @@ export function MsfForm({
       )}
 
       <p className="msf-progress" aria-live="polite">
-        {answered} of {MSF_RATED_QUESTIONS.length} answered
+        {answered} of {rated.length} answered
       </p>
 
       {state?.error && <p className="form-error">{state.error}</p>}
 
-      {MSF_RATED_QUESTIONS.map((question) => (
+      {rated.map((question, index) => (
         <fieldset className="rating" key={question.key}>
           <legend className="rating__legend">
-            {renderMsfQuestion(question.template, captions)}
+            {index + 1}. {renderMsfQuestion(question.template, captions)}
+            {question.optional && <span className="muted"> (optional)</span>}
           </legend>
           <div className="rating__options">
             {MSF_SCALE_LABELS.map((label, i) => (
               <label className="rating__option" key={label}>
-                <input type="radio" name={question.key} value={i + 1} required />
+                <input type="radio" name={question.key} value={i + 1} required={!question.optional} />
                 <span className="rating__dot">{i + 1}</span>
                 <span className="rating__label">{label}</span>
               </label>
@@ -146,9 +151,11 @@ export function MsfForm({
         </fieldset>
       ))}
 
-      {MSF_TEXT_QUESTIONS.map((question) => (
+      {MSF_TEXT_QUESTIONS.map((question, index) => (
         <div className="field" key={question.key}>
-          <label htmlFor={question.key}>{renderMsfQuestion(question.template, captions)}</label>
+          <label htmlFor={question.key}>
+            {rated.length + index + 1}. {renderMsfQuestion(question.template, captions)}
+          </label>
           <textarea
             id={question.key}
             name={question.key}

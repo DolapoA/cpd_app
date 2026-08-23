@@ -24,15 +24,15 @@ export default async function MsfThanksPage({
         <p className="muted">
           {declined === "1"
             ? "Nothing was sent, and you will not be reminded."
-            : "Your answers are in, and they are not linked to you. Your colleague sees them pooled with everyone else's once the round closes."}
+            : "Your answers are in, pooled and unattributed. Your colleague sees them once the round closes."}
         </p>
       </div>
 
       <div className="card">
         <h2>Keep your own CPD record</h2>
         <p className="muted small">
-          CPD Register is free for professionals. Keep a dated record, sign attendance registers
-          with a QR code, and ask your own colleagues for feedback when you need it.
+          Free for professionals: a dated record, QR attendance registers, and colleague
+          feedback of your own.
         </p>
         <div className="actions-row">
           <Link href="/signup" className="btn">
