@@ -1754,13 +1754,29 @@ main {
 .msf-columns {
   display: grid;
   gap: var(--space-4);
-  align-items: start;
+  /* Stretch, not start: cards sharing a row share its height. */
 }
 
 @media (min-width: 900px) {
   .msf-columns {
     grid-template-columns: 3fr 2fr;
   }
+}
+
+/* The self-assessment takes the whole row — seventeen questions do not
+   belong in a sidebar. */
+.msf-span {
+  grid-column: 1 / -1;
+}
+
+/* Full-width card, but the questions keep a readable measure. */
+.msf-self {
+  max-width: 42rem;
+}
+
+/* The strip tiles share their row's height whatever their content. */
+.msf-strip .stat {
+  height: 100%;
 }
 
 /* A reference is filed, not read aloud — it can afford to be smaller than a

@@ -159,11 +159,9 @@ export default async function ColleagueFeedbackDetailPage({
         </div>
         <div className="stat">
           <div className="stat__value">
-            {request.closes_on ? formatDate(request.closes_on) : "Not set"}
+            {request.closes_on ? formatDate(request.closes_on) : "Due date"}
           </div>
-          <div className="stat__label">
-            {request.closes_on ? "Due date" : "Set when your first rater is invited"}
-          </div>
+          {request.closes_on && <div className="stat__label">Due date</div>}
         </div>
         <div className="stat">
           <div className="stat__value">{selfDone ? "✓" : "—"}</div>
@@ -175,8 +173,7 @@ export default async function ColleagueFeedbackDetailPage({
 
       {!released && (
         <div className="msf-columns">
-          <div className="stack">
-            <div className="card stack">
+          <div className="card stack">
               <h2>Nominated raters</h2>
               {status === "closed" ? (
                 <p className="muted small">The window has closed — no more raters can be added.</p>
@@ -245,27 +242,24 @@ export default async function ColleagueFeedbackDetailPage({
               {request.reminded_on && (
                 <p className="hint">Reminder sent {formatDate(request.reminded_on)}.</p>
               )}
-            </div>
           </div>
 
-          <div className="stack">
-            <div className="card stack">
-              <h2>Responses</h2>
-              <ResponseRing replied={shownReplies} asked={asked} />
-            </div>
-
-            {!selfDone && (
-              <div className="card stack">
-                <h2>Your self-assessment</h2>
-                <details>
-                  <summary className="btn btn--secondary">Start now</summary>
-                  <div className="stack" style={{ marginTop: "var(--space-4)" }}>
-                    <MsfForm selfRequestId={request.id} captions={captions} />
-                  </div>
-                </details>
-              </div>
-            )}
+          <div className="card stack">
+            <h2>Responses</h2>
+            <ResponseRing replied={shownReplies} asked={asked} />
           </div>
+
+          {!selfDone && (
+            <div className="card stack msf-span">
+              <h2>Your self-assessment</h2>
+              <details>
+                <summary className="btn btn--secondary">Start now</summary>
+                <div className="stack msf-self" style={{ marginTop: "var(--space-4)" }}>
+                  <MsfForm selfRequestId={request.id} captions={captions} />
+                </div>
+              </details>
+            </div>
+          )}
         </div>
       )}
 
