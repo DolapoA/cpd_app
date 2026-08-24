@@ -23,9 +23,9 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
  * maintain is a lastmod nobody can trust.
  */
 const UPDATED = {
-  home: "2026-08-21",
-  cpdIndex: "2026-08-17",
-  guides: "2026-08-17",
+  home: "2026-08-24",
+  cpdIndex: "2026-08-24",
+  guides: "2026-08-24",
   faq: "2026-08-19",
   privacy: "2026-08-15",
   terms: "2026-08-16",

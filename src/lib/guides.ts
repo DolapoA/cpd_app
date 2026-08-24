@@ -284,6 +284,50 @@ export const GUIDES: Guide[] = [
       },
     ],
   },
+  {
+    slug: "multi-source-feedback",
+    body: "MSF",
+    bodyName: "multi-source feedback",
+    audience:
+      "doctors preparing for appraisal and revalidation, and any professional using colleague feedback for personal development planning",
+    title: "Multi-source feedback (MSF): colleague feedback for your personal development plan",
+    description:
+      "What multi-source feedback is, how anonymous colleague feedback evidences professionalism, and how to turn an MSF round into the development goals in your personal development plan.",
+    requirement:
+      "Multi-source feedback — also called MSF, 360-degree feedback or colleague feedback — asks the people you work with to rate how you practise: clinical judgement, communication, teamwork, reliability and professionalism, against a fixed set of questions. It matters because it measures what no certificate can: how you actually work, seen by the people who work with you. The GMC lists colleague feedback among the supporting information doctors bring to appraisal, expected at least once per five-year revalidation cycle, and appraisal and development frameworks across other professions use the same instrument. Its output is the starting point of a personal development plan — the gap between how you rate yourself and how colleagues rate you is precisely where development goals come from.",
+    output: {
+      label: "Ask your colleagues for feedback",
+      href: "/record/colleague-feedback",
+      blurb:
+        "Each colleague gets a private single-use link and answers anonymously. You complete the same questions about yourself, results open after 21 days, and the gap between the two is your development plan's raw material — filed under an MSF reference an appraiser can cite.",
+    },
+    faqs: [
+      {
+        q: "What is multi-source feedback (MSF)?",
+        a: "A structured way of collecting anonymous feedback about how you practise from the colleagues who work with you — usually 16 to 20 rated questions covering clinical decisions, communication, teamwork and professionalism, plus written comments on strengths and areas to develop. It is sometimes called 360-degree feedback or colleague feedback; the instrument is the same.",
+      },
+      {
+        q: "How does MSF feed a personal development plan?",
+        a: "You answer the same questions about yourself before seeing anyone else's answers. The results then show your self-rating beside your colleagues' average on every question, and the gaps are your personal development plan writing itself: an item colleagues rate lower than you did is a development goal, and one they rate higher is a strength you can evidence. Repeating MSF in a later cycle shows whether the plan worked.",
+      },
+      {
+        q: "Is MSF evidence of professionalism?",
+        a: "It is close to the only direct evidence of it. Certificates show attendance and reflection shows insight, but professionalism — respecting confidentiality, valuing colleagues, being accessible and reliable — is visible chiefly to the people you work with. A pooled, anonymous rating from them is how appraisal frameworks measure it.",
+      },
+      {
+        q: "How many colleagues should I ask, and which?",
+        a: "More than you think, and more varied. Response rates run around half to two-thirds, so ten to twelve invitations is a sensible floor, and a mix of seniors, peers and people you supervise gives the rounded view the exercise is named for. This app requires at least five, and lets you choose per colleague whether they are asked the overall comparison question.",
+      },
+      {
+        q: "Is the feedback really anonymous?",
+        a: "Here, yes, structurally: a colleague's answers are stored with no link to who gave them — no name, no email, no date — so nobody, including us, can attribute a reply. You see who you invited and how many responded, never which. The one honest caveat is written comments: a turn of phrase can identify its author, and colleagues are told so before they write.",
+      },
+      {
+        q: "Is MSF required for GMC revalidation?",
+        a: "The GMC expects doctors to collect and reflect on feedback from colleagues at least once per five-year revalidation cycle, discussed at appraisal alongside the other supporting information. Other regulators generally do not mandate MSF by name, but appraisal and development conversations across professions accept it as strong evidence — check your own body's wording before relying on it.",
+      },
+    ],
+  },
 ];
 
 export function guideFor(slug: string): Guide | undefined {
