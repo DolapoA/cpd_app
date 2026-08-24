@@ -11,7 +11,7 @@ export const metadata = {
 
 export default function GuidesIndexPage() {
   return (
-    <main className="container container--narrow stack">
+    <main className="container stack">
       <div className="page-head">
         <div>
           <h1>CPD requirements by profession</h1>
@@ -22,20 +22,13 @@ export default function GuidesIndexPage() {
         </div>
       </div>
 
-      <div className="card">
-        <ul className="task-list">
-          {GUIDES.map((guide) => (
-            <li key={guide.slug} className="task">
-              <span className="task__mark" aria-hidden="true" />
-              <span>
-                <span className="task__label">
-                  <Link href={`/cpd/${guide.slug}`}>{guide.title}</Link>
-                </span>
-                <span className="task__detail"> — for {guide.audience}.</span>
-              </span>
-            </li>
-          ))}
-        </ul>
+      <div className="guide-grid">
+        {GUIDES.map((guide) => (
+          <Link key={guide.slug} href={`/cpd/${guide.slug}`} className="card guide-card">
+            <span className="guide-card__title">{guide.title}</span>
+            <span className="muted small">For {guide.audience}.</span>
+          </Link>
+        ))}
       </div>
 
       <p className="hint">

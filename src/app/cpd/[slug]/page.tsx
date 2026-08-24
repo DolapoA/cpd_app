@@ -51,7 +51,7 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
   };
 
   return (
-    <main className="container container--narrow stack">
+    <main className="container stack">
       <script
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(faqLd) }}
@@ -67,6 +67,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
         </div>
       </div>
 
+      <div className="guide-layout">
+        <div className="stack guide-main">
       <div className="card">
         <h2>What {guide.bodyName} asks for</h2>
         <p>{guide.requirement}</p>
@@ -97,6 +99,18 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       )}
 
       <div className="card">
+        <h2>Common questions</h2>
+        {guide.faqs.map((f) => (
+          <div key={f.q}>
+            <h3>{f.q}</h3>
+            <p className="small">{f.a}</p>
+          </div>
+        ))}
+      </div>
+
+        </div>
+        <aside className="stack guide-rail">
+      <div className="card">
         <h2>How CPD Register helps</h2>
         <p className="small">
           Sign an attendance register at an event and it lands on your record dated and
@@ -117,16 +131,6 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       </div>
 
       <div className="card">
-        <h2>Common questions</h2>
-        {guide.faqs.map((f) => (
-          <div key={f.q}>
-            <h3>{f.q}</h3>
-            <p className="small">{f.a}</p>
-          </div>
-        ))}
-      </div>
-
-      <div className="card">
         <h2>Other professions</h2>
         <ul className="bullets small">
           {GUIDES.filter((g) => g.slug !== guide.slug).map((g) => (
@@ -135,6 +139,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             </li>
           ))}
         </ul>
+      </div>
+        </aside>
       </div>
     </main>
   );

@@ -13,7 +13,7 @@ export const metadata = {
 
 export default function FaqPage() {
   return (
-    <main className="container container--narrow stack">
+    <main className="container stack faq-page">
       <div className="page-head">
         <div>
           <h1>Questions and answers</h1>
@@ -23,6 +23,7 @@ export default function FaqPage() {
         </div>
       </div>
 
+      <div className="faq-columns">
       {FAQ_GROUPS.map((group) => (
         <section key={group.heading} className="card stack stack--tight">
           <h2>{group.heading}</h2>
@@ -34,6 +35,7 @@ export default function FaqPage() {
           ))}
         </section>
       ))}
+      </div>
 
       <p className="muted small">
         Something here that doesn&rsquo;t answer it? <Link href="/feedback">Ask us</Link>.

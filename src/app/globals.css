@@ -1932,6 +1932,80 @@ main {
   padding: var(--space-1);
 }
 
+/* ---- Content pages on a desktop ----
+
+   The guides and the FAQ were one phone column stretched across a monitor.
+   Under 900px nothing here applies and the phone layout stands. */
+
+.guide-grid {
+  display: grid;
+  gap: var(--space-4);
+}
+
+.guide-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  text-decoration: none;
+  color: inherit;
+}
+
+.guide-card:hover {
+  border-color: var(--brand);
+}
+
+.guide-card:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+.guide-card__title {
+  font-weight: 600;
+  color: var(--brand);
+}
+
+@media (min-width: 900px) {
+  .guide-grid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+}
+
+/* A guide reads left; what the app does for you keeps pace alongside. */
+@media (min-width: 1100px) {
+  .guide-layout {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 22rem;
+    gap: var(--space-6);
+    align-items: start;
+  }
+
+  .guide-main {
+    max-width: 48rem;
+  }
+
+  .guide-rail {
+    position: sticky;
+    top: var(--space-4);
+  }
+}
+
+/* The question groups flow into two columns; a card never splits across. */
+@media (min-width: 1000px) {
+  .faq-columns {
+    columns: 2;
+    column-gap: var(--space-4);
+  }
+
+  .faq-columns > section {
+    break-inside: avoid;
+    margin-bottom: var(--space-4);
+  }
+
+  .faq-page {
+    max-width: 1080px;
+  }
+}
+
 /* ---- Questions and answers ---- */
 
 .faq {
