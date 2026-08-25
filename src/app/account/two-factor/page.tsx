@@ -98,6 +98,12 @@ export default async function TwoFactorSetupPage({
             </p>
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src={qr} alt="QR code for setting up two-factor authentication" width={200} height={200} />
+            <p className="small">
+              {/* The QR is for a second device; on the phone itself this link
+                  opens the authenticator directly, and codes saved this way
+                  are the ones iPhones later offer to fill in by themselves. */}
+              On this phone? <a href={uri}>Open your authenticator app instead</a>.
+            </p>
             <p className="muted small">
               Can&rsquo;t scan? Type this key in instead:
             </p>

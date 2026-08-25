@@ -26,9 +26,13 @@ export function CodeField({ label, recovery }: { label: string; recovery?: boole
         autoCapitalize={recovery ? "characters" : "off"}
         autoCorrect="off"
         spellCheck={false}
-        data-1p-ignore
-        data-lpignore="true"
-        data-bwignore
+        // Password managers are waved off the recovery field only. On the
+        // code field they are the authenticator: 1Password and friends fill
+        // the six digits themselves when the field admits what it is, and
+        // these ignore flags were what stopped them.
+        {...(recovery
+          ? { "data-1p-ignore": true, "data-lpignore": "true", "data-bwignore": true }
+          : null)}
         data-form-type="other"
       />
     </div>
