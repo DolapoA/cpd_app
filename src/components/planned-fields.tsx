@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import type { PlannedEvent } from "@/lib/db";
+import type { PdpGoal, PlannedEvent } from "@/lib/db";
 import { InfoHint } from "./info-hint";
+import { PdpGoalSelect } from "./pdp-goal-select";
 
 /**
  * The fields of a planned event, shared by adding and editing.
@@ -11,7 +12,13 @@ import { InfoHint } from "./info-hint";
  * page and not the other is the sort of difference nobody notices until an
  * event lands in a calendar on the wrong day.
  */
-export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
+export function PlannedFields({
+  plan,
+  goals = [],
+}: {
+  plan?: PlannedEvent;
+  goals?: Pick<PdpGoal, "id" | "title">[];
+}) {
   // Sharing a private event is not a thing that can be meant, so the second
   // choice only appears once the first is made.
   const [isPublic, setIsPublic] = useState(!!plan?.is_public);
@@ -160,6 +167,7 @@ export function PlannedFields({ plan }: { plan?: PlannedEvent }) {
               What you want to get out of it. This carries over to your record if you attend.
             </div>
           </div>
+          <PdpGoalSelect goals={goals} selected={plan?.pdp_goal_id} />
       <div className="field">
         <label className="choice" htmlFor="is_public">
           <input

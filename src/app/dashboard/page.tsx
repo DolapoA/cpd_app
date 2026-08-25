@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getDb, type ActivityTypeGoal, type CpdEntry, type PlannedEvent } from "@/lib/db";
+import { getDb, type ActivityTypeGoal, type CpdEntry, type PdpGoal, type PlannedEvent } from "@/lib/db";
 import { requireConfirmedUser } from "@/lib/auth";
 import {
   ACTIVITY_TYPES,
@@ -32,10 +32,10 @@ export default async function DashboardPage({
   const db = await getDb();
   const yearAgo = new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
-  // Four independent questions, asked at once. Sequentially they were four
+  // Five independent questions, asked at once. Sequentially they were five
   // round trips to a database in another building; none of them needs an
   // answer from any of the others.
-  const [entries, plans, registerRow, goals] = (await Promise.all([
+  const [entries, plans, registerRow, goals, pdpGoals] = (await Promise.all([
     db
       .prepare("SELECT * FROM cpd_entries WHERE user_id = ? ORDER BY activity_date DESC")
       .all(user.id),
@@ -44,7 +44,10 @@ export default async function DashboardPage({
       .all(user.id),
     db.prepare("SELECT COUNT(*) AS c FROM registers WHERE organiser_id = ?").get(user.id),
     db.prepare("SELECT * FROM activity_type_goals WHERE user_id = ?").all(user.id),
-  ])) as [CpdEntry[], PlannedEvent[], { c: number }, ActivityTypeGoal[]];
+    db
+      .prepare("SELECT * FROM pdp_goals WHERE user_id = ? AND status = 'active'")
+      .all(user.id),
+  ])) as [CpdEntry[], PlannedEvent[], { c: number }, ActivityTypeGoal[], PdpGoal[]];
   // Only activity that can count toward the registration is totalled.
   const countable = entries.filter((e) => countsTowardCpd(e.activity_date, user.registration_date));
   const lastYear = countable.filter((e) => e.activity_date >= yearAgo);
@@ -91,6 +94,14 @@ export default async function DashboardPage({
     .filter((g) => goalUrgency(g.days) !== "none")
     .sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
   const anyOverdue = dueGoals.some((g) => (g.days ?? 0) < 0);
+
+  // Development goals nag on the same schedule as the type targets: quiet
+  // until 90 days out, and only while the goal is still open.
+  const duePdp = pdpGoals
+    .map((g) => ({ ...g, days: daysUntil(g.target_date) }))
+    .filter((g) => goalUrgency(g.days) !== "none")
+    .sort((a, b) => (a.days ?? 0) - (b.days ?? 0));
+  const anyPdpOverdue = duePdp.some((g) => (g.days ?? 0) < 0);
 
   return (
     <main className="container stack">
@@ -219,6 +230,29 @@ export default async function DashboardPage({
           </ul>
           <p className="small">
             <Link href="/record/activity-types">See what would fill them →</Link>
+          </p>
+        </div>
+      )}
+
+      {duePdp.length > 0 && (
+        <div className={`notice${anyPdpOverdue ? " notice--warn" : " notice--info"}`}>
+          <h3 className="notice__title">
+            {anyPdpOverdue ? "Development goal overdue" : "Development goals coming up"}
+          </h3>
+          <ul className="small bullets">
+            {duePdp.map((g) => (
+              <li key={g.id}>
+                <strong>{g.title}</strong> —{" "}
+                {(g.days ?? 0) < 0
+                  ? `${Math.abs(g.days ?? 0)} days overdue`
+                  : g.days === 0
+                    ? "due today"
+                    : `${g.days} days left`}
+              </li>
+            ))}
+          </ul>
+          <p className="small">
+            <Link href="/record/development">Your development plan →</Link>
           </p>
         </div>
       )}

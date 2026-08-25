@@ -42,7 +42,11 @@ export type ProductEvent =
      their working life, and the useful question is only whether rounds are
      being opened at all. */
   | { name: "msf_requested"; colleagues: number }
-  | { name: "msf_response_submitted" };
+  | { name: "msf_response_submitted" }
+  /* One when a development goal is added, one when it is reviewed — enough to
+     see whether plans are being kept, without knowing what anyone's goals are. */
+  | { name: "pdp_goal_added" }
+  | { name: "pdp_goal_reviewed" };
 
 export function bucketSize(n: number): "1-10" | "11-50" | "51-200" | "200+" {
   if (n <= 10) return "1-10";

@@ -1,15 +1,22 @@
 import { addManualEntry } from "@/lib/actions";
 import { requireConfirmedUser } from "@/lib/auth";
+import { getDb, type PdpGoal } from "@/lib/db";
 import { ACTIVITY_TYPES } from "@/lib/format";
 import { frameworkFor } from "@/lib/standards";
 import { ActionForm } from "@/components/action-form";
 import { StandardsPicker } from "@/components/standards-picker";
+import { PdpGoalSelect } from "@/components/pdp-goal-select";
 
 export const metadata = { title: "Log activity — CPD Register" };
 
 export default async function NewEntryPage() {
   const user = await requireConfirmedUser();
   const framework = frameworkFor(user.regulator);
+  const goals = (await (await getDb())
+    .prepare(
+      "SELECT id, title FROM pdp_goals WHERE user_id = ? AND status = 'active' ORDER BY target_date ASC NULLS LAST"
+    )
+    .all(user.id)) as Pick<PdpGoal, "id" | "title">[];
 
   return (
     <main className="container container--narrow stack">
@@ -90,6 +97,7 @@ export default async function NewEntryPage() {
             />
             <div className="hint">Appears in your audit pack and appraisal summary.</div>
           </div>
+          <PdpGoalSelect goals={goals} />
         </ActionForm>
       </div>
     </main>

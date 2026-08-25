@@ -1,7 +1,7 @@
 import "server-only";
 import crypto from "crypto";
-import { getDb, type MsfInvitation, type MsfRequest } from "./db";
-import { MSF_REMINDER_AFTER_DAYS } from "./msf";
+import { getDb, type MsfInvitation, type MsfRequest, type MsfResponse } from "./db";
+import { MSF_MIN_COLLEAGUES, MSF_REMINDER_AFTER_DAYS } from "./msf";
 
 /**
  * The invitation links, and the rules about time.
@@ -48,6 +48,56 @@ export function daysBetween(from: string, to: string): number {
 export function msfStatus(request: MsfRequest, today = ukToday()): "draft" | "open" | "closed" {
   if (!request.closes_on) return "draft";
   return today > request.closes_on ? "closed" : "open";
+}
+
+/**
+ * Whether the results may be read. The window has closed, the subject has
+ * done the same exercise themselves, and enough people were asked for a
+ * reply not to be traceable. All three are conditions, not suggestions —
+ * every reader of results must come through here.
+ */
+export function msfReleased(
+  request: MsfRequest,
+  asked: number,
+  selfDone: boolean,
+  today = ukToday()
+): boolean {
+  return msfStatus(request, today) === "closed" && selfDone && asked >= MSF_MIN_COLLEAGUES;
+}
+
+/**
+ * A round's released results, or null if this user may not read them —
+ * wrong owner, still open, self-assessment missing, or too few asked.
+ * For pages that need the data without re-deriving the gate.
+ */
+export async function releasedMsfRound(
+  userId: number,
+  requestId: number
+): Promise<{
+  request: MsfRequest;
+  responses: MsfResponse[];
+  selfAnswers: Record<string, number | string | null>;
+} | null> {
+  const db = await getDb();
+  const request = (await db
+    .prepare("SELECT * FROM msf_requests WHERE id = ? AND user_id = ?")
+    .get(requestId, userId)) as MsfRequest | undefined;
+  if (!request) return null;
+
+  const asked = Number(
+    ((await db
+      .prepare("SELECT COUNT(*) AS c FROM msf_invitations WHERE request_id = ?")
+      .get(request.id)) as { c: string }).c
+  );
+  const selfAnswers = (await db
+    .prepare("SELECT * FROM msf_self_assessments WHERE request_id = ?")
+    .get(request.id)) as Record<string, number | string | null> | undefined;
+  if (!msfReleased(request, asked, !!selfAnswers) || !selfAnswers) return null;
+
+  const responses = (await db
+    .prepare("SELECT * FROM msf_responses WHERE request_id = ?")
+    .all(request.id)) as MsfResponse[];
+  return { request, responses, selfAnswers };
 }
 
 /** Whether the one reminder is available yet, and has not already been used. */

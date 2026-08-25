@@ -1,6 +1,6 @@
 import { frameworkFor, parseStandards } from "@/lib/standards";
 import { EntryNotes } from "@/components/entry-notes";
-import { getDb, type CpdEntry } from "@/lib/db";
+import { getDb, type CpdEntry, type PdpGoal } from "@/lib/db";
 import { requireConfirmedUser } from "@/lib/auth";
 import { record } from "@/lib/analytics";
 import { formatDate, GMC_APPRAISAL_REGULATOR } from "@/lib/format";
@@ -38,6 +38,17 @@ export default async function AppraisalPage({
        ORDER BY e.activity_date ASC`
     )
     .all(user.id, from, to) as (CpdEntry & { verification_code: string | null })[];
+
+  // The PDP is a named output of GMC appraisal, which is why it appears in
+  // this pack and not in the HCPC, GTCS or engineering formats — none of
+  // those asks for one. Goals that were live at any point in the period.
+  const goals = (await (await getDb())
+    .prepare(
+      `SELECT * FROM pdp_goals
+        WHERE user_id = ? AND created_at <= ? AND (closed_on IS NULL OR closed_on >= ?)
+        ORDER BY status = 'active' DESC, target_date ASC NULLS LAST`
+    )
+    .all(user.id, `${to}T23:59:59Z`, from)) as PdpGoal[];
 
   const baseUrl = await getBaseUrl();
   const framework = frameworkFor(user.regulator);
@@ -192,6 +203,59 @@ export default async function AppraisalPage({
           supporting information under Good Medical Practice.
         </p>
       </div>
+
+      {/* Printed only when there is one: a pack must not carry an empty section. */}
+      {goals.length > 0 && (
+        <div className="card">
+          <h2>Personal development plan</h2>
+          <div className="table-wrap">
+            <table className="table table--stack">
+              <thead>
+                <tr>
+                  <th>Development need</th>
+                  <th>Planned actions</th>
+                  <th>How achievement is shown</th>
+                  <th>Target date</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {goals.map((g) => (
+                  <tr key={g.id}>
+                    <td data-label="Need">
+                      {g.title}
+                      {g.identified_from && (
+                        <div className="muted small">Identified from {g.identified_from}</div>
+                      )}
+                    </td>
+                    <td data-label="Actions" className="small">{g.actions ?? "—"}</td>
+                    <td data-label="Shown by" className="small">{g.success_criteria ?? "—"}</td>
+                    <td data-label="Target" className="small">
+                      {g.target_date ? formatDate(g.target_date) : "—"}
+                    </td>
+                    <td data-label="Status" className="small">
+                      {g.status === "active"
+                        ? "In progress"
+                        : g.status === "achieved"
+                          ? `Achieved ${g.closed_on ? formatDate(g.closed_on) : ""}`
+                          : g.status === "carried"
+                            ? "Carried forward"
+                            : "No longer relevant"}
+                      {g.outcome_reflection && (
+                        <div className="muted">{g.outcome_reflection}</div>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+          <p className="muted small">
+            Goals reviewed as achieved, carried forward or no longer relevant, per the GMC&rsquo;s
+            expectation of progress against the PDP each appraisal year.
+          </p>
+        </div>
+      )}
     </main>
   );
 }

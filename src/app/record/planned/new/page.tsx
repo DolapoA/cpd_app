@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { requireConfirmedUser } from "@/lib/auth";
+import { getDb, type PdpGoal } from "@/lib/db";
 import { addPlannedEvent } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { PlannedFields } from "@/components/planned-fields";
@@ -16,7 +17,12 @@ export const metadata = { title: "Add planned CPD — CPD Register" };
  * the form travels perfectly well on its own.
  */
 export default async function NewPlannedPage() {
-  await requireConfirmedUser();
+  const user = await requireConfirmedUser();
+  const goals = (await (await getDb())
+    .prepare(
+      "SELECT id, title FROM pdp_goals WHERE user_id = ? AND status = 'active' ORDER BY target_date ASC NULLS LAST"
+    )
+    .all(user.id)) as Pick<PdpGoal, "id" | "title">[];
 
   return (
     <main className="container container--narrow stack">
@@ -32,7 +38,7 @@ export default async function NewPlannedPage() {
 
       <div className="card">
         <ActionForm action={addPlannedEvent} submitLabel="Add to my plan">
-          <PlannedFields />
+          <PlannedFields goals={goals} />
         </ActionForm>
       </div>
 

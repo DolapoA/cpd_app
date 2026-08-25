@@ -24,8 +24,8 @@ const SITE = process.env.NEXT_PUBLIC_SITE_URL ?? "https://cpdregister.app";
  */
 const UPDATED = {
   home: "2026-08-24",
-  cpdIndex: "2026-08-24",
-  guides: "2026-08-24",
+  cpdIndex: "2026-08-25",
+  guides: "2026-08-25",
   faq: "2026-08-19",
   privacy: "2026-08-15",
   terms: "2026-08-16",

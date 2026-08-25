@@ -10,6 +10,7 @@ import {
   registerStatus,
   type CpdEntry,
   type PlannedEvent,
+  type PdpGoal,
   type MsfRequest,
   type Register,
   type Signature,
@@ -793,8 +794,8 @@ export async function addManualEntry(_prev: ActionState, formData: FormData): Pr
 
   await (await getDb())
     .prepare(
-      `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, created_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+      `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, pdp_goal_id, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, ?)`
     )
     .run(
       user.id,
@@ -807,6 +808,7 @@ export async function addManualEntry(_prev: ActionState, formData: FormData): Pr
       str(formData, "provider") || null,
       str(formData, "notes") || null,
       standards,
+      await ownedActiveGoalId(user.id, formData),
       new Date().toISOString()
     );
 
@@ -1245,6 +1247,7 @@ export async function deleteAccount(_prev: ActionState, formData: FormData): Pro
     // Yours alone — removed outright.
     await tx.prepare("DELETE FROM cpd_entries WHERE user_id = ?").run(user.id);
     await tx.prepare("DELETE FROM activity_type_goals WHERE user_id = ?").run(user.id);
+    await tx.prepare("DELETE FROM pdp_goals WHERE user_id = ?").run(user.id);
     // Unlike signatures, a feedback round is nobody else's evidence — the
     // colleagues who answered gave their answers to this person, for this
     // person. The cascade takes the invitations and the responses with it.
@@ -1756,12 +1759,13 @@ export async function addPlannedEvent(
     .prepare(
       `INSERT INTO planned_events
          (user_id, title, starts_on, ends_on, start_time, end_time, location, provider, url,
-          notes, expected_points, expected_hours, is_public, shared, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+          notes, expected_points, expected_hours, is_public, shared, pdp_goal_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
     )
     .run(
       user.id, f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location,
-      f.provider, f.url, f.notes, f.points, f.hours, f.isPublic, f.shared, now, now
+      f.provider, f.url, f.notes, f.points, f.hours, f.isPublic, f.shared,
+      await ownedActiveGoalId(user.id, formData), now, now
     );
 
   await record({ name: "planned_event_added" });
@@ -1785,6 +1789,12 @@ export async function updatePlannedEvent(
   if ("error" in fields) return fields as { error: string };
   const f = fields as Record<string, string | number | null>;
 
+  // The goal select is only in the form while its owner has active goals, so
+  // an absent field means "the question wasn't asked", not "unlink" — a plan
+  // linked to a since-reviewed goal must survive an unrelated edit.
+  const goalOffered = formData.get("pdp_goal_id") !== null;
+  const goalId = goalOffered ? await ownedActiveGoalId(user.id, formData) : null;
+
   // revision is bumped so a calendar that already holds this event treats the
   // new version as an update rather than ignoring it.
   const result = await (await getDb())
@@ -1792,13 +1802,15 @@ export async function updatePlannedEvent(
       `UPDATE planned_events
           SET title = ?, starts_on = ?, ends_on = ?, start_time = ?, end_time = ?,
               location = ?, provider = ?, url = ?, notes = ?, expected_points = ?,
-              expected_hours = ?, is_public = ?, shared = ?, revision = revision + 1,
-              updated_at = ?
+              expected_hours = ?, is_public = ?, shared = ?,
+              pdp_goal_id = CASE WHEN ? = 1 THEN ? ELSE pdp_goal_id END,
+              revision = revision + 1, updated_at = ?
         WHERE id = ? AND user_id = ?`
     )
     .run(
       f.title, f.startsOn, f.endsOn, f.startTime, f.endTime, f.location, f.provider,
-      f.url, f.notes, f.points, f.hours, f.isPublic, f.shared, new Date().toISOString(),
+      f.url, f.notes, f.points, f.hours, f.isPublic, f.shared,
+      goalOffered ? 1 : 0, goalId, new Date().toISOString(),
       id, user.id
     );
   if (result.changes === 0) return { error: "That plan no longer exists." };
@@ -1844,13 +1856,14 @@ export async function recordPlannedEvent(formData: FormData): Promise<void> {
       .prepare(
         `INSERT INTO cpd_entries
            (user_id, title, activity_date, activity_type, is_official, points, hours,
-            provider, notes, verified, created_at)
-         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 0, ?)
+            provider, notes, verified, pdp_goal_id, created_at)
+         VALUES (?, ?, ?, ?, 0, ?, ?, ?, ?, 0, ?, ?)
          RETURNING id`
       )
       .get(
         user.id, plan.title, plan.starts_on, "Formal / educational",
-        plan.expected_points, plan.expected_hours, plan.provider, plan.notes, now
+        plan.expected_points, plan.expected_hours, plan.provider, plan.notes,
+        plan.pdp_goal_id, now
       )) as { id: number };
 
     await tx
@@ -2679,4 +2692,165 @@ export async function deleteMsfRequest(formData: FormData): Promise<void> {
 
   await db.prepare("DELETE FROM msf_requests WHERE id = ? AND user_id = ?").run(id, user.id);
   redirect("/record/colleague-feedback");
+}
+
+/* ---------------------------------------------------------------------------
+   Personal development plan
+--------------------------------------------------------------------------- */
+
+/** The editable fields of a goal, read once for add and update alike. */
+function pdpFields(formData: FormData):
+  | { error: string }
+  | {
+      title: string;
+      identifiedFrom: string | null;
+      actions: string | null;
+      successCriteria: string | null;
+      targetDate: string | null;
+    } {
+  const title = str(formData, "title");
+  if (!title) return { error: "Say what you want to develop." };
+  const targetDate = str(formData, "target_date");
+  if (targetDate && !/^\d{4}-\d{2}-\d{2}$/.test(targetDate))
+    return { error: "Enter the target date as a date." };
+  return {
+    title,
+    identifiedFrom: str(formData, "identified_from") || null,
+    actions: str(formData, "actions") || null,
+    successCriteria: str(formData, "success_criteria") || null,
+    targetDate: targetDate || null,
+  };
+}
+
+/** The goal a form offered, only if it is the user's own and still active. */
+async function ownedActiveGoalId(userId: number, formData: FormData): Promise<number | null> {
+  const id = num(formData, "pdp_goal_id");
+  if (id === null) return null;
+  const owned = await (await getDb())
+    .prepare("SELECT id FROM pdp_goals WHERE id = ? AND user_id = ? AND status = 'active'")
+    .get(id, userId);
+  return owned ? id : null;
+}
+
+export async function addPdpGoal(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+  const fields = pdpFields(formData);
+  if ("error" in fields) return fields;
+
+  // A goal born from an MSF round keeps the link — but only to a round of
+  // the user's own; a forged id is dropped rather than refused.
+  let msfRequestId = num(formData, "msf_request_id");
+  if (msfRequestId !== null) {
+    const owned = await (await getDb())
+      .prepare("SELECT id FROM msf_requests WHERE id = ? AND user_id = ?")
+      .get(msfRequestId, user.id);
+    if (!owned) msfRequestId = null;
+  }
+
+  const now = new Date().toISOString();
+  await (await getDb())
+    .prepare(
+      `INSERT INTO pdp_goals
+         (user_id, title, identified_from, msf_request_id, actions, success_criteria,
+          target_date, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+    )
+    .run(
+      user.id, fields.title, fields.identifiedFrom, msfRequestId, fields.actions,
+      fields.successCriteria, fields.targetDate, now, now
+    );
+
+  await record({ name: "pdp_goal_added" });
+  redirect("/record/development");
+}
+
+export async function updatePdpGoal(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "id");
+  if (id === null) return { error: "Something went wrong. Try again from the list." };
+  const fields = pdpFields(formData);
+  if ("error" in fields) return fields;
+
+  // Closed goals are history, and history is read-only: the review verdict
+  // and reflection would stop meaning anything if the goal under them could
+  // still change.
+  const result = await (await getDb())
+    .prepare(
+      `UPDATE pdp_goals
+          SET title = ?, identified_from = ?, actions = ?, success_criteria = ?,
+              target_date = ?, updated_at = ?
+        WHERE id = ? AND user_id = ? AND status = 'active'`
+    )
+    .run(
+      fields.title, fields.identifiedFrom, fields.actions, fields.successCriteria,
+      fields.targetDate, new Date().toISOString(), id, user.id
+    );
+  if (result.changes === 0) return { error: "That goal is no longer open." };
+
+  revalidatePath("/record/development");
+  redirect("/record/development");
+}
+
+export async function reviewPdpGoal(_prev: ActionState, formData: FormData): Promise<ActionState> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "id");
+  const outcome = str(formData, "outcome");
+  if (id === null || !["achieved", "carried", "dropped"].includes(outcome))
+    return { error: "Choose what happened to this goal." };
+
+  const reflection = str(formData, "outcome_reflection");
+  // "No longer relevant" explains itself; the other two verdicts are the
+  // ones an appraiser will ask about.
+  if (outcome !== "dropped" && !reflection)
+    return { error: "Add a line of reflection — appraisal will ask for it." };
+
+  const newDate = str(formData, "new_target_date");
+  if (outcome === "carried" && !/^\d{4}-\d{2}-\d{2}$/.test(newDate))
+    return { error: "A carried goal needs its new target date." };
+
+  const db = await getDb();
+  const goal = (await db
+    .prepare("SELECT * FROM pdp_goals WHERE id = ? AND user_id = ? AND status = 'active'")
+    .get(id, user.id)) as PdpGoal | undefined;
+  if (!goal) return { error: "That goal is no longer open." };
+
+  const now = new Date().toISOString();
+  // Carrying forward closes this goal and opens a fresh copy: the closed row
+  // keeps its reflection as the history, the clone gets the new date, and
+  // evidence linked so far stays with the round of work it belonged to.
+  await db.transaction(async (tx) => {
+    await tx
+      .prepare(
+        "UPDATE pdp_goals SET status = ?, outcome_reflection = ?, closed_on = ?, updated_at = ? WHERE id = ?"
+      )
+      .run(outcome, reflection || null, ukToday(), now, goal.id);
+    if (outcome === "carried") {
+      await tx
+        .prepare(
+          `INSERT INTO pdp_goals
+             (user_id, title, identified_from, msf_request_id, actions, success_criteria,
+              target_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          user.id, goal.title, goal.identified_from, goal.msf_request_id, goal.actions,
+          goal.success_criteria, newDate, now, now
+        );
+    }
+  });
+
+  await record({ name: "pdp_goal_reviewed" });
+  revalidatePath("/record/development");
+  redirect("/record/development");
+}
+
+export async function deletePdpGoal(formData: FormData): Promise<void> {
+  const user = await requireConfirmedUser();
+  const id = num(formData, "id");
+  // Linked entries and plans survive: their FKs fall to NULL rather than
+  // taking the evidence down with the goal.
+  if (id !== null)
+    await (await getDb()).prepare("DELETE FROM pdp_goals WHERE id = ? AND user_id = ?").run(id, user.id);
+  revalidatePath("/record/development");
+  redirect("/record/development");
 }

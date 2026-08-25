@@ -155,6 +155,36 @@ export type MsfItemSummary = {
   distribution: number[];
 };
 
+export type MsfGap = {
+  question: MsfRatedQuestion;
+  /** What colleagues gave, on average. */
+  mean: number;
+  /** What the subject gave themselves. */
+  own: number;
+  /** mean − own: negative where colleagues rated lower than the subject did. */
+  gap: number;
+};
+
+/**
+ * Self-rating against colleague mean, per question — the raw material of a
+ * development plan. Only items both sides actually rated: an abstained self-
+ * answer or an all-abstained colleague mean compares nothing with nothing.
+ * Sorted most-negative first, because the biggest gap is the first goal.
+ */
+export function msfGaps(
+  summaries: MsfItemSummary[],
+  selfAnswers: Record<string, number | string | null> | undefined
+): MsfGap[] {
+  if (!selfAnswers) return [];
+  return summaries
+    .flatMap((item) => {
+      const own = Number(selfAnswers[item.question.key] ?? 0);
+      if (item.mean === null || own < 1 || own > MSF_SCALE_POINTS) return [];
+      return [{ question: item.question, mean: item.mean, own, gap: item.mean - own }];
+    })
+    .sort((a, b) => a.gap - b.gap);
+}
+
 /**
  * Aggregates one item.
  *

@@ -394,6 +394,33 @@ CREATE TABLE IF NOT EXISTS activity_type_goals (
   target_date TEXT NOT NULL,
   UNIQUE(user_id, activity_type)
 );
+
+/*
+  A development goal: the unit of a personal development plan. A flat list
+  rather than goals grouped into annual plans — the annual cadence is one
+  profession's, and a period is only a date range, which is how the packs
+  already slice everything else.
+
+  A goal closes by review, not deletion: status records the verdict, the
+  reflection says why, and a carried-forward goal is closed here and cloned
+  as a fresh active row. The closed row is the history.
+*/
+CREATE TABLE IF NOT EXISTS pdp_goals (
+  id INTEGER GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
+  user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  title TEXT NOT NULL,
+  identified_from TEXT,
+  msf_request_id INTEGER REFERENCES msf_requests(id) ON DELETE SET NULL,
+  actions TEXT,
+  success_criteria TEXT,
+  target_date TEXT,
+  status TEXT NOT NULL DEFAULT 'active',  -- active | achieved | dropped | carried
+  outcome_reflection TEXT,
+  closed_on TEXT,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+CREATE INDEX IF NOT EXISTS idx_pdp_user ON pdp_goals(user_id, status, target_date);
 `;
 
 /*
@@ -515,6 +542,13 @@ ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS rating INTEGER;
 ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review TEXT;
 ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_consent INTEGER NOT NULL DEFAULT 0;
 ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_attribution TEXT;
+
+/* Which development goal an intention or an entry serves. SET NULL rather
+   than CASCADE: evidence outlives a deleted goal. These sit at the end of
+   MIGRATIONS because pdp_goals is created in SCHEMA, which has already run
+   by the time this string does — the ordering rule above applies. */
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS pdp_goal_id INTEGER REFERENCES pdp_goals(id) ON DELETE SET NULL;
+ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS pdp_goal_id INTEGER REFERENCES pdp_goals(id) ON DELETE SET NULL;
 `;
 
 /**
@@ -784,6 +818,7 @@ export type PlannedEvent = {
   notified_at: string | null;
   outcome: string | null;
   cpd_entry_id: number | null;
+  pdp_goal_id: number | null;
   created_at: string;
   updated_at: string;
 };
@@ -793,6 +828,23 @@ export type ActivityTypeGoal = {
   user_id: number;
   activity_type: string;
   target_date: string;
+};
+
+export type PdpGoal = {
+  id: number;
+  user_id: number;
+  title: string;
+  identified_from: string | null;
+  msf_request_id: number | null;
+  actions: string | null;
+  success_criteria: string | null;
+  target_date: string | null;
+  /** active | achieved | dropped | carried */
+  status: string;
+  outcome_reflection: string | null;
+  closed_on: string | null;
+  created_at: string;
+  updated_at: string;
 };
 
 export type Register = {
@@ -868,6 +920,7 @@ export type CpdEntry = {
   /** Comma-separated framework codes; see lib/standards.ts. */
   standards: string | null;
   verified: number;
+  pdp_goal_id: number | null;
   created_at: string;
 };
 

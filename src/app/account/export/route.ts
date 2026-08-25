@@ -25,6 +25,9 @@ export async function GET() {
     activity_type_goals: await db
       .prepare("SELECT * FROM activity_type_goals WHERE user_id = ?")
       .all(user.id),
+    development_goals: await db
+      .prepare("SELECT * FROM pdp_goals WHERE user_id = ? ORDER BY created_at ASC")
+      .all(user.id),
     // Feedback rounds the user asked for: the request and who was invited,
     // which are theirs. The colleagues' answers are not included even though
     // they are about this person — they are stored with no link to who gave

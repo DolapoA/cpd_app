@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { requireConfirmedUser } from "@/lib/auth";
-import { getDb, type PlannedEvent } from "@/lib/db";
+import { getDb, type PdpGoal, type PlannedEvent } from "@/lib/db";
 import { updatePlannedEvent } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { PlannedFields } from "@/components/planned-fields";
@@ -16,6 +16,12 @@ export default async function EditPlannedPage({ params }: { params: Promise<{ id
     .prepare("SELECT * FROM planned_events WHERE id = ? AND user_id = ?")
     .get(Number(id), user.id)) as PlannedEvent | undefined;
   if (!plan) notFound();
+
+  const goals = (await (await getDb())
+    .prepare(
+      "SELECT id, title FROM pdp_goals WHERE user_id = ? AND status = 'active' ORDER BY target_date ASC NULLS LAST"
+    )
+    .all(user.id)) as Pick<PdpGoal, "id" | "title">[];
 
   return (
     <main className="container container--narrow stack">
@@ -32,7 +38,7 @@ export default async function EditPlannedPage({ params }: { params: Promise<{ id
       <div className="card">
         <ActionForm action={updatePlannedEvent} submitLabel="Save changes">
           <input type="hidden" name="id" value={plan.id} />
-          <PlannedFields plan={plan} />
+          <PlannedFields plan={plan} goals={goals} />
         </ActionForm>
       </div>
 

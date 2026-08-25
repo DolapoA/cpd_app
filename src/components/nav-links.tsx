@@ -29,11 +29,18 @@ function LinkPending() {
 export function NavLinks({ variant = "full" }: { variant?: "full" | "short" | "icon" }) {
   const pathname = usePathname();
 
+  // Longest match wins, and only one wins: /record/development belongs to the
+  // PDP tab, not to My Record as well, and a plain prefix test would light
+  // both. (/record vs /registers is why it is a prefix-with-slash at all.)
+  const current = SECTIONS.reduce<string | null>((best, s) => {
+    const matches = pathname === s.href || pathname.startsWith(`${s.href}/`);
+    return matches && (!best || s.href.length > best.length) ? s.href : best;
+  }, null);
+
   return (
     <>
       {SECTIONS.map((s) => {
-        // /record must not stay lit while you are on /registers.
-        const active = pathname === s.href || pathname.startsWith(`${s.href}/`);
+        const active = s.href === current;
         return (
           <Link
             key={s.href}

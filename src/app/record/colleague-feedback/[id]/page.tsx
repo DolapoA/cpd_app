@@ -6,7 +6,7 @@ import { formatDate } from "@/lib/format";
 import { addMsfRater, deleteMsfRequest, sendMsfReminder } from "@/lib/actions";
 import { ActionForm } from "@/components/action-form";
 import { MsfForm } from "@/components/msf-form";
-import { canRemind, daysBetween, msfStatus, ukToday, visibleReplyCount } from "@/lib/msf-invites";
+import { canRemind, daysBetween, msfReleased, msfStatus, ukToday, visibleReplyCount } from "@/lib/msf-invites";
 import {
   MSF_MIN_COLLEAGUES,
   MSF_RATED_QUESTIONS,
@@ -15,6 +15,7 @@ import {
   MSF_SMALL_SAMPLE,
   MSF_TEXT_QUESTIONS,
   commentOrder,
+  msfGaps,
   renderMsfQuestion,
   summariseMsfItem,
 } from "@/lib/msf";
@@ -91,11 +92,8 @@ export default async function ColleagueFeedbackDetailPage({
   const shownReplies = await visibleReplyCount(request);
   const daysLeft = request.closes_on ? daysBetween(ukToday(), request.closes_on) : null;
 
-  // The results unseal only when the window has closed, the subject has done
-  // the same exercise themselves, and enough people were asked for a reply
-  // not to be traceable. All three are conditions, not suggestions.
   const enoughInvited = asked >= MSF_MIN_COLLEAGUES;
-  const released = status === "closed" && selfDone && enoughInvited;
+  const released = msfReleased(request, asked, selfDone);
 
   const responses = released
     ? ((await db
@@ -343,6 +341,43 @@ export default async function ColleagueFeedbackDetailPage({
             </div>
           </div>
 
+          {(() => {
+            // The gaps the guide promises: colleagues below your own rating,
+            // biggest shortfall first. Each is one click from being a goal.
+            const gaps = msfGaps(summary, selfAnswers).filter((g) => g.gap < 0);
+            return (
+              <div className="card">
+                <h2>Your development gaps</h2>
+                {gaps.length === 0 ? (
+                  <p className="muted small">
+                    Colleagues rated you at or above your own ratings throughout — strengths to
+                    evidence, not gaps to close.{" "}
+                    <Link href="/record/development/new">Add a goal anyway →</Link>
+                  </p>
+                ) : (
+                  <ul className="goal-list stack">
+                    {gaps.map((g) => (
+                      <li key={g.question.key} className="goal-card__head">
+                        <span>
+                          {g.question.short}{" "}
+                          <span className="muted small">
+                            colleagues {g.mean.toFixed(1)} · you {g.own}
+                          </span>
+                        </span>
+                        <Link
+                          className="small"
+                          href={`/record/development/new?msf=${request.id}&q=${g.question.key}`}
+                        >
+                          Set as goal →
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            );
+          })()}
+
           {MSF_TEXT_QUESTIONS.map((question) => {
             const written = responses
               .map((r) => String(r[question.key as `q${number}`] ?? "").trim())
@@ -359,6 +394,12 @@ export default async function ColleagueFeedbackDetailPage({
                       <p>{text}</p>
                     </blockquote>
                   ))
+                )}
+                {question.key === "q19" && written.length > 0 && (
+                  <p className="muted small">
+                    These are development-goal material.{" "}
+                    <Link href="/record/development/new">Add a goal →</Link>
+                  </p>
                 )}
               </div>
             );

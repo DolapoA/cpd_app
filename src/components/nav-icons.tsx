@@ -66,11 +66,24 @@ function MsfIcon() {
   );
 }
 
+/** An arrow leaving a flag-marked path — a plan is a route to somewhere. */
+function PdpIcon() {
+  return (
+    <svg {...shared}>
+      <path d="M3.4 16.6c.4-4.4 2.6-6.9 6.6-7.5" />
+      <path d="M13.4 5.4h3.4v3.4" />
+      <path d="M16.6 5.6 9.8 12.4" />
+      <circle cx="3.4" cy="16.6" r="1" />
+    </svg>
+  );
+}
+
 const ICONS: Record<string, () => React.JSX.Element> = {
   home: HomeIcon,
   record: RecordIcon,
   registers: RegistersIcon,
   msf: MsfIcon,
+  pdp: PdpIcon,
 };
 
 export function NavIcon({ name }: { name: string }) {

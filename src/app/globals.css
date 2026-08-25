@@ -1970,6 +1970,51 @@ main {
   }
 }
 
+/* ---- Development plan ---- */
+
+/* A goal is a card that goes somewhere, like a guide card. */
+.goal-card {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  text-decoration: none;
+  color: inherit;
+}
+
+.goal-card:hover {
+  border-color: var(--brand);
+}
+
+.goal-card:focus-visible {
+  outline: var(--focus-width) solid var(--focus-color);
+  outline-offset: var(--focus-offset);
+}
+
+.goal-card__head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-2);
+  flex-wrap: wrap;
+}
+
+.goal-card__title {
+  font-weight: 600;
+  color: var(--brand);
+}
+
+.goal-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+}
+
+.goal-history {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-05);
+}
+
 /* A guide reads left; what the app does for you keeps pace alongside. */
 @media (min-width: 1100px) {
   .guide-layout {
@@ -3066,12 +3111,12 @@ body:has(.site-header--rail) {
      account lives in .site-rail__foot, so spreading each container's own
      children evenly gave the sections one share of the bar and the account
      another — different rhythms in one row. Weighting the containers by how
-     many tabs each holds (four sections to one account) and letting every tab
-     grow inside them keeps all five the same width, whichever box they are
+     many tabs each holds (five sections to one account) and letting every tab
+     grow inside them keeps all six the same width, whichever box they are
      in. This number follows SECTIONS. */
   .site-rail .site-nav {
     flex-direction: row;
-    flex: 4;
+    flex: 5;
     justify-content: space-between;
     flex-wrap: nowrap;
     overflow: visible;
@@ -3099,7 +3144,9 @@ body:has(.site-header--rail) {
     flex-direction: column;
     gap: var(--space-05);
     font-size: var(--text-2xs);
-    padding: var(--space-1) var(--space-2);
+    /* Five sections and the account share 390px, so a tab is ~65px wide.
+       Sideways padding is what "Registers" cannot afford at that width. */
+    padding: var(--space-1) var(--space-05);
     justify-content: center;
   }
 

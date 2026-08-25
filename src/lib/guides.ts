@@ -308,7 +308,7 @@ export const GUIDES: Guide[] = [
       },
       {
         q: "How does MSF feed a personal development plan?",
-        a: "You answer the same questions about yourself before seeing anyone else's answers. The results then show your self-rating beside your colleagues' average on every question, and the gaps are your personal development plan writing itself: an item colleagues rate lower than you did is a development goal, and one they rate higher is a strength you can evidence. Repeating MSF in a later cycle shows whether the plan worked.",
+        a: "You answer the same questions about yourself before seeing anyone else's answers. The results then show your self-rating beside your colleagues' average on every question, and the gaps are your personal development plan writing itself: an item colleagues rate lower than you did is a development goal, and one they rate higher is a strength you can evidence. Repeating MSF in a later cycle shows whether the plan worked. The personal development plan guide covers what each goal then needs to say.",
       },
       {
         q: "Is MSF evidence of professionalism?",
@@ -325,6 +325,50 @@ export const GUIDES: Guide[] = [
       {
         q: "Is MSF required for GMC revalidation?",
         a: "The GMC expects doctors to collect and reflect on feedback from colleagues at least once per five-year revalidation cycle, discussed at appraisal alongside the other supporting information. Other regulators generally do not mandate MSF by name, but appraisal and development conversations across professions accept it as strong evidence — check your own body's wording before relying on it.",
+      },
+    ],
+  },
+  {
+    slug: "personal-development-plan",
+    body: "PDP",
+    bodyName: "the personal development plan",
+    audience:
+      "doctors preparing for appraisal, and any UK professional whose review expects agreed development goals",
+    title: "Personal development plan (PDP): writing goals your appraisal can sign off",
+    description:
+      "What a personal development plan is, the five parts of a PDP goal appraisers look for, and how to review goals as achieved, carried forward or no longer relevant.",
+    requirement:
+      "A personal development plan is the forward-looking half of professional development: where CPD records what you did, a PDP states what you are working on becoming. Each goal names a development need, how it was identified, what you will do about it, how achievement will be shown, and a target date. For doctors it is a formal output of GMC appraisal — a new plan agreed each year, with progress on the old one (or an explanation) expected at the next; appraisal and review frameworks across other professions ask for the same structure under different names. A goal is reviewed, not just kept: achieved, carried forward with a new date, or honestly retired as no longer relevant.",
+    output: {
+      label: "Start your development plan",
+      href: "/record/development",
+      blurb:
+        "A goal is a need, what you'll do, how you'll show it worked, and a date. Link CPD entries and planned events to it as evidence, and review each goal at appraisal: achieved, carried forward, or no longer relevant.",
+    },
+    faqs: [
+      {
+        q: "What is a personal development plan (PDP)?",
+        a: "A short, agreed list of development goals: what you need to develop, how the need was identified, the actions you will take, how achievement will be demonstrated, and a target date. It is the document an appraisal or professional review keeps returning to — last year's plan is reviewed, next year's is agreed.",
+      },
+      {
+        q: "What makes a development goal SMART?",
+        a: "Specific, measurable, achievable, relevant and time-bound. In practice: name one capability rather than a theme, say what you will actually do, define what an appraiser could look at and agree it happened, keep it within your role's reach, and give it a date. \"Improve leadership\" is a theme; \"chair the monthly governance meeting from March and collect feedback from two attendees\" is a goal.",
+      },
+      {
+        q: "Where do development goals come from?",
+        a: "From evidence, not introspection alone: appraisal discussions, audit results, complaints and compliments, and structured feedback. Multi-source feedback is the sharpest source — the questions colleagues rate you lower on than you rated yourself are development needs already identified and evidenced.",
+      },
+      {
+        q: "What happens to a goal at review?",
+        a: "One of three verdicts. Achieved, with a line of reflection on what changed. Carried forward, with a new target date and a note on why it needs longer. Or no longer relevant, because roles and priorities move — retiring a goal honestly reads far better at appraisal than a plan nothing ever leaves.",
+      },
+      {
+        q: "Is a PDP required?",
+        a: "For doctors, yes in effect: GMC appraisal expects a PDP agreed each year and progress against it, or an explanation, at the next. Most other UK regulators do not mandate a PDP by name, but reflective frameworks — the HCPC's standards, the NMC's revalidation reflections, professional review in engineering and teaching — all assume development is planned rather than accidental. An agreed list of goals with review dates satisfies all of them.",
+      },
+      {
+        q: "How does a PDP connect to CPD?",
+        a: "The plan says why the learning happened. A course chosen against a stated development need, with the outcome reviewed, is a stronger appraisal story than the same course attended at random — and auditors read it that way. Recording CPD against the goal it serves turns a list of certificates into evidence of development.",
       },
     ],
   },
