@@ -3097,7 +3097,7 @@ body:has(.site-header--rail) {
        addition to it. Adding a gap on top of a 34px inset left the tabs
        pinned to the top of a bar with a band of empty white underneath them;
        max() keeps a sensible gap on the phones that report no inset at all. */
-    padding: var(--space-2) var(--space-2) max(var(--space-2), env(safe-area-inset-bottom, 0px));
+    padding: var(--space-2) var(--space-1) max(var(--space-2), env(safe-area-inset-bottom, 0px));
   }
 
   /* A tab bar holds tabs. The brand, the switcher and the log-out form are
@@ -3143,11 +3143,19 @@ body:has(.site-header--rail) {
   .site-rail .nav-link {
     flex-direction: column;
     gap: var(--space-05);
-    font-size: var(--text-2xs);
     /* Five sections and the account share 390px, so a tab is ~65px wide.
-       Sideways padding is what "Registers" cannot afford at that width. */
+       Everything scales down together — label, icon, padding — because
+       shrinking only one of them is what made six tabs look crowded rather
+       than small. */
+    font-size: var(--text-3xs);
     padding: var(--space-1) var(--space-05);
     justify-content: center;
+  }
+
+  .site-rail .nav-link__icon,
+  .site-rail .nav-link__icon svg {
+    width: 17px;
+    height: 17px;
   }
 
   /* The account becomes the last tab, matching the others. Log out lives on
@@ -3165,8 +3173,8 @@ body:has(.site-header--rail) {
     flex: 1;
     flex-direction: column;
     gap: var(--space-05);
-    font-size: var(--text-2xs);
-    padding: var(--space-1) var(--space-2);
+    font-size: var(--text-3xs);
+    padding: var(--space-1) var(--space-05);
     align-items: center;
     justify-content: center;
   }
@@ -3181,11 +3189,11 @@ body:has(.site-header--rail) {
     white-space: nowrap;
   }
 
-  /* The same box as a section's icon, so the four tabs read as one row rather
-     than three of one kind and one of another. */
+  /* The same box as a section's icon, so the six tabs read as one row rather
+     than five of one kind and one of another. */
   .site-rail .account__avatar {
-    width: 20px;
-    height: 20px;
+    width: 17px;
+    height: 17px;
     font-size: var(--text-4xs);
   }
 }
