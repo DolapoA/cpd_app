@@ -3107,62 +3107,61 @@ body:has(.site-header--rail) {
     display: none;
   }
 
-  /* Equal tabs across two containers. The sections live in .site-nav and the
-     account lives in .site-rail__foot, so spreading each container's own
-     children evenly gave the sections one share of the bar and the account
-     another — different rhythms in one row. Weighting the containers by how
-     many tabs each holds (five sections to one account) and letting every tab
-     grow inside them keeps all six the same width, whichever box they are
-     in. This number follows SECTIONS. */
+  /* Six destinations is past the density where icon-plus-label tabs read
+     well, and shrinking them only made the crowding smaller. So the bar says
+     less: every tab is its icon alone, and only the tab you are on carries a
+     tinted pill with its name — the one label the bar actually needs. The
+     five sections and the account share the row evenly; the pill takes its
+     natural width and the rest give way. */
   .site-rail .site-nav {
     flex-direction: row;
-    flex: 5;
+    flex: 1;
     justify-content: space-between;
     flex-wrap: nowrap;
     overflow: visible;
-    /* The tabs are already padded; a gap on top of that is what stopped the
-       four of them dividing the bar evenly. */
-    gap: 0;
+    gap: var(--space-05);
   }
 
+  /* Three classes deep on purpose: the top-bar rule `.site-nav a:not(.btn)`
+     is 0-2-1, so anything the bar needs to win must outrank it, not merely
+     come later. */
   .site-rail .site-nav .nav-link {
-    flex: 1;
-    /* Without this, a longer label ("Registers") holds its tab wider than its
-       siblings — min-content wins over flex-basis: 0 unless told not to. */
+    flex: 1 1 0;
     min-width: 0;
+    justify-content: center;
+    flex-direction: row;
+    gap: var(--space-15);
+    font-size: var(--text-2xs);
+    font-weight: 600;
+    /* Tall padding keeps the icon-only tabs at a finger-sized target. */
+    padding: var(--space-3) var(--space-1);
+    border-radius: var(--radius-pill);
   }
 
-  .site-rail .nav-link__full {
+  /* Silence every label, then let the current tab speak. */
+  .site-rail .nav-link__full,
+  .site-rail .nav-link__short {
     display: none;
   }
 
-  .site-rail .nav-link__short {
+  .site-rail .site-nav .nav-link[aria-current="page"] {
+    flex: 0 0 auto;
+    background: var(--brand-soft);
+    color: var(--brand-dark);
+    padding-inline: var(--space-3);
+  }
+
+  .site-rail .site-nav .nav-link[aria-current="page"] .nav-link__short {
     display: inline;
+    white-space: nowrap;
   }
 
-  .site-rail .nav-link {
-    flex-direction: column;
-    gap: var(--space-05);
-    /* Five sections and the account share 390px, so a tab is ~65px wide.
-       Everything scales down together — label, icon, padding — because
-       shrinking only one of them is what made six tabs look crowded rather
-       than small. */
-    font-size: var(--text-3xs);
-    padding: var(--space-1) var(--space-05);
-    justify-content: center;
-  }
-
-  .site-rail .nav-link__icon,
-  .site-rail .nav-link__icon svg {
-    width: 17px;
-    height: 17px;
-  }
-
-  /* The account becomes the last tab, matching the others. Log out lives on
-     the profile page, which is where you would go looking for it anyway. */
+  /* The account becomes the last tab, matching the others: the avatar is its
+     icon, and the first name stays on the profile page. Log out lives there
+     too, which is where you would go looking for it anyway. */
   .site-rail__foot {
     margin-top: 0;
-    flex: 1;
+    flex: none;
     display: flex;
     flex-direction: row;
     border-top: none;
@@ -3170,31 +3169,20 @@ body:has(.site-header--rail) {
   }
 
   .site-rail .account__link {
-    flex: 1;
-    flex-direction: column;
-    gap: var(--space-05);
-    font-size: var(--text-3xs);
-    padding: var(--space-1) var(--space-05);
+    flex-direction: row;
+    padding: var(--space-2) var(--space-1);
     align-items: center;
     justify-content: center;
   }
 
   .site-rail .account__name {
-    display: block;
-    /* A first name is the only tab label the app does not choose, so it is the
-       only one that can be long enough to push the others out of shape. */
-    max-width: 100%;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    display: none;
   }
 
-  /* The same box as a section's icon, so the six tabs read as one row rather
-     than five of one kind and one of another. */
   .site-rail .account__avatar {
-    width: 17px;
-    height: 17px;
-    font-size: var(--text-4xs);
+    width: 24px;
+    height: 24px;
+    font-size: var(--text-3xs);
   }
 }
 
