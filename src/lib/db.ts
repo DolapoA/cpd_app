@@ -549,6 +549,13 @@ ALTER TABLE uat_submissions ADD COLUMN IF NOT EXISTS review_attribution TEXT;
    by the time this string does — the ordering rule above applies. */
 ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS pdp_goal_id INTEGER REFERENCES pdp_goals(id) ON DELETE SET NULL;
 ALTER TABLE cpd_entries ADD COLUMN IF NOT EXISTS pdp_goal_id INTEGER REFERENCES pdp_goals(id) ON DELETE SET NULL;
+/* Asking what you got out of it, twice at most: an hour after the thing
+   ended, and once more two days later if nothing was written. Separate from
+   reminded_at and notified_at, which both run before the event — three
+   stamps because the three occasions are answered separately, and one
+   failing must not silence the others. */
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS reflect_nudged_at TEXT;
+ALTER TABLE planned_events ADD COLUMN IF NOT EXISTS reflect_nudged_2_at TEXT;
 `;
 
 /**
@@ -816,6 +823,8 @@ export type PlannedEvent = {
   shared: number;
   reminded_at: string | null;
   notified_at: string | null;
+  reflect_nudged_at: string | null;
+  reflect_nudged_2_at: string | null;
   outcome: string | null;
   cpd_entry_id: number | null;
   pdp_goal_id: number | null;

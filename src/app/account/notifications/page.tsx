@@ -111,10 +111,12 @@ export default async function NotificationsPage({
               type="checkbox"
               defaultChecked={!!user.notify_events}
             />{" "}
-            Happening today
+            Your planned CPD
             <InfoHint label="What is sent, and when">
-              One notification on the morning of anything on your plan. This is separate from the
-              email you already get the day before, which carries on either way.
+              One notification on the morning of anything on your plan, and one an hour after it
+              ends asking what you got out of it — repeated once, two days later, if nothing has
+              been written, and then left to the prompt on your plan page. This is separate from
+              the email you already get the day before, which carries on either way.
             </InfoHint>
           </label>
         </div>

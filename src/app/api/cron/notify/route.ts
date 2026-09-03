@@ -30,6 +30,13 @@ function ukNow(): { date: string; hour: number; month: string } {
   return { date, hour: uk.getHours(), month: date.slice(0, 7) };
 }
 
+/** A date that many days after another, both YYYY-MM-DD. */
+function shiftDays(date: string, days: number): string {
+  const d = new Date(`${date}T00:00:00Z`);
+  d.setUTCDate(d.getUTCDate() + days);
+  return d.toISOString().slice(0, 10);
+}
+
 function authorised(request: Request): boolean {
   const secret = process.env.CRON_SECRET;
   // Without a secret configured the route refuses everyone rather than
@@ -66,7 +73,7 @@ export async function GET(request: Request) {
     )
     .all(hour)) as User[];
 
-  const counts = { people: users.length, events: 0, targets: 0, shared: 0, failed: 0 };
+  const counts = { people: users.length, events: 0, targets: 0, shared: 0, reflections: 0, failed: 0 };
 
   for (const user of users) {
     try {
@@ -77,6 +84,16 @@ export async function GET(request: Request) {
       console.error("[cron/notify] failed for one person", error);
       counts.failed += 1;
     }
+  }
+
+  // Outside the loop above, because this one is not on anybody's chosen hour:
+  // an event ends when it ends, and the question is only worth asking while
+  // the day is still fresh.
+  try {
+    counts.reflections = await nudgeReflections(date, hour);
+  } catch (error) {
+    console.error("[cron/notify] reflection nudges failed", error);
+    counts.failed += 1;
   }
 
   return NextResponse.json({ date, hour, ...counts });
@@ -114,6 +131,119 @@ async function notifyTodaysEvents(user: User, date: string): Promise<number> {
     .prepare("UPDATE planned_events SET notified_at = ? WHERE id = ANY(?)")
     .run(new Date().toISOString(), plans.map((p) => p.id));
   return delivered.delivered > 0 ? 1 : 0;
+}
+
+/* The evening hour an all-day entry is asked about. Late enough that a study
+   day is over, early enough to still be the same day. */
+const ALL_DAY_REFLECT_HOUR = 18;
+/* An event older than this never starts the sequence — deploying the feature
+   should not nudge people about a fortnight of forgotten plans. */
+const REFLECT_WINDOW_DAYS = 2;
+/* And how long the second ask waits on the first. */
+const REFLECT_AGAIN_AFTER_DAYS = 2;
+
+/**
+ * The first whole hour at which an entry may be asked about: an hour after it
+ * ended, or the evening for the all-day ones, which is most of them — times
+ * are optional and usually left blank. An event ending at 16:30 is asked
+ * about at 18:00, not 17:00, because the cron only speaks on the hour.
+ */
+function reflectDueAt(plan: PlannedEvent): { date: string; hour: number } {
+  const date = plan.ends_on ?? plan.starts_on;
+  if (!plan.end_time) return { date, hour: ALL_DAY_REFLECT_HOUR };
+  const [h, m] = plan.end_time.split(":").map(Number);
+  const hour = Math.ceil((h * 60 + m + 60) / 60);
+  // An event finishing near midnight rolls into the next day rather than
+  // being asked about at an hour that does not exist.
+  return hour < 24 ? { date, hour } : { date: shiftDays(date, 1), hour: hour - 24 };
+}
+
+/**
+ * What you got out of it, asked while it is still fresh.
+ *
+ * Twice at most — an hour after the thing ended, and once more two days later
+ * if nothing was written — and then never again: the prompt on the plan page
+ * is there whenever they next look, and a third buzz about the same afternoon
+ * is how someone decides to turn all of this off.
+ *
+ * "Nothing was written" means the plan is still unanswered, or it was answered
+ * with a yes and the entry it made carries no reflection. Answering "I didn't
+ * go" ends it: there is nothing to reflect on, so nothing to ask about.
+ */
+async function nudgeReflections(date: string, hour: number): Promise<number> {
+  const db = await getDb();
+  const due = (await db
+    .prepare(
+      `SELECT p.*, u.notify_hour
+         FROM planned_events p
+         JOIN users u ON u.id = p.user_id
+        WHERE u.email_verified_at IS NOT NULL
+          AND u.notify_events = 1
+          AND EXISTS (SELECT 1 FROM push_subscriptions s WHERE s.user_id = u.id)
+          AND p.outcome IS DISTINCT FROM 'missed'
+          AND (p.outcome IS NULL
+               OR EXISTS (SELECT 1 FROM cpd_entries e
+                           WHERE e.id = p.cpd_entry_id
+                             AND COALESCE(TRIM(e.notes), '') = ''))
+          AND COALESCE(p.ends_on, p.starts_on) BETWEEN ? AND ?
+          AND (p.reflect_nudged_at IS NULL OR p.reflect_nudged_2_at IS NULL)
+        ORDER BY p.user_id, COALESCE(p.ends_on, p.starts_on), p.id`
+    )
+    .all(shiftDays(date, -7), date)) as (PlannedEvent & { notify_hour: number })[];
+
+  const first: PlannedEvent[] = [];
+  const again: PlannedEvent[] = [];
+  for (const plan of due) {
+    if (!plan.reflect_nudged_at) {
+      const at = reflectDueAt(plan);
+      const ended = plan.ends_on ?? plan.starts_on;
+      const stale = ended < shiftDays(date, -REFLECT_WINDOW_DAYS);
+      if (!stale && (date > at.date || (date === at.date && hour >= at.hour))) first.push(plan);
+    } else if (!plan.reflect_nudged_2_at) {
+      // The follow-up is not urgent, so it goes at the hour they chose for
+      // everything else rather than at whatever hour the event happened to end.
+      const waited = plan.reflect_nudged_at.slice(0, 10) <= shiftDays(date, -REFLECT_AGAIN_AFTER_DAYS);
+      if (waited && hour === plan.notify_hour) again.push(plan);
+    }
+  }
+  if (first.length === 0 && again.length === 0) return 0;
+
+  const byUser = new Map<number, PlannedEvent[]>();
+  for (const plan of [...first, ...again]) {
+    byUser.set(plan.user_id, [...(byUser.get(plan.user_id) ?? []), plan]);
+  }
+
+  let told = 0;
+  for (const [userId, plans] of byUser) {
+    // Somebody who answered "I went" needs the reflection box on the entry;
+    // somebody who has not answered at all needs the question first.
+    const url = plans.every((p) => p.outcome === "recorded") ? "/record/complete" : "/record/planned";
+    const delivered = await pushToUser(userId, {
+      title: plans.length === 1 ? "How did it go?" : `${plans.length} things to reflect on`,
+      body:
+        plans.length === 1
+          ? `${plans[0].title} — add what you got out of it while it's fresh.`
+          : plans.map((p) => p.title).join("\n"),
+      url,
+      tag: `cpd-reflect-${date}`,
+    });
+    if (delivered.delivered > 0) told += 1;
+  }
+
+  // Stamped whether or not a device took it, for the same reason as the rest:
+  // the alternative is asking again every hour at a phone in a drawer.
+  const now = new Date().toISOString();
+  if (first.length > 0) {
+    await db
+      .prepare("UPDATE planned_events SET reflect_nudged_at = ? WHERE id = ANY(?)")
+      .run(now, first.map((p) => p.id));
+  }
+  if (again.length > 0) {
+    await db
+      .prepare("UPDATE planned_events SET reflect_nudged_2_at = ? WHERE id = ANY(?)")
+      .run(now, again.map((p) => p.id));
+  }
+  return told;
 }
 
 /**
