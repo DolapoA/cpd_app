@@ -25,8 +25,14 @@ export type ProductEvent =
   | { name: "signup"; source: "guest_slip" | "direct" }
   /** An organiser set up an event. */
   | { name: "register_created"; official: boolean; collecting_feedback: boolean }
-  /** Somebody signed a register — the core capture moment. */
-  | { name: "register_signed"; as: "guest" | "account" }
+  /**
+   * Somebody signed a register — the core capture moment, and the number to
+   * judge the register flow by rather than bounce rate: a guest who scans a
+   * QR, signs, and leaves has used the product exactly as intended, whatever
+   * a single-page-view metric makes of it. `demo` separates the home page's
+   * try-it register from the real thing, so the real count stays clean.
+   */
+  | { name: "register_signed"; as: "guest" | "account"; demo: boolean }
   /** A guest took their PDF away. */
   | { name: "slip_downloaded" }
   /** Someone checked a slip — evidence of the evidence being trusted. */

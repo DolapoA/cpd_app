@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import type { Metadata } from "next";
-import { GUIDES, guideFor } from "@/lib/guides";
+import { GUIDES, guideFor, relatedGuides } from "@/lib/guides";
 import { STANDARDS_FRAMEWORKS } from "@/lib/standards";
 
 export function generateStaticParams() {
@@ -106,6 +106,37 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
             <p className="small">{f.a}</p>
           </div>
         ))}
+      </div>
+
+      {/* The end of the reading is where the next step belongs. The rail says
+          the same on a monitor, but on a phone the rail comes after this, and
+          a reader who has reached the last question has already decided
+          whether to keep going. */}
+      <div className="card">
+        <h2>Next step</h2>
+        <p className="small">
+          <strong>{guide.output.label}:</strong> {guide.output.blurb}
+        </p>
+        <div className="actions-row">
+          <Link href="/signup" className="btn">
+            Create a free account
+          </Link>
+          <Link href="/#try" className="btn btn--quiet">
+            Try signing a register first
+          </Link>
+        </div>
+        {relatedGuides(guide.slug).length > 0 && (
+          <>
+            <h3>Read next</h3>
+            <ul className="bullets small">
+              {relatedGuides(guide.slug).map((g) => (
+                <li key={g.slug}>
+                  <Link href={`/cpd/${g.slug}`}>{g.title}</Link>
+                </li>
+              ))}
+            </ul>
+          </>
+        )}
       </div>
 
         </div>

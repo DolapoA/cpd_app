@@ -49,6 +49,7 @@ import {
   ukToday,
 } from "./msf-invites";
 import { professionWord } from "./professions";
+import { isDemoRegister } from "./demo";
 import { newMsfReference } from "./ids";
 import { formatDate } from "./format";
 import { sendMsfInvitation } from "./email";
@@ -167,11 +168,15 @@ async function claimGuestSignatures(
   alsoCode?: string | null
 ): Promise<void> {
   const db = await getDb();
+  // The home page's demo register is left out. A claimed signature becomes a
+  // platform-verified entry, and verified entries cannot be deleted — so a
+  // demo claimed here would be a fake event on a real record, permanently.
   const orphans = await db
     .prepare(
       `SELECT s.*, r.title, r.event_date, r.is_official, r.points, r.hours, r.organiser_name
        FROM signatures s JOIN registers r ON r.id = s.register_id
-       WHERE s.user_id IS NULL AND s.voided = 0 AND (s.email = ? OR s.verification_code = ?)`
+       WHERE s.user_id IS NULL AND s.voided = 0 AND (s.email = ? OR s.verification_code = ?)
+         AND r.code NOT LIKE 'DEMO-%'`
     )
     .all(email, alsoCode ?? "") as (Signature & Pick<Register, "title" | "event_date" | "is_official" | "points" | "hours" | "organiser_name">)[];
 
@@ -674,7 +679,7 @@ export async function signRegister(_prev: ActionState, formData: FormData): Prom
     }
   });
 
-  await record({ name: "register_signed", as: user ? "account" : "guest" });
+  await record({ name: "register_signed", as: user ? "account" : "guest", demo: isDemoRegister(reg) });
 
   // Guests only: an account holder's slip is already on their record.
   if (!user) await rememberGuestSlip(verificationCode);

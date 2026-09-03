@@ -83,7 +83,17 @@ export default async function SignedPage({
         </div>
       ) : (
         <div className="card">
-          <h3>Keep this — and every future slip — automatically</h3>
+          {reg.code.startsWith("DEMO-") ? (
+            <>
+              <h3>That is what your attendees get</h3>
+              <p className="muted small">
+                A slip with a code anyone can check, captured the moment they signed. Run a
+                register of your own, or keep every slip you are given on one record.
+              </p>
+            </>
+          ) : (
+            <h3>Keep this — and every future slip — automatically</h3>
+          )}
           <div className="actions-row">
             <Link href="/signup" className="btn btn--large">
               Create a free account

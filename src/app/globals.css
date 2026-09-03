@@ -1970,6 +1970,45 @@ main {
   }
 }
 
+/* ---- Home page demo ----
+   The recording beside the thing it records: watch it, then do it. */
+.demo {
+  display: grid;
+  gap: var(--space-6);
+  align-items: center;
+}
+
+.demo__card h2 {
+  margin-top: 0;
+}
+
+.phone-frame {
+  max-width: 280px;
+  margin: 0 auto;
+  border: 6px solid var(--ink);
+  border-radius: 28px;
+  background: var(--ink);
+  overflow: hidden;
+  box-shadow: 0 18px 40px -20px rgb(0 0 0 / 0.45);
+}
+
+.phone-frame video {
+  display: block;
+  width: 100%;
+  height: auto;
+  /* The clip's own shape, declared, so the frame is the right size before
+     the first byte of video arrives rather than a 300×150 default box that
+     jumps when it does. */
+  aspect-ratio: 1 / 2;
+}
+
+@media (min-width: 900px) {
+  .demo {
+    grid-template-columns: 300px minmax(0, 1fr);
+    gap: var(--space-8);
+  }
+}
+
 /* ---- Development plan ---- */
 
 /* A goal is a card that goes somewhere, like a guide card. */

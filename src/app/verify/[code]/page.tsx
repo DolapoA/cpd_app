@@ -1,6 +1,7 @@
 import { getDb, type Register, type Signature } from "@/lib/db";
 import { formatDate, formatDateTime } from "@/lib/format";
 import { record } from "@/lib/analytics";
+import { isDemoRegister } from "@/lib/demo";
 
 export const metadata = { title: "Verify attendance slip — CPD Register" };
 
@@ -46,6 +47,12 @@ export default async function VerifyPage({ params }: { params: Promise<{ code: s
             <p className="muted">
               This attendance record is genuine and was captured live on the register.
             </p>
+            {isDemoRegister(reg) && (
+              <p className="notice notice--info small">
+                This was the demo register on the CPD Register home page. The slip, the code and
+                the timestamp are real; the event was a demonstration.
+              </p>
+            )}
           </>
         )}
         <table className="table">

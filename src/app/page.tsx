@@ -4,6 +4,10 @@ import { getCurrentUser } from "@/lib/auth";
 import { RollingProfessions } from "@/components/rolling-professions";
 import { Reveal } from "@/components/reveal";
 import { GUIDES } from "@/lib/guides";
+import { ensureDemoRegister, DEMO_KEEP_DAYS } from "@/lib/demo";
+import { signRegister } from "@/lib/actions";
+import { ActionForm } from "@/components/action-form";
+import { DemoVideo } from "@/components/demo-video";
 
 export const metadata = {
   // The one page meant to be found. The title carries the job people search
@@ -73,6 +77,11 @@ export default async function LandingPage() {
   const user = await getCurrentUser();
   if (user) redirect("/dashboard");
 
+  // Today's demo register, so the page has something to do before anyone is
+  // asked to sign up. Created on first sight; see lib/demo.ts for why it is a
+  // real register and why there is a fresh one each day.
+  const demo = await ensureDemoRegister();
+
   return (
     <main>
       <script
@@ -93,6 +102,36 @@ export default async function LandingPage() {
       </section>
 
       <div className="container stack">
+        {/* The loop, before the sign-up ask. Three quarters of visitors were
+            leaving from this page without a second view, having been shown
+            claims about a product and no product. This is the product. */}
+        <section className="demo" id="try">
+          <DemoVideo />
+          <div className="card demo__card">
+            <h2>Try it before you sign up</h2>
+            <p className="muted">
+              Sign today&rsquo;s demo register as a guest and you get the real thing: a dated
+              attendance slip with a code anyone can verify — exactly what your attendees would
+              get.
+            </p>
+            <ActionForm action={signRegister} submitLabel="Sign the demo register" largeSubmit>
+              <input type="hidden" name="register_code" value={demo.code} />
+              <div className="field">
+                <label htmlFor="full_name">Full name</label>
+                <input id="full_name" name="full_name" type="text" required autoComplete="name" />
+              </div>
+              <div className="field">
+                <label htmlFor="email">Email</label>
+                <input id="email" name="email" type="email" required autoComplete="email" />
+                <div className="hint">
+                  Only to make the slip yours. Demo signatures are deleted after {DEMO_KEEP_DAYS}{" "}
+                  days.
+                </div>
+              </div>
+            </ActionForm>
+          </div>
+        </section>
+
         <div className="grid-2">
           <Reveal className="card">
             <h3>Audit-ready records</h3>

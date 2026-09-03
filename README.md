@@ -130,6 +130,10 @@ Production locally: `npm run build && npm start`.
 
 ## Try the loop
 
+Without an account: the home page carries a demo register. Sign it as a guest and you get a
+real slip and a real verification code — the attendee's half of the loop. The steps below are
+the organiser's half.
+
 1. Create an account, then **My registers → New register** (set today's date and a time window
    covering now).
 2. Open the register and scan the QR code with a phone (or open the `/r/<code>` link in a

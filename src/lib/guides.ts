@@ -35,9 +35,9 @@ export const GUIDES: Guide[] = [
     bodyName: "the Health and Care Professions Council",
     audience:
       "physiotherapists, paramedics, radiographers, occupational therapists, dietitians and the other professions on the HCPC register",
-    title: "HCPC CPD records and audit: what to keep, and how",
+    title: "HCPC CPD audit: what to keep, how many hours, and what the profile needs",
     description:
-      "What the HCPC asks registrants to keep, why a mix of learning types matters, and how to produce a dated CPD profile for your two-year renewal cycle.",
+      "How the HCPC CPD audit works, why there is no hours target, what a CPD profile has to show, and how to keep a dated record ready for your two-year renewal.",
     requirement:
       "The HCPC does not set an hours target. It asks registrants to keep a continuous record of CPD, to include a mixture of learning types rather than relying on one, and — if selected at audit — to submit a profile showing how that learning has improved the quality of their practice and benefited service users. Registration renews on a two-year cycle, and a sample of each profession is audited at renewal.",
     output: {
@@ -56,6 +56,14 @@ export const GUIDES: Guide[] = [
         a: "Work-based learning, professional activity, formal education and self-directed learning all count. The point is the mixture: a record made entirely of one type is the common weakness at audit.",
       },
       {
+        q: "How does the HCPC CPD audit work?",
+        a: "At each two-year renewal the HCPC selects a random sample of registrants from every profession and asks them for a CPD profile: a summary of your practice, a statement of how your CPD met the standards, and evidence for it. The profile can only be written from a record that already exists — which is why the audit pack here defaults to your renewal cycle.",
+      },
+      {
+        q: "What CPD evidence does the HCPC accept?",
+        a: "Anything that shows the activity happened and what you took from it: certificates, notes, reflective statements and dated attendance. A slip signed live at the event, carrying a code an auditor can check online, is the strongest form of the last — you can try one on the home page.",
+      },
+      {
         q: "What happens if I am audited?",
         a: "You are asked for a CPD profile covering the period since your last renewal. Keeping the record as you go — rather than reconstructing two years of it under a deadline — is the whole reason attendance here is captured at the event.",
       },
@@ -66,9 +74,9 @@ export const GUIDES: Guide[] = [
     body: "GMC",
     bodyName: "the General Medical Council",
     audience: "doctors on the GMC register",
-    title: "CPD for GMC appraisal and revalidation",
+    title: "GMC appraisal CPD evidence: what to bring, and how to show reflection",
     description:
-      "How CPD fits into annual appraisal and five-yearly revalidation, and how to produce a dated summary of your CPD as supporting information.",
+      "What CPD evidence a GMC appraisal expects as supporting information, how reflection turns attendance into evidence, and how to produce a dated appraisal summary.",
     requirement:
       "Doctors bring supporting information to an annual appraisal, and revalidate on a five-year cycle built from those appraisals. CPD is one of the types of supporting information discussed, alongside reflection on what the learning changed in your practice.",
     output: {
@@ -78,6 +86,10 @@ export const GUIDES: Guide[] = [
         "Your CPD for the appraisal year, in one dated document you can attach to your appraisal portfolio.",
     },
     faqs: [
+      {
+        q: "What CPD evidence does GMC appraisal need?",
+        a: "A dated record of the learning you did across the appraisal year, with reflection on what it changed in your practice — it is the reflection that makes CPD supporting information rather than a list of courses. Colleague feedback and a personal development plan sit beside it in the same portfolio; both have their own guides here.",
+      },
       {
         q: "How many CPD credits do doctors need each year?",
         a: "Credit expectations come from the medical royal colleges and faculties rather than the GMC, and differ by specialty. This app lets you set your own annual target — 50 is a common one — and tracks against it rather than assuming a number.",
@@ -93,9 +105,9 @@ export const GUIDES: Guide[] = [
     body: "NMC",
     bodyName: "the Nursing and Midwifery Council",
     audience: "nurses, midwives and nursing associates",
-    title: "CPD for NMC revalidation",
+    title: "NMC revalidation CPD: the hours, the log, and the Code",
     description:
-      "What to record for NMC revalidation, how activities relate to the Code, and how to keep the CPD log as you go rather than at renewal.",
+      "How many CPD hours NMC revalidation asks for over three years, what the log must record against the Code, and how to keep it as you go rather than at renewal.",
     requirement:
       "Nurses, midwives and nursing associates revalidate every three years. The CPD log asks which parts of the Code each activity relates to, so an entry is not complete until that link is made.",
     framework: "NMC",
@@ -106,6 +118,10 @@ export const GUIDES: Guide[] = [
         "Every activity tagged to the parts of the Code it relates to, exportable whenever revalidation comes round.",
     },
     faqs: [
+      {
+        q: "How many CPD hours does NMC revalidation need?",
+        a: "The NMC asks for 35 hours of CPD in the three years before each renewal, at least 20 of them participatory — learning done with other people rather than alone. Check the NMC's own revalidation guidance for the current wording. Every entry here carries its hours, so the three-year total is a sum rather than a reconstruction.",
+      },
       {
         q: "What does the NMC CPD log need?",
         a: "Alongside the activity itself, the log asks which parts of the Code it relates to. This app asks for that on every entry and shows you which entries are still missing it.",
@@ -376,4 +392,29 @@ export const GUIDES: Guide[] = [
 
 export function guideFor(slug: string): Guide | undefined {
   return GUIDES.find((g) => g.slug === slug);
+}
+
+/**
+ * What to read after each guide — chosen, not computed. The rail already lists
+ * every other guide; this is the two or three a reader of this one actually
+ * has a reason to open next, which is what a search engine reads as a link
+ * that means something.
+ */
+export const RELATED_GUIDES: Record<string, string[]> = {
+  hcpc: ["nmc", "personal-development-plan", "multi-source-feedback"],
+  gmc: ["multi-source-feedback", "personal-development-plan", "hcpc"],
+  nmc: ["hcpc", "personal-development-plan"],
+  gphc: ["personal-development-plan", "hcpc"],
+  gdc: ["personal-development-plan", "gphc"],
+  rics: ["architects", "engineers"],
+  "financial-advisers": ["rics", "personal-development-plan"],
+  architects: ["rics", "engineers"],
+  teachers: ["personal-development-plan", "multi-source-feedback"],
+  engineers: ["architects", "rics", "personal-development-plan"],
+  "multi-source-feedback": ["personal-development-plan", "gmc"],
+  "personal-development-plan": ["multi-source-feedback", "gmc", "hcpc"],
+};
+
+export function relatedGuides(slug: string): Guide[] {
+  return (RELATED_GUIDES[slug] ?? []).map(guideFor).filter((g): g is Guide => !!g);
 }

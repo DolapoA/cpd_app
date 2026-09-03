@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { getDb, type PlannedEvent } from "@/lib/db";
 import { formatDate } from "@/lib/format";
 import { sendPlanReminder, type PlanReminder } from "@/lib/email";
+import { purgeDemoData } from "@/lib/demo";
 
 /**
  * The day-before reminder, run once a morning by Vercel Cron.
@@ -87,5 +88,15 @@ export async function GET(request: Request) {
     }
   }
 
-  return NextResponse.json({ day, people: byUser.size, events: rows.length, sent, failed });
+  // Housekeeping that wants a daily clock and has no cron of its own: the home
+  // page's demo signatures are real names and addresses typed in to see what
+  // happens, and a week is long enough to have seen.
+  let purged = { signatures: 0, registers: 0 };
+  try {
+    purged = await purgeDemoData();
+  } catch (error) {
+    console.error("[cron/reminders] demo purge failed", error);
+  }
+
+  return NextResponse.json({ day, people: byUser.size, events: rows.length, sent, failed, purged });
 }
