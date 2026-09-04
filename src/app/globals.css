@@ -1975,7 +1975,10 @@ main {
 .demo {
   display: grid;
   gap: var(--space-6);
-  align-items: center;
+  /* Top-aligned, not centred: the phone is tall, and a card centred beside
+     it started two thirds of the way down a laptop screen — below the fold
+     on the size most of them are. */
+  align-items: start;
 }
 
 .demo__card h2 {

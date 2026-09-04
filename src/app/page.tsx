@@ -111,9 +111,6 @@ export default async function LandingPage() {
               <Link href="/plan" className="btn btn--large">
                 Write my plan
               </Link>
-              <Link href="/signup" className="btn btn--quiet btn--large">
-                Create an account instead
-              </Link>
             </div>
           </div>
         </section>

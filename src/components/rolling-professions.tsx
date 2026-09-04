@@ -3,14 +3,14 @@
 import { useEffect, useState } from "react";
 
 /* NHS first: the people the register was built around. Each pairing names
-   the body that actually holds the registration — clinical scientists,
-   bioinformaticians included, are HCPC; genetic counsellors are GCRB. The
-   closing line carries everyone else. */
+   the body that actually holds the registration — clinical scientists, the
+   bioinformatics specialism included, are HCPC; genetic counsellors are
+   GCRB. The closing line carries everyone else. */
 const PROFESSIONS: [string, string][] = [
   ["Nurses & midwives", "registered with the NMC"],
   ["Doctors", "registered with the GMC"],
   ["Clinical scientists in genomics", "registered with the HCPC"],
-  ["Clinical bioinformaticians", "HCPC-registered clinical scientists"],
+  ["Clinical scientists (bioinformatics)", "registered with the HCPC"],
   ["Genetic counsellors", "registered with the GCRB"],
   ["Biomedical scientists", "registered with the HCPC"],
   ["Physiotherapists", "registered with the HCPC"],
