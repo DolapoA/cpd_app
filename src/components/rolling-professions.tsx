@@ -2,26 +2,26 @@
 
 import { useEffect, useState } from "react";
 
+/* NHS first: the people the register was built around. Each pairing names
+   the body that actually holds the registration — clinical scientists,
+   bioinformaticians included, are HCPC; genetic counsellors are GCRB. The
+   closing line carries everyone else. */
 const PROFESSIONS: [string, string][] = [
-  ["Physiotherapists", "registered with the HCPC"],
   ["Nurses & midwives", "registered with the NMC"],
   ["Doctors", "registered with the GMC"],
-  ["Pharmacists", "registered with the GPhC"],
+  ["Clinical scientists in genomics", "registered with the HCPC"],
+  ["Clinical bioinformaticians", "HCPC-registered clinical scientists"],
+  ["Genetic counsellors", "registered with the GCRB"],
+  ["Biomedical scientists", "registered with the HCPC"],
+  ["Physiotherapists", "registered with the HCPC"],
   ["Paramedics", "registered with the HCPC"],
-  ["Dentists", "registered with the GDC"],
-  ["Solicitors", "regulated by the SRA"],
   ["Radiographers", "registered with the HCPC"],
-  ["Optometrists", "registered with the GOC"],
-  ["Surveyors", "chartered with RICS"],
-  ["Veterinary surgeons", "registered with the RCVS"],
-  ["Financial advisers", "regulated by the FCA"],
-  ["Architects", "registered with the ARB"],
-  ["Accountants", "chartered with ICAEW"],
-  ["Mechanical engineers", "registered through the IMechE"],
-  ["Civil engineers", "registered through the ICE"],
-  ["Engineers", "registered with the Engineering Council"],
-  ["Teachers", "registered with the GTCS"],
-  ["Teachers", "registered with the EWC in Wales"],
+  ["Occupational therapists", "registered with the HCPC"],
+  ["Dietitians", "registered with the HCPC"],
+  ["Speech and language therapists", "registered with the HCPC"],
+  ["Operating department practitioners", "registered with the HCPC"],
+  ["Pharmacists", "registered with the GPhC"],
+  ["Dentists & dental nurses", "registered with the GDC"],
 ];
 
 export function RollingProfessions() {
