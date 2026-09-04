@@ -1989,38 +1989,41 @@ main {
   gap: var(--space-3);
 }
 
-/* What is being watched, said above the picture. A fixed height so the
-   frame does not hop when one caption wraps and the next does not. */
-.demo__caption {
-  margin: 0;
-  max-width: 300px;
-  min-height: 2.8em;
-  text-align: center;
-  font-weight: 600;
-  color: var(--ink);
-  text-wrap: balance;
-}
-
-.demo__dots {
+/* Which journey is playing, and a way to pick another: small pills under the
+   picture, one lit. */
+.demo__chapters {
   display: flex;
-  gap: var(--space-2);
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-15);
+  max-width: 320px;
 }
 
-.demo__dot {
-  width: 9px;
-  height: 9px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  background: var(--line);
+.demo__chapter {
+  padding: var(--space-1) var(--space-25);
+  border: 1px solid var(--line);
+  border-radius: var(--radius-pill);
+  background: var(--surface);
+  color: var(--ink-soft);
+  font: inherit;
+  font-size: var(--text-xs);
+  font-weight: 500;
   cursor: pointer;
 }
 
-.demo__dot.is-on {
-  background: var(--brand);
+.demo__chapter:hover {
+  border-color: var(--brand);
+  color: var(--brand-dark);
 }
 
-.demo__dot:focus-visible {
+.demo__chapter.is-on {
+  background: var(--brand-soft);
+  border-color: var(--brand);
+  color: var(--brand-dark);
+  font-weight: 600;
+}
+
+.demo__chapter:focus-visible {
   outline: var(--focus-width) solid var(--focus-color);
   outline-offset: var(--focus-offset);
 }

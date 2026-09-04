@@ -6,6 +6,7 @@ import { formatDate, REGULATORS } from "@/lib/format";
 import { getGuestSlip } from "@/lib/guest-signature";
 import { ActionForm } from "@/components/action-form";
 import { ProfessionField } from "@/components/profession-field";
+import { GuestGoalsField } from "@/components/guest-goals-field";
 
 export const metadata = { title: "Create account — CPD Register" };
 
@@ -56,6 +57,7 @@ export default async function SignupPage() {
           action={signup}
           submitLabel={slip ? "Create account and save it" : "Create account"}
         >
+          <GuestGoalsField />
           <div className="field">
             <label htmlFor="full_name">Full name</label>
             <input

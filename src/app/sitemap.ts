@@ -41,6 +41,7 @@ export default function sitemap(): MetadataRoute.Sitemap {
       changeFrequency: "monthly" as const,
       priority: 0.7,
     })),
+    { url: `${SITE}/plan`, lastModified: UPDATED.home, changeFrequency: "monthly", priority: 0.7 },
     { url: `${SITE}/faq`, lastModified: UPDATED.faq, changeFrequency: "monthly", priority: 0.6 },
     { url: `${SITE}/privacy`, lastModified: UPDATED.privacy, changeFrequency: "yearly", priority: 0.3 },
     { url: `${SITE}/terms`, lastModified: UPDATED.terms, changeFrequency: "yearly", priority: 0.3 },

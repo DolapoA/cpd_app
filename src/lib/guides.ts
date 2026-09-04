@@ -61,7 +61,7 @@ export const GUIDES: Guide[] = [
       },
       {
         q: "What CPD evidence does the HCPC accept?",
-        a: "Anything that shows the activity happened and what you took from it: certificates, notes, reflective statements and dated attendance. A slip signed live at the event, carrying a code an auditor can check online, is the strongest form of the last — you can try one on the home page.",
+        a: "Anything that shows the activity happened and what you took from it: certificates, notes, reflective statements and dated attendance. A slip signed live at the event, carrying a code an auditor can check online, is the strongest form of the last; a reflection written the same evening is the strongest form of the first.",
       },
       {
         q: "What happens if I am audited?",

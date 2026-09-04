@@ -130,9 +130,9 @@ Production locally: `npm run build && npm start`.
 
 ## Try the loop
 
-Without an account: the home page carries a demo register. Sign it as a guest and you get a
-real slip and a real verification code — the attendee's half of the loop. The steps below are
-the organiser's half.
+Without an account: `/plan` lets a visitor write a development plan in their browser and keep
+it by creating an account, and the home page tour shows five journeys through the real app.
+The steps below are the register loop, which needs an organiser.
 
 1. Create an account, then **My registers → New register** (set today's date and a time window
    covering now).

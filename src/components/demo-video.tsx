@@ -1,95 +1,79 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import chapters from "./demo-chapters.json";
 
 /**
- * The tour: four short recordings of the real app, played in turn, each
- * captioned with what is being watched. A nurse signing at a study day, a
- * genomics scientist importing a spreadsheet, a counsellor recording a
- * journal club, a doctor planning a conference — NHS work, as it happens.
+ * The tour: five short journeys through the real app in one recording, each
+ * opening on a title card that says what is about to happen. A nurse signing
+ * at a study day, a genomics scientist importing a spreadsheet, a counsellor
+ * recording a journal club, a doctor planning a conference, a scientist
+ * writing a development plan.
  *
- * Client-side because the sequence is a script: one clip ends, the next
- * begins, the caption changes. Someone who has asked for reduced motion is
- * not met by a moving picture — they get the first clip paused with
- * controls, and the dots still switch between them.
+ * One file rather than five, so the hand-over between journeys is a fade
+ * inside the picture instead of a reload of the player. The chapter marks
+ * come from the file itself — written by the script that assembles it — so
+ * the buttons below can never drift from the cuts.
+ *
+ * Someone who has asked for reduced motion is not met by a moving picture:
+ * they get the same recording paused, with controls, and the buttons still
+ * take them to any chapter.
  */
-const CLIPS = [
-  {
-    src: "/demo/sign.mp4",
-    poster: "/demo/sign.jpg",
-    title: "A nurse signs the register at a ward study day",
-    label: "A nurse signs the register for a sepsis study day; it lands on her CPD record, marked platform-verified.",
-  },
-  {
-    src: "/demo/import.mp4",
-    poster: "/demo/import.jpg",
-    title: "A genomics scientist imports a CPD spreadsheet",
-    label: "A clinical scientist in genomics uploads a spreadsheet, checks the preview, and imports six entries.",
-  },
-  {
-    src: "/demo/record.mp4",
-    poster: "/demo/record.jpg",
-    title: "Recording a journal club, with a line of reflection",
-    label: "A genetic counsellor records a journal club with its date, hours and a sentence of reflection.",
-  },
-  {
-    src: "/demo/plan.mp4",
-    poster: "/demo/plan.jpg",
-    title: "Planning a conference for next month",
-    label: "A doctor adds a Royal College conference to their plan, and is offered it for their calendar.",
-  },
-];
-
 export function DemoVideo() {
-  const [index, setIndex] = useState(0);
-  const [still, setStill] = useState(false);
   const ref = useRef<HTMLVideoElement>(null);
+  const [current, setCurrent] = useState(0);
+  const [still, setStill] = useState(false);
 
   useEffect(() => {
     setStill(window.matchMedia("(prefers-reduced-motion: reduce)").matches);
   }, []);
 
-  // A remounted <video> (keyed on the clip) does not always honour autoPlay
-  // on the second and later clips; asking explicitly is harmless where it did.
-  useEffect(() => {
-    const video = ref.current;
-    if (!video || still) return;
-    video.play().catch(() => {});
-  }, [index, still]);
+  function onTime() {
+    const t = ref.current?.currentTime ?? 0;
+    let i = 0;
+    chapters.forEach((c, n) => {
+      if (t >= c.start - 0.05) i = n;
+    });
+    if (i !== current) setCurrent(i);
+  }
 
-  const clip = CLIPS[index];
+  function jump(n: number) {
+    const video = ref.current;
+    if (!video) return;
+    video.currentTime = chapters[n].start;
+    setCurrent(n);
+    video.play().catch(() => {});
+  }
 
   return (
     <div className="demo__player">
-      <p className="demo__caption" aria-live="polite">
-        {clip.title}
-      </p>
       <div className="phone-frame">
         <video
-          key={clip.src}
           ref={ref}
           autoPlay={!still}
           controls={still}
           muted
+          loop
           playsInline
           preload="auto"
-          poster={clip.poster}
-          aria-label={clip.label}
-          onEnded={() => setIndex((i) => (i + 1) % CLIPS.length)}
+          poster="/demo/tour.jpg"
+          onTimeUpdate={onTime}
+          aria-label="Five short recordings of the app: a nurse signing a register at a study day, a genomics scientist importing a spreadsheet, a genetic counsellor recording a journal club, a doctor planning a conference, and a clinical scientist writing a development plan."
         >
-          <source src={clip.src} type="video/mp4" />
+          <source src="/demo/tour.mp4" type="video/mp4" />
         </video>
       </div>
-      <div className="demo__dots">
-        {CLIPS.map((c, i) => (
+      <div className="demo__chapters" role="group" aria-label="Choose a demonstration">
+        {chapters.map((c, n) => (
           <button
-            key={c.src}
+            key={c.key}
             type="button"
-            className={`demo__dot${i === index ? " is-on" : ""}`}
-            aria-label={c.title}
-            aria-current={i === index ? "true" : undefined}
-            onClick={() => setIndex(i)}
-          />
+            className={`demo__chapter${n === current ? " is-on" : ""}`}
+            aria-pressed={n === current}
+            onClick={() => jump(n)}
+          >
+            {c.label}
+          </button>
         ))}
       </div>
     </div>

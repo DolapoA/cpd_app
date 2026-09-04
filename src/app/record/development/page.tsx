@@ -3,6 +3,7 @@ import { requireConfirmedUser } from "@/lib/auth";
 import { getDb, type PdpGoal } from "@/lib/db";
 import { daysUntil, goalUrgency } from "@/lib/goal";
 import { formatDate } from "@/lib/format";
+import { ClearGuestPlan } from "@/components/clear-guest-plan";
 
 export const metadata = { title: "Development plan — CPD Register" };
 
@@ -35,8 +36,13 @@ const OUTCOME_LABELS: Record<string, string> = {
  * keep their verdict and reflection and fold away underneath: history is for
  * the appraisal, not the everyday glance.
  */
-export default async function DevelopmentPlanPage() {
+export default async function DevelopmentPlanPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ claimed?: string }>;
+}) {
   const user = await requireConfirmedUser();
+  const { claimed } = await searchParams;
   const db = await getDb();
 
   const goals = (await db
@@ -68,6 +74,15 @@ export default async function DevelopmentPlanPage() {
           </Link>
         </div>
       </div>
+
+      {claimed === "1" && (
+        <div className="notice notice--ok">
+          {/* The draft written as a guest is now these goals; the browser's
+              copy is cleared so it cannot be offered twice. */}
+          <ClearGuestPlan />
+          <p>✓ Your plan is on your account now.</p>
+        </div>
+      )}
 
       {active.length === 0 ? (
         <div className="card">

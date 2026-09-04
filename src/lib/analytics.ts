@@ -52,7 +52,10 @@ export type ProductEvent =
   /* One when a development goal is added, one when it is reviewed — enough to
      see whether plans are being kept, without knowing what anyone's goals are. */
   | { name: "pdp_goal_added" }
-  | { name: "pdp_goal_reviewed" };
+  | { name: "pdp_goal_reviewed" }
+  /* A plan written without an account, kept by making one (or logging in).
+     Bucketed like the rest: whether the door works, not what came through. */
+  | { name: "guest_plan_claimed"; goals: "1-10" | "11-50" | "51-200" | "200+" };
 
 export function bucketSize(n: number): "1-10" | "11-50" | "51-200" | "200+" {
   if (n <= 10) return "1-10";

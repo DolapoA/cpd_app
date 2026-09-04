@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { login } from "@/lib/actions";
 import { getCurrentUser } from "@/lib/auth";
 import { ActionForm } from "@/components/action-form";
+import { GuestGoalsField } from "@/components/guest-goals-field";
 
 export const metadata = { title: "Log in — CPD Register" };
 
@@ -29,6 +30,7 @@ export default async function LoginPage({
 
       <div className="card">
         <ActionForm action={login} submitLabel="Log in">
+          <GuestGoalsField />
           <div className="field">
             <label htmlFor="email">Email</label>
             <input id="email" name="email" type="email" required autoComplete="email" />

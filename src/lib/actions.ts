@@ -50,6 +50,7 @@ import {
 } from "./msf-invites";
 import { professionWord } from "./professions";
 import { isDemoRegister } from "./demo";
+import { GUEST_GOALS_FIELD, parseGuestGoals } from "./guest-plan";
 import { newMsfReference } from "./ids";
 import { formatDate } from "./format";
 import { sendMsfInvitation } from "./email";
@@ -147,6 +148,7 @@ export async function signup(_prev: ActionState, formData: FormData): Promise<Ac
   const fromSlip = await getGuestSlipCode();
   await claimGuestSignatures(userId, email, fromSlip);
   await forgetGuestSlip();
+  await claimGuestGoals(userId, formData);
   await record({ name: "signup", source: fromSlip ? "guest_slip" : "direct" });
 
   // Confirming the address is what lets future slips be matched to it safely.
@@ -241,8 +243,13 @@ export async function login(_prev: ActionState, formData: FormData): Promise<Act
   await claimGuestSignatures(user.id, email, await getGuestSlipCode());
   await forgetGuestSlip();
 
+  // A plan written before signing in lands straight on the plan page. (It
+  // does not survive the two-factor detour above: that form carries no draft,
+  // and the browser's copy is still there for the next sign-in.)
+  const claimedGoals = await claimGuestGoals(user.id, formData);
+
   await createSession(user.id);
-  redirect("/dashboard");
+  redirect(claimedGoals > 0 ? "/record/development?claimed=1" : "/dashboard");
 }
 
 export async function logout(): Promise<void> {
@@ -990,12 +997,16 @@ export async function commitImport(_prev: ActionState, formData: FormData): Prom
 
   const framework = frameworkFor(user.regulator);
   const db = await getDb();
-  const insert = await db.prepare(
-    `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, created_at)
-     VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
-  );
   const now = new Date().toISOString();
+  // Prepared on the transaction and awaited row by row. This used to prepare
+  // on the pool and fire each insert without waiting, so the transaction
+  // committed empty, the redirect raced the rows, and the record page showed
+  // "Imported 6" above however many had landed by then.
   await db.transaction(async (tx) => {
+    const insert = tx.prepare(
+      `INSERT INTO cpd_entries (user_id, title, activity_date, activity_type, is_official, points, hours, provider, notes, standards, verified, created_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?)`
+    );
     for (const e of valid) {
       // Codes the sheet supplied are only kept if the user's own framework
       // defines them; anything else is dropped and the entry shows up in the
@@ -1004,7 +1015,7 @@ export async function commitImport(_prev: ActionState, formData: FormData): Prom
         framework && typeof e.standards === "string"
           ? serialiseStandards(validStandards(framework, e.standards.split(",")))
           : null;
-      insert.run(
+      await insert.run(
         user.id,
         e.title.trim().slice(0, 200),
         e.activity_date,
@@ -2702,6 +2713,52 @@ export async function deleteMsfRequest(formData: FormData): Promise<void> {
 /* ---------------------------------------------------------------------------
    Personal development plan
 --------------------------------------------------------------------------- */
+
+/**
+ * The plan somebody wrote before they had an account, made real.
+ *
+ * Called on sign-up and log-in alike: the draft rides in as one hidden field,
+ * and whichever door they come through it should be waiting on the other
+ * side. Two guards against it arriving twice — a title already on the plan
+ * is skipped, and a short-lived cookie tells the browser its copy is spent.
+ */
+async function claimGuestGoals(userId: number, formData: FormData): Promise<number> {
+  const goals = parseGuestGoals(formData.get(GUEST_GOALS_FIELD));
+  if (goals.length === 0) return 0;
+
+  const db = await getDb();
+  const held = (await db
+    .prepare("SELECT title FROM pdp_goals WHERE user_id = ? AND status = 'active'")
+    .all(userId)) as { title: string }[];
+  const titles = new Set(held.map((g) => g.title.toLowerCase()));
+  const fresh = goals.filter((g) => !titles.has(g.title.toLowerCase()));
+  if (fresh.length === 0) return 0;
+
+  const now = new Date().toISOString();
+  await db.transaction(async (tx) => {
+    for (const g of fresh) {
+      await tx
+        .prepare(
+          `INSERT INTO pdp_goals
+             (user_id, title, identified_from, actions, success_criteria, target_date, created_at, updated_at)
+           VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
+        )
+        .run(
+          userId, g.title, g.identified_from || null, g.actions || null,
+          g.success_criteria || null, g.target_date || null, now, now
+        );
+    }
+  });
+
+  (await cookies()).set("cpd_plan_claimed", "1", {
+    path: "/",
+    maxAge: 600,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+  });
+  await record({ name: "guest_plan_claimed", goals: bucketSize(fresh.length) });
+  return fresh.length;
+}
 
 /** The editable fields of a goal, read once for add and update alike. */
 function pdpFields(formData: FormData):

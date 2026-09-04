@@ -121,8 +121,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <Link href="/signup" className="btn">
             Create a free account
           </Link>
-          <Link href="/#try" className="btn btn--quiet">
-            Try signing a register first
+          <Link href="/plan" className="btn btn--quiet">
+            Write your plan first — no account needed
           </Link>
         </div>
         {relatedGuides(guide.slug).length > 0 && (
@@ -144,9 +144,10 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
       <div className="card">
         <h2>How CPD Register helps</h2>
         <p className="small">
-          Sign an attendance register at an event and it lands on your record dated and
-          attributed, rather than being typed in from memory months later. Everything else you can
-          add yourself, or import from the spreadsheet you already keep.
+          One dated record: log activities with a line of reflection, import the spreadsheet you
+          already keep, plan what is coming and be reminded to reflect on it after, ask colleagues
+          for anonymous feedback, and write the development plan your appraisal expects. Registers
+          you sign at events land on it too.
         </p>
         <p className="small">
           <strong>{guide.output.label}:</strong> {guide.output.blurb}
@@ -155,8 +156,8 @@ export default async function GuidePage({ params }: { params: Promise<{ slug: st
           <Link href="/signup" className="btn">
             Create a free account
           </Link>
-          <Link href="/" className="btn btn--quiet">
-            How it works
+          <Link href="/plan" className="btn btn--quiet">
+            Write your plan
           </Link>
         </div>
       </div>
