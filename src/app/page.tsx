@@ -100,51 +100,56 @@ export default async function LandingPage() {
             the one thing a visitor can do here that is theirs to keep. */}
         <section className="demo" id="try">
           <DemoVideo />
-          <div className="card demo__card">
-            <h2>Start with your development plan</h2>
-            <p className="muted">
-              Write the goals your next appraisal will ask about — the need, what you&rsquo;ll
-              do, how you&rsquo;ll show it worked, and by when. No account needed; keep it with
-              one when you&rsquo;re done.
-            </p>
-            <div className="actions-row">
-              <Link href="/plan" className="btn btn--large">
-                Write my plan
-              </Link>
+          {/* The right column carries as much as the left: the plan first,
+              then what the app does, in a grid that stretches to the phone's
+              height — a card alone beside a tall frame left a void under it. */}
+          <div className="demo__side">
+            <div className="card demo__card">
+              <h2>Start with your development plan</h2>
+              <p className="muted">
+                Write the goals your next appraisal will ask about — the need, what you&rsquo;ll
+                do, how you&rsquo;ll show it worked, and by when. No account needed; keep it with
+                one when you&rsquo;re done.
+              </p>
+              <div className="actions-row">
+                <Link href="/plan" className="btn btn--large">
+                  Write my plan
+                </Link>
+              </div>
+            </div>
+
+            <div className="grid-2">
+              <Reveal className="card">
+                <h3>Audit-ready records</h3>
+                <p className="muted">
+                  Dated, categorised, and exportable for any period — in the shape your
+                  regulator expects. Every slip carries a code an auditor can verify online.
+                </p>
+              </Reveal>
+              <Reveal className="card" delay={80}>
+                <h3>Official and unofficial CPD</h3>
+                <p className="muted">
+                  Accredited conferences and informal journal clubs both count.
+                </p>
+              </Reveal>
+              <Reveal className="card">
+                <h3>For event organisers</h3>
+                <p className="muted">
+                  Create a register in a minute, put the QR on your closing slide, and watch
+                  signatures arrive live. Registers open and close around your event, so they
+                  stand up as evidence.
+                </p>
+              </Reveal>
+              <Reveal className="card" delay={80}>
+                <h3>For attendees</h3>
+                <p className="muted">
+                  Scan, sign, done. Guests download a verifiable PDF slip on the spot. Account
+                  holders get it added to their record automatically.
+                </p>
+              </Reveal>
             </div>
           </div>
         </section>
-
-        <div className="grid-2">
-          <Reveal className="card">
-            <h3>Audit-ready records</h3>
-            <p className="muted">
-              Dated, categorised, and exportable for any period — in the shape your regulator
-              expects. Every slip carries a code an auditor can verify online.
-            </p>
-          </Reveal>
-          <Reveal className="card" delay={80}>
-            <h3>Official and unofficial CPD</h3>
-            <p className="muted">
-              Accredited conferences and informal journal clubs both count.
-            </p>
-          </Reveal>
-          <Reveal className="card">
-            <h3>For event organisers</h3>
-            <p className="muted">
-              Create a register in a minute, put the QR on your closing slide, and watch
-              signatures arrive live. Registers open and close around your event, so they stand up
-              as evidence.
-            </p>
-          </Reveal>
-          <Reveal className="card" delay={80}>
-            <h3>For attendees</h3>
-            <p className="muted">
-              Scan, sign, done. Guests download a verifiable PDF slip on the spot. Account
-              holders get it added to their record automatically.
-            </p>
-          </Reveal>
-        </div>
 
         <div className="grid-2">
           <Reveal className="card">

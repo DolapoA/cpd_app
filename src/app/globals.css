@@ -1975,10 +1975,21 @@ main {
 .demo {
   display: grid;
   gap: var(--space-6);
-  /* Top-aligned, not centred: the phone is tall, and a card centred beside
-     it started two thirds of the way down a laptop screen — below the fold
-     on the size most of them are. */
-  align-items: start;
+  /* Both columns run the full height of the block. The plan card sits at
+     the top — on the first screen of a laptop — and the boxes under it
+     grow to meet the bottom of the phone, so neither side is left short. */
+  align-items: stretch;
+}
+
+.demo__side {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}
+
+.demo__side > .grid-2 {
+  flex: 1;
+  grid-auto-rows: 1fr;
 }
 
 .demo__card h2 {
