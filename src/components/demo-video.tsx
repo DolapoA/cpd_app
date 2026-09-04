@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { track } from "@vercel/analytics";
 import chapters from "./demo-chapters.json";
 
 /**
@@ -41,6 +42,9 @@ export function DemoVideo() {
   function jump(n: number) {
     const video = ref.current;
     if (!video) return;
+    // A chosen chapter, as opposed to one the loop arrived at — which of the
+    // five people ask to see is the useful thing to know.
+    track("demo_chapter_clicked", { chapter: chapters[n].key });
     video.currentTime = chapters[n].start;
     setCurrent(n);
     video.play().catch(() => {});

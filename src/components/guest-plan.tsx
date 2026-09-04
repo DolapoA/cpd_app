@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import { track } from "@vercel/analytics";
 import { PdpFields } from "./pdp-fields";
-import { GUEST_PLAN_KEY, GUEST_PLAN_MAX, parseGuestGoals, type GuestGoal } from "@/lib/guest-plan";
+import { GUEST_PLAN_KEY, GUEST_PLAN_MAX, bucketGoals, parseGuestGoals, type GuestGoal } from "@/lib/guest-plan";
 import { daysUntil, goalUrgency } from "@/lib/goal";
 
 /**
@@ -44,9 +45,17 @@ export function GuestPlan() {
     const data = new FormData(event.currentTarget);
     const [goal] = parseGuestGoals([Object.fromEntries(data.entries())]);
     if (!goal) return;
-    setGoals((list) => [...list, goal].slice(0, GUEST_PLAN_MAX));
+    const next = [...goals, goal].slice(0, GUEST_PLAN_MAX);
+    setGoals(next);
+    // The door being tried, and how far through it: a count, never the goal.
+    track("guest_goal_added", { goals: bucketGoals(next.length) });
     event.currentTarget.reset();
     formRef.current?.querySelector<HTMLInputElement>("#title")?.focus();
+  }
+
+  function finish() {
+    track("guest_plan_finished", { goals: bucketGoals(goals.length) });
+    setFinished(true);
   }
 
   if (finished && goals.length > 0) {
@@ -129,7 +138,7 @@ export function GuestPlan() {
               Add to my plan
             </button>
             {goals.length > 0 && (
-              <button type="button" className="btn btn--secondary" onClick={() => setFinished(true)}>
+              <button type="button" className="btn btn--secondary" onClick={finish}>
                 Finish{goals.length > 1 ? ` (${goals.length} goals)` : ""}
               </button>
             )}

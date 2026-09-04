@@ -15,10 +15,15 @@ import { track } from "@vercel/analytics/server";
  * These measure whether the product is doing its job, not how busy it is.
  * Page views are already collected; these are the moments that mean something.
  *
- * Three more are sent from the browser rather than here, because they describe
- * things only the browser knows: `install_prompt_shown`,
- * `install_prompt_dismissed` and `app_installed`, all carrying a `platform`.
- * They live in components/install-prompt.tsx and follow the same two rules.
+ * Some are sent from the browser rather than here, because they describe
+ * things only the browser knows, and follow the same two rules:
+ *   - `install_prompt_shown`, `install_prompt_dismissed`, `app_installed`
+ *     (with a `platform`) — components/install-prompt.tsx;
+ *   - `guest_goal_added`, `guest_plan_finished` (with a bucketed `goals`
+ *     count) — the plan written on the home page before any account exists,
+ *     components/guest-plan.tsx;
+ *   - `demo_chapter_clicked` (with the `chapter` key) — which of the tour's
+ *     five journeys people choose to watch, components/demo-video.tsx.
  */
 export type ProductEvent =
   /** An account was created. `source` shows whether the guest→account loop worked. */
