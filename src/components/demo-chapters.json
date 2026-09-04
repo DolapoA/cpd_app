@@ -1,27 +1,27 @@
 [
   {
+    "key": "pdp",
+    "label": "Development plan",
+    "start": 0.0
+  },
+  {
     "key": "sign",
     "label": "Sign a register",
-    "start": 0.0
+    "start": 22.52
   },
   {
     "key": "import",
     "label": "Import a spreadsheet",
-    "start": 14.64
+    "start": 37.16
   },
   {
     "key": "record",
     "label": "Record an activity",
-    "start": 32.28
+    "start": 54.8
   },
   {
     "key": "plan",
     "label": "Plan an event",
-    "start": 55.68
-  },
-  {
-    "key": "pdp",
-    "label": "Development plan",
-    "start": 74.32
+    "start": 78.2
   }
 ]

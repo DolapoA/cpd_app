@@ -5,10 +5,11 @@ import chapters from "./demo-chapters.json";
 
 /**
  * The tour: five short journeys through the real app in one recording, each
- * opening on a title card that says what is about to happen. A nurse signing
- * at a study day, a genomics scientist importing a spreadsheet, a counsellor
- * recording a journal club, a doctor planning a conference, a scientist
- * writing a development plan.
+ * opening on a title card that says what is about to happen. A scientist
+ * writing a development plan first — it is the thing the page invites you to
+ * do — then a nurse signing at a study day, a genomics scientist importing a
+ * spreadsheet, a counsellor recording a journal club, a doctor planning a
+ * conference.
  *
  * One file rather than five, so the hand-over between journeys is a fade
  * inside the picture instead of a reload of the player. The chapter marks
@@ -58,7 +59,7 @@ export function DemoVideo() {
           preload="auto"
           poster="/demo/tour.jpg"
           onTimeUpdate={onTime}
-          aria-label="Five short recordings of the app: a nurse signing a register at a study day, a genomics scientist importing a spreadsheet, a genetic counsellor recording a journal club, a doctor planning a conference, and a clinical scientist writing a development plan."
+          aria-label="Five short recordings of the app: a clinical scientist writing a development plan, a nurse signing a register at a study day, a genomics scientist importing a spreadsheet, a genetic counsellor recording a journal club, and a doctor planning a conference."
         >
           <source src="/demo/tour.mp4" type="video/mp4" />
         </video>
